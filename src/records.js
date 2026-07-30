@@ -134,9 +134,6 @@ Object.assign(FantasyApp.prototype, {
             <div class="records-hero-title">
                 <span>The Dumbarton League Record Book</span>
             </div>
-            <div class="records-hero-subtitle">
-                The official Dumbarton League historical record book documenting all-time career standings, championship titles, single-game highs and lows, single-season extremes, and postseason achievements.
-            </div>
             <div class="records-hero-stats">
                 <div class="hero-stat-badge">
                     <span class="hero-stat-value">${seasonsCount}</span>

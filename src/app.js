@@ -40,6 +40,7 @@ class FantasyApp {
         label.textContent = `Theme: ${savedTheme === 'dark' ? 'Dark' : 'Light'}`;
 
         btn.addEventListener('click', () => {
+            if (document.body.classList.contains('rivalry-dungeon-mode')) return;
             const current = document.documentElement.getAttribute('data-theme');
             const next = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
@@ -113,6 +114,8 @@ class FantasyApp {
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
+                const themeLabel = document.getElementById('theme-toggle-label');
+                if (themeLabel) themeLabel.textContent = 'THEME: BLOOD';
                 // Inject image URL relative to the page so it works on any host subdirectory
                 if (!document.getElementById('dungeon-bg-style')) {
                     const imgUrl = new URL('dungeon_fiery_shackles.jpg', window.location.href).href;
@@ -130,6 +133,11 @@ class FantasyApp {
                 if (document.body.classList.contains('rivalry-dungeon-mode')) {
                     document.body.classList.remove('rivalry-dungeon-mode');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+                const themeLabel = document.getElementById('theme-toggle-label');
+                if (themeLabel) {
+                    const savedTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                    themeLabel.textContent = `Theme: ${savedTheme === 'dark' ? 'Dark' : 'Light'}`;
                 }
             }
 
