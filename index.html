@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dumbarton Fantasy Football League HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles.css">
+</head>
+
+<body>
+
+<header>
+    <div class="masthead-top-bar">
+        <div class="edition-info">VOL. IX • EST. 2018 • HISTORICAL ARCHIVE</div>
+        <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+            <span id="theme-toggle-label">Theme: Light</span>
+        </button>
+    </div>
+    <div class="masthead-main">
+        <h1>The Dumbarton Fantasy Football League HQ</h1>
+        <p>The Official Journal of League News, Historical Analytics & Head-to-Head Records</p>
+    </div>
+    <nav id="top-nav">
+        <button id="btn-tab-home" class="top-nav-btn active">League Home</button>
+        <button id="btn-tab-h2h" class="top-nav-btn">All-Time Head-to-Head History</button>
+    </nav>
+</header>
+
+<div class="container">
+
+    <!-- LEAGUE HOME PAGE VIEW -->
+    <div id="view-home" class="page-view active">
+        <!-- On This Page Secondary Scroller Bar -->
+        <div class="page-scroller-bar">
+            <span class="scroller-label">On This Page:</span>
+            <div class="scroller-links">
+                <a href="#story" class="scroller-pill">Headlines</a>
+                <a href="#standings" class="scroller-pill">Standings</a>
+                <a href="#rankings" class="scroller-pill">Power Rankings</a>
+                <a href="#template" class="scroller-pill">Weekly Stories</a>
+            </div>
+        </div>
+
+        <div class="card" id="story">
+            <h2>League Updates</h2>
+            <h3>Personnel Changes</h3>
+            <p>
+                The whole league was distraught to learn of perennial loser Jack Lovas's removal. It was not due to their love of Lovas - but the loss of a free win one could pencil in their schedule. 
+            </p>
+            <br>
+            <p>
+                Lovas's replacement, Madoc Watson, passed the Commissioner and Committee's physical and mental examinations and will debut in the opening week of the 2026 season. Watson is known for his delusional self-belief and scrappy playstyle and projects as a bottom-to-middle level contender.
+            </p>
+        </div>
+
+        <div class="card" id="standings">
+            <h2>Standings</h2>
+            <table>
+                <tr>
+                    <th>Rank</th>
+                    <th>Team</th>
+                    <th>Record</th>
+                    <th>PF</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>ANITA MAX WYNN</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>The Infirmary</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Sun... Dog?</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>will's Unbelievable Team</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td>Alex's Fluffy Team</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td>JJ and the Gang</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td>Sleepy Mike and the shitters</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>8</td>
+                    <td>Carson's Criminals</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>9</td>
+                    <td>Benjamin's Erect Tea</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>Madoc's ______</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>11</td>
+                    <td>LGBTQB1</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+                <tr>
+                    <td>12</td>
+                    <td>Skid Marks</td>
+                    <td>0-0</td>
+                    <td>0</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="card" id="rankings">
+            <h2>Power Rankings</h2>
+            <div class="rank">
+                <span>#1 ANITA MAX WYNN</span>
+                <span class="trend-badge trend-up">▲ (+1)</span>
+            </div>
+            <div class="rank">
+                <span>#2 The Infirmary</span>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank">
+                <span>#3 Sun... Dog?</span>
+                <span class="trend-badge trend-down">▼ (-1)</span>
+            </div>
+            <div class="rank">
+                <span>#4 will's Unbelievable team</span>
+                <span class="trend-badge trend-down">▼ (-1)</span>
+            </div>
+            <div class="rank">
+                <span>#5 Alex's Fluffy Team</span>
+                <span class="trend-badge trend-up">▲ (+1)</span>
+            </div>
+            <div class="rank">
+                <span>#6 JJ and the Gang</span>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank">
+                <span>#7 Sleepy Mike and the Shitters</span>
+                <span class="trend-badge trend-down">▼ (-1)</span>
+            </div>
+            <div class="rank">
+                <span>#8 Carson's Criminals</span>
+                <span class="trend-badge trend-down">▼ (-1)</span>
+            </div>
+            <div class="rank">
+                <span>#9 Benjamin's Erect Tea</span>
+                <span class="trend-badge trend-up">▲ (+1)</span>
+            </div>
+            <div class="rank">
+                <span>#10 Madoc</span>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank">
+                <span>#11 LGBTQB1</span>
+                <span class="trend-badge trend-down">▼ (-1)</span>
+            </div>
+            <div class="rank">
+                <span>#12 Skid Marks</span>
+                <span class="trend-badge trend-down">▼ (-1)</span>
+            </div>
+        </div>
+
+        <div class="card" id="template">
+            <h2>Weekly Stories</h2>
+            <h3>Week 0:</h3>
+            <p><strong>Story of the Week</strong></p>
+            <p></p>
+            <br>
+            <p><strong>Team of the Week</strong></p>
+            <p>Who impressed the most?</p>
+            <br>
+            <p><strong>Bad Beat</strong></p>
+            <p>Who lost in the most heartbreaking fashion?</p>
+            <br>
+            <p><strong>MVP</strong></p>
+            <p>Top fantasy player of the week.</p>
+            <br>
+            <p><strong>Looking Ahead</strong></p>
+            <p>Preview next week's biggest matchup.</p>
+        </div>
+    </div>
+    <!-- END LEAGUE HOME PAGE VIEW -->
+
+    <!-- ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
+    <div id="view-h2h" class="page-view">
+        
+        <!-- Controls & Filter Card -->
+        <div id="h2h-controls-card">
+            <div class="h2h-select-row">
+                <div class="manager-select-box">
+                    <label for="h2h-manager-1">Manager 1</label>
+                    <select id="h2h-manager-1"></select>
+                </div>
+
+                <div class="vs-badge">VS</div>
+
+                <div class="manager-select-box">
+                    <label for="h2h-manager-2">Manager 2</label>
+                    <select id="h2h-manager-2"></select>
+                </div>
+            </div>
+
+            <!-- Year Range Filters -->
+            <div class="h2h-filter-bar">
+                <button type="button" id="filter-btn-all" class="filter-btn active">All Years (2018–2026)</button>
+                <button type="button" id="filter-btn-2019" class="filter-btn">2019–Present</button>
+                <button type="button" id="filter-btn-custom" class="filter-btn">Custom Year Span</button>
+                
+                <div id="custom-year-span-container" class="custom-year-span" style="display: none;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">From</span>
+                    <select id="custom-start-year">
+                        <option value="2018" selected>2018</option>
+                        <option value="2019">2019</option>
+                        <option value="2020">2020</option>
+                        <option value="2021">2021</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
+                    <select id="custom-end-year">
+                        <option value="2018">2018</option>
+                        <option value="2019">2019</option>
+                        <option value="2020">2020</option>
+                        <option value="2021">2021</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                </div>
+
+                <div class="h2h-playoff-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-playoffs" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="toggle-playoffs-label" class="toggle-label">Include Playoffs: ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Overall Record Banner -->
+        <div id="h2h-hero"></div>
+
+        <!-- Chronological Matchups List -->
+        <div id="h2h-matchups-section">
+            <div class="h2h-section-title">
+                <span>Chronological Head-to-Head Matchup History</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Earliest at Top • Latest at Bottom</span>
+            </div>
+            <div id="h2h-matchups-list"></div>
+        </div>
+
+        <!-- Summary Stats Footer Card -->
+        <div id="h2h-summary-card" style="display: none;"></div>
+
+    </div>
+    <!-- END ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
+
+</div>
+
+<!-- HTML5 Dialog Modal for Full Matchup Boxscore & Roster Detail -->
+<dialog id="boxscore-modal" class="boxscore-modal">
+    <div id="boxscore-modal-content"></div>
+</dialog>
+
+<footer>
+    Dumbarton Fantasy Football League HQ © 2026 • Built with Rich Interactive Analytics
+</footer>
+
+<script src="data/data_bundle.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

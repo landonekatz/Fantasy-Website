@@ -1,0 +1,65 @@
+[
+  {
+    "season": 2018,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 17,
+    "playoff_teams": 4
+  },
+  {
+    "season": 2019,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 16,
+    "playoff_teams": 4
+  },
+  {
+    "season": 2020,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 16,
+    "playoff_teams": 4
+  },
+  {
+    "season": 2021,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 16,
+    "playoff_teams": 4
+  },
+  {
+    "season": 2022,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 17,
+    "playoff_teams": 6
+  },
+  {
+    "season": 2023,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 17,
+    "playoff_teams": 6
+  },
+  {
+    "season": 2024,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 17,
+    "playoff_teams": 6
+  },
+  {
+    "season": 2025,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 17,
+    "playoff_teams": 6
+  },
+  {
+    "season": 2026,
+    "num_teams": 12,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 17,
+    "playoff_teams": 6
+  }
+]

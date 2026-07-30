@@ -1,0 +1,21 @@
+2026/07/28-22:55:01.682 6a8e3f Reusing MANIFEST /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/Local Storage/leveldb/MANIFEST-000001
+2026/07/28-22:55:01.684 6a8e3f Recovering log #79
+2026/07/28-22:55:01.684 6a8e3f Reusing old log /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/Local Storage/leveldb/000079.log 
+2026/07/28-22:55:45.357 6a8e42 Level-0 table #83: started
+2026/07/28-22:55:45.367 6a8e42 Level-0 table #83: 24629 bytes OK
+2026/07/28-22:55:45.372 6a8e42 Delete type=0 #79
+2026/07/28-23:04:14.901 6a8e42 Level-0 table #85: started
+2026/07/28-23:04:14.911 6a8e42 Level-0 table #85: 18110 bytes OK
+2026/07/28-23:04:14.915 6a8e42 Delete type=0 #82
+2026/07/28-23:04:14.918 6a8e42 Compacting 4@0 + 1@1 files
+2026/07/28-23:04:14.924 6a8e42 Generated table #86@0: 3916 keys, 248178 bytes
+2026/07/28-23:04:14.924 6a8e42 Compacted 4@0 + 1@1 files => 248178 bytes
+2026/07/28-23:04:14.926 6a8e42 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/07/28-23:04:14.926 6a8e42 Delete type=2 #77
+2026/07/28-23:04:14.926 6a8e42 Delete type=2 #75
+2026/07/28-23:04:14.926 6a8e42 Delete type=2 #80
+2026/07/28-23:04:14.926 6a8e42 Delete type=2 #83
+2026/07/28-23:04:14.927 6a8e42 Delete type=2 #85
+2026/07/28-23:12:02.366 6a8e42 Level-0 table #88: started
+2026/07/28-23:12:02.369 6a8e42 Level-0 table #88: 18972 bytes OK
+2026/07/28-23:12:02.373 6a8e42 Delete type=0 #84

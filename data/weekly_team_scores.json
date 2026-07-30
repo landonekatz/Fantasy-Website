@@ -1,0 +1,18 @@
+[
+  {
+    "season": 2025,
+    "week": 1,
+    "canonical_manager_id": "anita_max_wynn",
+    "starter_points": 132.4,
+    "bench_points": 48.2,
+    "projected_points": 128.5
+  },
+  {
+    "season": 2025,
+    "week": 1,
+    "canonical_manager_id": "the_infirmary",
+    "starter_points": 118.9,
+    "bench_points": 55.1,
+    "projected_points": 121.0
+  }
+]

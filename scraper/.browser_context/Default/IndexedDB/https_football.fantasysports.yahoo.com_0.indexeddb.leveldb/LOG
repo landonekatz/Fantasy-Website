@@ -1,0 +1,21 @@
+2026/07/28-23:49:42.439 6bcfa5 Reusing MANIFEST /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_football.fantasysports.yahoo.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/28-23:49:42.440 6bcfa5 Recovering log #150
+2026/07/28-23:49:42.441 6bcfa5 Reusing old log /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_football.fantasysports.yahoo.com_0.indexeddb.leveldb/000150.log 
+2026/07/28-23:49:45.198 6bcfa9 Level-0 table #155: started
+2026/07/28-23:49:45.209 6bcfa9 Level-0 table #155: 962538 bytes OK
+2026/07/28-23:49:45.212 6bcfa9 Delete type=0 #150
+2026/07/28-23:50:00.625 6bcfa6 Compacting 1@1 + 1@2 files
+2026/07/28-23:50:00.628 6bcfa6 Generated table #156@1: 441 keys, 57279 bytes
+2026/07/28-23:50:00.628 6bcfa6 Compacted 1@1 + 1@2 files => 57279 bytes
+2026/07/28-23:50:00.630 6bcfa6 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/07/28-23:50:00.630 6bcfa6 Delete type=2 #155
+2026/07/28-23:50:00.630 6bcfa6 Delete type=2 #152
+2026/07/28-23:51:08.769 6bcfa6 Level-0 table #158: started
+2026/07/28-23:51:08.776 6bcfa6 Level-0 table #158: 964606 bytes OK
+2026/07/28-23:51:08.778 6bcfa6 Delete type=0 #154
+2026/07/28-23:51:24.708 6bcfa6 Compacting 1@1 + 1@2 files
+2026/07/28-23:51:24.715 6bcfa6 Generated table #159@1: 531 keys, 62354 bytes
+2026/07/28-23:51:24.715 6bcfa6 Compacted 1@1 + 1@2 files => 62354 bytes
+2026/07/28-23:51:24.717 6bcfa6 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/07/28-23:51:24.717 6bcfa6 Delete type=2 #158
+2026/07/28-23:51:24.717 6bcfa6 Delete type=2 #156
