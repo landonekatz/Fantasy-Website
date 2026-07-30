@@ -118,7 +118,7 @@ class FantasyApp {
                 if (themeLabel) themeLabel.textContent = 'THEME: BLOOD';
                 // Inject image URL relative to the page so it works on any host subdirectory
                 if (!document.getElementById('dungeon-bg-style')) {
-                    const imgUrl = new URL('dungeon_fiery_shackles.jpg', window.location.href).href;
+                    const imgUrl = new URL('dungeon2.png', window.location.href).href;
                     const s = document.createElement('style');
                     s.id = 'dungeon-bg-style';
                     s.textContent = `body.rivalry-dungeon-mode::before {
