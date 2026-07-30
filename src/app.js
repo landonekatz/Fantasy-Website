@@ -113,6 +113,19 @@ class FantasyApp {
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
+                // Inject image URL relative to the page so it works on any host subdirectory
+                if (!document.getElementById('dungeon-bg-style')) {
+                    const imgUrl = new URL('dungeon_fiery_shackles.jpg', window.location.href).href;
+                    const s = document.createElement('style');
+                    s.id = 'dungeon-bg-style';
+                    s.textContent = `body.rivalry-dungeon-mode::before {
+                        background-image:
+                            radial-gradient(circle at 50% 0%, rgba(230, 46, 45, 0.22) 0%, transparent 65%),
+                            linear-gradient(180deg, rgba(10, 4, 5, 0.5) 0%, rgba(10, 4, 5, 0.8) 100%),
+                            url('${imgUrl}');
+                    }`;
+                    document.head.appendChild(s);
+                }
             } else {
                 if (document.body.classList.contains('rivalry-dungeon-mode')) {
                     document.body.classList.remove('rivalry-dungeon-mode');
