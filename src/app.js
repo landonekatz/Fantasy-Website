@@ -4,11 +4,22 @@ class FantasyApp {
         this.matchups = [];
         this.playerStats = [];
         this.standings = [];
+        this.transactions = [];
         this.currentYearFilter = 'all'; // 'all', '2019-present', 'custom'
         this.customStartYear = 2018;
         this.customEndYear = 2026;
         this.activeTab = 'home';
         this.includePlayoffs = true;
+
+        this.overviewSortBy = 'wins';
+        this.overviewSortOrder = 'desc';
+        this.recordFilters = {
+            overview: { year: 'all', retired: false, customStart: 2018, customEnd: 2026 },
+            singlegame: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 },
+            singleseason: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 },
+            streaks: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 },
+            playoffs: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 }
+        };
     }
 
     async init() {
@@ -46,7 +57,7 @@ class FantasyApp {
                     return await res.json();
                 }
             } catch (err) {
-                // Ignore fetch error when running over file:// or offline
+                console.warn(`Could not fetch data/${filename}, falling back to window.FANTASY_DATA`, err);
             }
             if (window.FANTASY_DATA && window.FANTASY_DATA[bundleKey]) {
                 return window.FANTASY_DATA[bundleKey];
@@ -54,51 +65,85 @@ class FantasyApp {
             return null;
         };
 
-        const [managersData, matchupsData, statsData, standingsData] = await Promise.all([
+        const [managersData, matchupsData, statsData, standingsData, transactionsData] = await Promise.all([
             fetchOrFallback('managers.json', 'managers'),
             fetchOrFallback('matchups.json', 'matchups'),
             fetchOrFallback('weekly_player_stats.json', 'weekly_player_stats'),
-            fetchOrFallback('league_standings.json', 'league_standings')
+            fetchOrFallback('league_standings.json', 'league_standings'),
+            fetchOrFallback('transactions.json', 'transactions')
         ]);
 
         if (managersData) {
-            const active = (managersData.managers || []).map(m => ({ ...m, status_group: 'Current Managers' }));
-            const retired = (managersData.retired_managers || []).map(m => ({ ...m, status_group: 'Retired Managers' }));
-            this.managers = [...active, ...retired];
+            const rawList = managersData.managers || [];
+            this.managers = rawList.map(m => {
+                const isRetired = (m.status && m.status.toLowerCase() === 'retired');
+                return {
+                    ...m,
+                    id: m.id || m.manager_id,
+                    manager_id: m.id || m.manager_id,
+                    name: m.name || m.manager_name,
+                    manager_name: m.name || m.manager_name,
+                    is_retired: isRetired,
+                    status_group: isRetired ? 'Retired Managers' : 'Current Managers'
+                };
+            });
         }
         this.matchups = matchupsData || [];
         this.playerStats = statsData || [];
         this.standings = standingsData || [];
+        this.transactions = transactionsData || [];
 
-        console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats.`);
+        console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions.`);
     }
 
     setupNavigation() {
         const btnHome = document.getElementById('btn-tab-home');
         const btnH2h = document.getElementById('btn-tab-h2h');
+        const btnRecords = document.getElementById('btn-tab-records');
+        const btnRivalry = document.getElementById('btn-tab-rivalry');
         const viewHome = document.getElementById('view-home');
         const viewH2h = document.getElementById('view-h2h');
+        const viewRecords = document.getElementById('view-records');
+        const viewRivalry = document.getElementById('view-rivalry');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            if (tab === 'home') {
-                btnHome.classList.add('active');
-                btnH2h.classList.remove('active');
-                viewHome.classList.add('active');
-                viewH2h.classList.remove('active');
+            [btnHome, btnH2h, btnRecords, btnRivalry].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewH2h, viewRecords, viewRivalry].forEach(view => view && view.classList.remove('active'));
+
+            if (tab === 'rivalry') {
+                document.body.classList.add('rivalry-dungeon-mode');
             } else {
-                btnH2h.classList.add('active');
-                btnHome.classList.remove('active');
-                viewH2h.classList.add('active');
-                viewHome.classList.remove('active');
+                if (document.body.classList.contains('rivalry-dungeon-mode')) {
+                    document.body.classList.remove('rivalry-dungeon-mode');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+
+            if (tab === 'home') {
+                btnHome && btnHome.classList.add('active');
+                viewHome && viewHome.classList.add('active');
+            } else if (tab === 'h2h') {
+                btnH2h && btnH2h.classList.add('active');
+                viewH2h && viewH2h.classList.add('active');
                 this.renderH2H();
+            } else if (tab === 'records') {
+                btnRecords && btnRecords.classList.add('active');
+                viewRecords && viewRecords.classList.add('active');
+                this.renderRecordBook();
+            } else if (tab === 'rivalry') {
+                btnRivalry && btnRivalry.classList.add('active');
+                viewRivalry && viewRivalry.classList.add('active');
+                if (typeof this.renderRivalryWeek === 'function') {
+                    this.renderRivalryWeek();
+                }
             }
         };
 
-        if (btnHome && btnH2h) {
-            btnHome.addEventListener('click', () => switchTab('home'));
-            btnH2h.addEventListener('click', () => switchTab('h2h'));
-        }
+        if (btnHome) btnHome.addEventListener('click', () => switchTab('home'));
+        if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
+        if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
+        if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
 
         // Setup smooth scrolling for "On This Page" subnav pills on League Home
         const scrollerLinks = document.querySelectorAll('.scroller-pill');
@@ -511,8 +556,17 @@ class FantasyApp {
         const isLeftWin = m.winner_team_id === leftId;
         const isRightWin = m.winner_team_id === rightId;
 
-        // Find all player stats for both teams in that season & week
-        const gamePlayers = this.playerStats.filter(p => p.season === season && p.week === week && (p.team_id === leftId || p.team_id === rightId));
+        // Find all player stats for both teams in that season & week (deduplicating duplicate records)
+        const rawGamePlayers = this.playerStats.filter(p => p.season === season && p.week === week && (p.team_id === leftId || p.team_id === rightId));
+        const seenPlayerKeys = new Set();
+        const gamePlayers = [];
+        for (const p of rawGamePlayers) {
+            const k = `${p.team_id}_${p.player_id || p.player_name}_${p.player_name}_${p.is_starter ? 'S' : 'B'}`;
+            if (!seenPlayerKeys.has(k)) {
+                seenPlayerKeys.add(k);
+                gamePlayers.push(p);
+            }
+        }
 
         const leftPlayers = gamePlayers.filter(p => p.team_id === leftId);
         const rightPlayers = gamePlayers.filter(p => p.team_id === rightId);
@@ -539,7 +593,54 @@ class FantasyApp {
                 `;
             }
 
-            starters.forEach(p => {
+            const STANDARD_SLOTS = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'W/R/T', 'K', 'DEF'];
+            const remainingStarters = [...starters];
+
+            STANDARD_SLOTS.forEach(slot => {
+                let matchIdx = remainingStarters.findIndex(p => p.roster_slot === slot);
+                if (matchIdx === -1 && slot === 'W/R/T') {
+                    matchIdx = remainingStarters.findIndex(p => ['WR', 'RB', 'TE', 'FLEX', 'W/R', 'W/R/T'].includes(p.roster_slot));
+                }
+                if (matchIdx !== -1) {
+                    const p = remainingStarters.splice(matchIdx, 1)[0];
+                    const slotClass = slot.toLowerCase().replace(/[^a-z]/g, '');
+                    const nflInfo = [p.nfl_team, p.nfl_game_result, p.nfl_stat_line].filter(Boolean).join(' • ');
+                    html += `
+                        <div class="player-row">
+                            <div class="player-left">
+                                <span class="slot-badge ${slotClass}">${slot}</span>
+                                <div>
+                                    <div class="player-name">${p.player_name}</div>
+                                    <div class="nfl-team">${nflInfo || 'NFL'}</div>
+                                </div>
+                            </div>
+                            <div class="player-right">
+                                <div class="player-pts">${p.fantasy_points !== undefined ? p.fantasy_points.toFixed(2) : '0.00'}</div>
+                                <div class="player-proj">Proj: ${p.projected_points !== undefined ? p.projected_points.toFixed(2) : '-'}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const slotClass = slot.toLowerCase().replace(/[^a-z]/g, '');
+                    html += `
+                        <div class="player-row" style="opacity: 0.45;">
+                            <div class="player-left">
+                                <span class="slot-badge ${slotClass}">${slot}</span>
+                                <div>
+                                    <div class="player-name" style="font-style: italic; color: var(--text-muted);">Empty</div>
+                                    <div class="nfl-team">—</div>
+                                </div>
+                            </div>
+                            <div class="player-right">
+                                <div class="player-pts">0.00</div>
+                                <div class="player-proj">Proj: —</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            remainingStarters.forEach(p => {
                 const slotClass = p.roster_slot.toLowerCase().replace(/[^a-z]/g, '');
                 const nflInfo = [p.nfl_team, p.nfl_game_result, p.nfl_stat_line].filter(Boolean).join(' • ');
                 html += `
