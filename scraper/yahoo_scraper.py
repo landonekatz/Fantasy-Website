@@ -292,8 +292,8 @@ class YahooFantasyScraper:
                     break
 
                 # Check if Week has not been played / scheduled yet ('(Empty)' detected)
-                if "(Empty)" in html:
-                    print(f"    [Matchups] Week {wk} has not been played / scheduled yet ('(Empty)' detected). Terminating matchup scrape for {year}.")
+                if html.count("(Empty)") >= 10:
+                    print(f"    [Matchups] Week {wk} has not been played / scheduled yet (10+ '(Empty)' slots detected). Terminating matchup scrape for {year}.")
                     if out_path.exists():
                         out_path.unlink()
                     break
@@ -326,12 +326,6 @@ class YahooFantasyScraper:
 
                         if self._is_invalid_week(html):
                             print(f"    [Matchups] Reached end of season at Week {wk} (Error #768 detected in boxscore).")
-                            if out_path.exists():
-                                out_path.unlink()
-                            break
-
-                        if "(Empty)" in html:
-                            print(f"    [Matchups] Week {wk} boxscore has not been played yet ('(Empty)' detected). Removing file.")
                             if out_path.exists():
                                 out_path.unlink()
                             break

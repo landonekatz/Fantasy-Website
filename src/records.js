@@ -186,7 +186,7 @@ Object.assign(FantasyApp.prototype, {
             <div class="records-section-header">
                 <div class="records-section-title-wrap">
                     <h2>${title}</h2>
-                    <p>${subtitle}</p>
+                    ${subtitle ? `<p>${subtitle}</p>` : ''}
                 </div>
                 <div class="records-filter-bar" data-section="${sectionKey}">
                     <div class="records-year-group">
@@ -491,7 +491,7 @@ Object.assign(FantasyApp.prototype, {
             `;
         }).join('');
 
-        const headerHTML = this.renderFilterBarHTML('overview', '1. Manager Record Book & Championships', 'All-time regular season career records, total win percentage, championship titles, and outright last-place (toilet bowl) finishes.', filterObj);
+        const headerHTML = this.renderFilterBarHTML('overview', 'Manager Standings and Titles', '', filterObj);
 
         // Header column labels depend on Mode (Totals vs PPG)
         const col5Label = mode === 'totals' ? `Points For (PF) ${getSortIndicator('points_for')}` : `PF / Game (PF/G) ${getSortIndicator('pf_ppg')}`;
@@ -539,7 +539,7 @@ Object.assign(FantasyApp.prototype, {
             <div class="records-title-grid">
                 <div class="records-title-card championship-card">
                     <div class="title-card-header">
-                        <h3>Total Finals Wins (Championships)</h3>
+                        <h3>Total Championships</h3>
                     </div>
                     <div class="records-title-list">
                         ${champHTML || '<div style="color:var(--text-muted); text-align:center;">No championships found</div>'}
@@ -548,16 +548,12 @@ Object.assign(FantasyApp.prototype, {
 
                 <div class="records-title-card toilet-card">
                     <div class="title-card-header">
-                        <h3>Total Outright Losses (12th Place Finishes)</h3>
+                        <h3>Total Outright Losses</h3>
                     </div>
                     <div class="records-title-list">
                         ${toiletHTML || '<div style="color:var(--text-muted); text-align:center;">No outright losses found</div>'}
                     </div>
                 </div>
-            </div>
-
-            <div class="records-footnote">
-                * Note: Seasons marked with an asterisk (2018* & 2019*) reflect historical archive periods prior to standard 2020+ scoring. Regular season tables exclude playoff, consolation, and 3rd place games.
             </div>
         `;
 
@@ -710,14 +706,14 @@ Object.assign(FantasyApp.prototype, {
             `;
         };
 
-        const headerHTML = this.renderFilterBarHTML('singlegame', '2. Single Game Records', 'Top 10 highest & lowest single-game team scores and most bench points scored in a single week.', filterObj, true);
+        const headerHTML = this.renderFilterBarHTML('singlegame', 'Single Game Records', '', filterObj, true);
 
         el.innerHTML = `
             ${headerHTML}
             <div class="records-card-grid-3">
                 <div class="record-card">
                     <div class="record-card-header">
-                        <h3>Top 10 Highest Scoring Games</h3>
+                        <h3>Top 10 Highest Scoring</h3>
                     </div>
                     <div class="record-item-list">
                         ${top10High.map((item, i) => renderSingleGameItem(item, i, item.score, 'pts')).join('') || '<div style="color:var(--text-muted); text-align:center;">No games found</div>'}
@@ -726,7 +722,7 @@ Object.assign(FantasyApp.prototype, {
 
                 <div class="record-card">
                     <div class="record-card-header">
-                        <h3>Top 10 Lowest Scoring Games</h3>
+                        <h3>Top 10 Lowest Scoring</h3>
                     </div>
                     <div class="record-item-list">
                         ${top10Low.map((item, i) => renderSingleGameItem(item, i, item.score, 'pts')).join('') || '<div style="color:var(--text-muted); text-align:center;">No games found</div>'}
@@ -741,9 +737,6 @@ Object.assign(FantasyApp.prototype, {
                         ${top10Bench.map((item, i) => renderSingleGameItem(item, i, item.bench_points, 'bench')).join('') || '<div style="color:var(--text-muted); text-align:center;">No games found</div>'}
                     </div>
                 </div>
-            </div>
-            <div class="records-footnote">
-                * Click "View Matchup" on any single game to open the full interactive boxscore modal with starter and bench breakdowns. Consolation and 3rd place games are excluded.
             </div>
         `;
 
@@ -861,17 +854,17 @@ Object.assign(FantasyApp.prototype, {
             `;
         };
 
-        const headerHTML = this.renderFilterBarHTML('singleseason', '3. Single Season Records', 'Top 5 historical single-season milestones including points highs/lows, record extremes, moves, trades, and final season placements.', filterObj);
+        const headerHTML = this.renderFilterBarHTML('singleseason', 'Single Season Records', '', filterObj);
 
         el.innerHTML = `
             ${headerHTML}
             <div class="records-card-grid-3">
                 ${renderTop5ListCard('Most Points to Miss Playoffs', mostPtsMissPlayoffs, s => Number(s.points_for).toFixed(1), 'PF', true)}
                 ${renderTop5ListCard('Least Points to Make Playoffs', leastPtsMakePlayoffs, s => Number(s.points_for).toFixed(1), 'PF', true)}
-                ${renderTop5ListCard('Least Points to Win League (1st Place)', leastPtsWinLeague, s => Number(s.points_for).toFixed(1), 'PF', false)}
-                ${renderTop5ListCard('Most Points to Lose League (12th Place)', mostPtsLoseLeague, s => Number(s.points_for).toFixed(1), 'PF', false)}
-                ${renderTop5ListCard('Best Record Seasons Ever', bestRecordEver, s => `${s.wins}-${s.losses}`, s => `${(Number(s.win_pct)*100).toFixed(1)}%`, true)}
-                ${renderTop5ListCard('Worst Record Seasons Ever', worstRecordEver, s => `${s.wins}-${s.losses}`, s => `${(Number(s.win_pct)*100).toFixed(1)}%`, true)}
+                ${renderTop5ListCard('Least Points to Win League', leastPtsWinLeague, s => Number(s.points_for).toFixed(1), 'PF', false)}
+                ${renderTop5ListCard('Most Points to Lose League', mostPtsLoseLeague, s => Number(s.points_for).toFixed(1), 'PF', false)}
+                ${renderTop5ListCard('Best Records', bestRecordEver, s => `${s.wins}-${s.losses}`, s => `${(Number(s.win_pct)*100).toFixed(1)}%`, true)}
+                ${renderTop5ListCard('Worst Records', worstRecordEver, s => `${s.wins}-${s.losses}`, s => `${(Number(s.win_pct)*100).toFixed(1)}%`, true)}
                 ${renderTop5ListCard('Most Points For Ever', mostPointsForEver, s => Number(s.points_for).toFixed(1), 'PF', true)}
                 ${renderTop5ListCard('Least Points For Ever', leastPointsForEver, s => Number(s.points_for).toFixed(1), 'PF', true)}
                 ${renderTop5ListCard('Most Points Against Ever', mostPointsAgainstEver, s => Number(s.points_against).toFixed(1), 'PA', true)}
@@ -882,9 +875,6 @@ Object.assign(FantasyApp.prototype, {
                     const mid = s.manager_id || s.id;
                     return this.getTradesCount(s.season, mid);
                 }, 'Trades', true)}
-            </div>
-            <div class="records-footnote">
-                * All single season tables (except League Winner & Outright Loser lists) include the manager's Final League Placement badge.
             </div>
         `;
 
@@ -1074,7 +1064,7 @@ Object.assign(FantasyApp.prototype, {
             `;
         };
 
-        const headerHTML = this.renderFilterBarHTML('streaks', '4. Streak Records', 'Top 5 longest consecutive regular season winning and losing streaks, separated by multi-season carryover and single-season streaks.', filterObj);
+        const headerHTML = this.renderFilterBarHTML('streaks', 'Streak Records', '', filterObj);
 
         el.innerHTML = `
             ${headerHTML}
@@ -1114,9 +1104,6 @@ Object.assign(FantasyApp.prototype, {
                         ${top5SingleLoss.map((s, i) => renderStreakItem(s, i)).join('') || '<div style="color:var(--text-muted); text-align:center;">No streaks found</div>'}
                     </div>
                 </div>
-            </div>
-            <div class="records-footnote">
-                * All streaks count regular season games only. Multi-season streaks carry over across seasons; single-season streaks reset each year.
             </div>
         `;
 
@@ -1566,7 +1553,7 @@ Object.assign(FantasyApp.prototype, {
             `;
         };
 
-        const headerHTML = this.renderFilterBarHTML('playoffs', '5. Playoff Records', 'All-time postseason career standings, playoff appearances, championship bracket droughts, make streaks, and highest/lowest playoff matchup scores.', filterObj);
+        const headerHTML = this.renderFilterBarHTML('playoffs', 'Playoff Records', '', filterObj);
 
         // Header column labels for playoff career table
         const pCol5Label = mode === 'totals' ? `Points For (PF) ${getPlayoffSortInd('points_for')}` : `PF / Game (PF/G) ${getPlayoffSortInd('pf_ppg')}`;
@@ -1694,10 +1681,6 @@ Object.assign(FantasyApp.prototype, {
                         ${top10HighestMatchup.map((m, i) => renderMatchupRow(m, i)).join('') || '<div style="color:var(--text-muted); text-align:center;">No matchups found</div>'}
                     </div>
                 </div>
-            </div>
-
-            <div class="records-footnote">
-                * Note: Playoff performance tables exclude consolation and 3rd place games, focusing exclusively on championship bracket games. Click "View Matchup" to inspect boxscores.
             </div>
         `;
 

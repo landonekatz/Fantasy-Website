@@ -1,0 +1,17 @@
+2026/07/31-15:05:16.163 a2d9dc Creating DB /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_cc568ed6c176c195efea0e86fb0ae6a3.safeframe.googlesyndication.com_0.indexeddb.leveldb since it was missing.
+2026/07/31-15:05:16.165 a2d9dc Reusing MANIFEST /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_cc568ed6c176c195efea0e86fb0ae6a3.safeframe.googlesyndication.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/31-15:05:16.184 a2d9e2 Level-0 table #5: started
+2026/07/31-15:05:16.185 a2d9e2 Level-0 table #5: 2190 bytes OK
+2026/07/31-15:05:16.186 a2d9e2 Delete type=0 #3
+2026/07/31-15:05:16.186 a2d9dc Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/07/31-15:05:16.186 a2d9dc Level-0 table #7: started
+2026/07/31-15:05:16.186 a2d9dc Level-0 table #7: 739 bytes OK
+2026/07/31-15:05:16.187 a2d9dc Delete type=0 #4
+2026/07/31-15:05:16.187 a2d9dc Manual compaction at level-0 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/07/31-15:05:16.187 a2d9dc Manual compaction at level-1 from '\x00\x02\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at '\x00\x02\x01\x03\x01\x01\x00x' @ 181 : 0
+2026/07/31-15:05:16.187 a2d9dc Compacting 1@1 + 1@2 files
+2026/07/31-15:05:16.188 a2d9dc Generated table #8@1: 7 keys, 278 bytes
+2026/07/31-15:05:16.188 a2d9dc Compacted 1@1 + 1@2 files => 278 bytes
+2026/07/31-15:05:16.188 a2d9dc compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/07/31-15:05:16.189 a2d9dc Delete type=2 #7
+2026/07/31-15:05:16.189 a2d9e2 Manual compaction at level-1 from '\x00\x02\x01\x03\x01\x01\x00x' @ 181 : 0 .. '\x00\x03\x00\x00\x00' @ 0 : 0; will stop at (end)

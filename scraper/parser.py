@@ -508,86 +508,151 @@ def parse_matchups_and_boxscores(seasons, team_names_lookup, config=None, standi
         if not matchups_dir.exists():
             continue
 
-        for wk_file in sorted(matchups_dir.glob("scoreboard_wk*.html"), key=lambda x: int(re.search(r"wk(\d+)", x.name).group(1)) if re.search(r"wk(\d+)", x.name) else 0):
-            wk_match = re.search(r"wk(\d+)", wk_file.name)
-            if not wk_match:
-                continue
-            week_num = int(wk_match.group(1))
+        all_weeks = set()
+        for p in matchups_dir.glob("*wk*.html"):
+            m_wk = re.search(r"wk(\d+)", p.name)
+            if m_wk:
+                all_weeks.add(int(m_wk.group(1)))
+
+        for week_num in sorted(all_weeks):
+            wk_file = matchups_dir / f"scoreboard_wk{week_num}.html"
 
             reg_weeks = 14
             is_playoffs = (week_num > reg_weeks)
 
             # 1. Parse Scoreboard matchups
-            with open(wk_file, "r", encoding="utf-8", errors="ignore") as f:
-                html_score = f.read()
-            soup_score = BeautifulSoup(html_score, "html.parser")
+            if wk_file.exists():
+                with open(wk_file, "r", encoding="utf-8", errors="ignore") as f:
+                    html_score = f.read()
+                soup_score = BeautifulSoup(html_score, "html.parser")
 
-            p_consolation = None
-            for tag in soup_score.find_all("p"):
-                if "Consolation Bracket" in tag.get_text():
-                    p_consolation = tag
-                    break
+                p_consolation = None
+                for tag in soup_score.find_all("p"):
+                    if "Consolation Bracket" in tag.get_text():
+                        p_consolation = tag
+                        break
 
-            seen_pairs = set()
-            for a in soup_score.find_all("a"):
-                href = a.get("href", "")
-                if "matchup?week=" in href and "mid1=" in href and "mid2=" in href:
-                    m1_match = re.search(r"mid1=(\d+)", href)
-                    m2_match = re.search(r"mid2=(\d+)", href)
-                    if not (m1_match and m2_match):
-                        continue
-                    t1_id = int(m1_match.group(1))
-                    t2_id = int(m2_match.group(1))
-                    pair_key = tuple(sorted((t1_id, t2_id)))
-                    if pair_key in seen_pairs:
-                        continue  # avoid duplicates
-                    seen_pairs.add(pair_key)
+                seen_pairs = set()
+                for a in soup_score.find_all("a"):
+                    href = a.get("href", "")
+                    if "matchup?week=" in href and "mid1=" in href and "mid2=" in href:
+                        m1_match = re.search(r"mid1=(\d+)", href)
+                        m2_match = re.search(r"mid2=(\d+)", href)
+                        if not (m1_match and m2_match):
+                            continue
+                        t1_id = int(m1_match.group(1))
+                        t2_id = int(m2_match.group(1))
+                        pair_key = tuple(sorted((t1_id, t2_id)))
+                        if pair_key in seen_pairs:
+                            continue  # avoid duplicates
+                        seen_pairs.add(pair_key)
 
-                    container = a.find_parent("li") or a.find_parent("div", class_="matchup") or a.parent.parent
-                    if not container:
-                        continue
+                        container = a.find_parent("li") or a.find_parent("div", class_="matchup") or a.parent.parent
+                        if not container:
+                            continue
 
-                    is_cons = False
-                    if p_consolation and p_consolation.sourceline and a.sourceline:
-                        is_cons = (a.sourceline > p_consolation.sourceline)
-                    else:
-                        prev_p = a.find_previous("p", string=re.compile("Championship Bracket|Consolation Bracket"))
-                        if prev_p and "Consolation" in prev_p.get_text():
-                            is_cons = True
+                        is_cons = False
+                        if p_consolation and p_consolation.sourceline and a.sourceline:
+                            is_cons = (a.sourceline > p_consolation.sourceline)
+                        else:
+                            prev_p = a.find_previous("p", string=re.compile("Championship Bracket|Consolation Bracket"))
+                            if prev_p and "Consolation" in prev_p.get_text():
+                                is_cons = True
 
-                    if not is_playoffs:
-                        game_type = "regular_season"
-                        playoff_round = ""
-                    else:
-                        if is_cons:
-                            li_txt = container.get_text()
-                            if "3rd" in li_txt or "3rd Place" in li_txt:
-                                game_type = "consolation - 3rd place"
-                            else:
-                                game_type = "consolation"
+                        if not is_playoffs:
+                            game_type = "regular_season"
                             playoff_round = ""
                         else:
-                            game_type = "playoffs"
-                            playoff_wk_num = week_num - reg_weeks
-                            if year <= 2021:
-                                playoff_round = "semifinal" if playoff_wk_num == 1 else "final"
+                            if is_cons:
+                                li_txt = container.get_text()
+                                if "3rd" in li_txt or "3rd Place" in li_txt:
+                                    game_type = "consolation - 3rd place"
+                                else:
+                                    game_type = "consolation"
+                                playoff_round = ""
                             else:
-                                playoff_round = "quarterfinal" if playoff_wk_num == 1 else ("semifinal" if playoff_wk_num == 2 else "final")
+                                game_type = "playoffs"
+                                playoff_wk_num = week_num - reg_weeks
+                                if year <= 2021:
+                                    playoff_round = "semifinal" if playoff_wk_num == 1 else "final"
+                                else:
+                                    playoff_round = "quarterfinal" if playoff_wk_num == 1 else ("semifinal" if playoff_wk_num == 2 else "final")
 
-                    texts = [t for t in container.stripped_strings]
+                        texts = [t for t in container.stripped_strings]
 
-                    # Extract floating point numbers from texts
-                    nums = []
-                    for txt in texts:
-                        txt_clean = txt.replace(",", "")
-                        if re.match(r"^\d+\.\d+$", txt_clean):
-                            nums.append(float(txt_clean))
+                        # Extract floating point numbers from texts
+                        nums = []
+                        for txt in texts:
+                            txt_clean = txt.replace(",", "")
+                            if re.match(r"^\d+\.\d+$", txt_clean):
+                                nums.append(float(txt_clean))
 
-                    t1_pts, t1_proj, t2_pts, t2_proj = 0.0, 0.0, 0.0, 0.0
-                    if len(nums) >= 4:
-                        t1_pts, t1_proj, t2_pts, t2_proj = nums[0], nums[1], nums[2], nums[3]
-                    elif len(nums) >= 2:
-                        t1_pts, t2_pts = nums[0], nums[1]
+                        t1_pts, t1_proj, t2_pts, t2_proj = 0.0, 0.0, 0.0, 0.0
+                        if len(nums) >= 4:
+                            t1_pts, t1_proj, t2_pts, t2_proj = nums[0], nums[1], nums[2], nums[3]
+                        elif len(nums) >= 2:
+                            t1_pts, t2_pts = nums[0], nums[1]
+
+                        t1_name = team_names_lookup.get((year, t1_id), f"Team {t1_id}")
+                        t2_name = team_names_lookup.get((year, t2_id), f"Team {t2_id}")
+                        mgr1 = get_canonical_manager(year, t1_id, t1_name, config)
+                        mgr2 = get_canonical_manager(year, t2_id, t2_name, config)
+
+                        winner_id = None
+                        if t1_pts > t2_pts:
+                            winner_id = t1_id
+                        elif t2_pts > t1_pts:
+                            winner_id = t2_id
+
+                        matchups_data.append({
+                            "season": year,
+                            "week": week_num,
+                            "is_playoffs": is_playoffs,
+                            "game_type": game_type,
+                            "playoff_round": playoff_round,
+                            "is_playoff_bye": False,
+                            "team_1_id": t1_id,
+                            "team_1_name": t1_name,
+                            "team_1_manager_id": mgr1["id"],
+                            "team_1_manager_name": mgr1["name"],
+                            "team_1_actual_points": t1_pts,
+                            "team_1_projected_points": t1_proj,
+                            "team_2_id": t2_id,
+                            "team_2_name": t2_name,
+                            "team_2_manager_id": mgr2["id"],
+                            "team_2_manager_name": mgr2["name"],
+                            "team_2_actual_points": t2_pts,
+                            "team_2_projected_points": t2_proj,
+                            "winner_team_id": winner_id,
+                            "margin": round(abs(t1_pts - t2_pts), 2)
+                        })
+            else:
+                seen_pairs = set()
+                box_files = sorted(
+                    matchups_dir.glob(f"boxscore_wk{week_num}_team*.html"),
+                    key=lambda x: int(re.search(r"team(\d+)", x.name).group(1)) if re.search(r"team(\d+)", x.name) else 0
+                )
+                for bf in box_files:
+                    with open(bf, "r", encoding="utf-8", errors="ignore") as fp:
+                        html_box = fp.read()
+                    m_pair = re.findall(r"(?:recap|matchup)\?week=" + str(week_num) + r"[^\"']*mid1=(\d+)[^\"']*mid2=(\d+)", html_box)
+                    if not m_pair:
+                        continue
+                    t1_id, t2_id = int(m_pair[0][0]), int(m_pair[0][1])
+                    pair_key = tuple(sorted((t1_id, t2_id)))
+                    if pair_key in seen_pairs:
+                        continue
+                    seen_pairs.add(pair_key)
+
+                    soup_box = BeautifulSoup(html_box, "html.parser")
+                    scores = []
+                    for td in soup_box.find_all("td", class_=re.compile("Fz-xxl|Fz-med|F-shade")):
+                        txt = td.get_text(strip=True)
+                        if re.match(r"^\d{1,3}\.\d{2}$", txt):
+                            scores.append(float(txt))
+                    if len(scores) < 4:
+                        continue
+                    t1_pts, t2_pts, t1_proj, t2_proj = scores[0], scores[1], scores[2], scores[3]
 
                     t1_name = team_names_lookup.get((year, t1_id), f"Team {t1_id}")
                     t2_name = team_names_lookup.get((year, t2_id), f"Team {t2_id}")
@@ -604,8 +669,8 @@ def parse_matchups_and_boxscores(seasons, team_names_lookup, config=None, standi
                         "season": year,
                         "week": week_num,
                         "is_playoffs": is_playoffs,
-                        "game_type": game_type,
-                        "playoff_round": playoff_round,
+                        "game_type": "regular_season" if not is_playoffs else "playoffs",
+                        "playoff_round": "",
                         "is_playoff_bye": False,
                         "team_1_id": t1_id,
                         "team_1_name": t1_name,

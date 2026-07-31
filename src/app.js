@@ -297,10 +297,8 @@ class FantasyApp {
 
         if (!m1Id || !m2Id) {
             heroContainer.innerHTML = `
-                <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
-                    <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-gold); margin-bottom: 10px;">[ HISTORICAL ARCHIVE ]</div>
-                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">Select Two Managers</div>
-                    <div style="max-width: 500px; margin: 0 auto; line-height: 1.5;">Choose any two managers from the dropdowns above to explore their All-Time Head-to-Head record, points comparison, and every historical matchup chronologically.</div>
+                <div style="padding: 40px 20px; text-align: center;">
+                    <div style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent-gold);">[ SELECT TWO MANAGERS ]</div>
                 </div>
             `;
             listContainer.innerHTML = '';

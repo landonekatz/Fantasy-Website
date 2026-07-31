@@ -554,12 +554,12 @@ tr:hover td {
 }
 
 input:checked + .toggle-slider {
-    background-color: var(--accent-gold);
+    background-color: var(--accent-blue);
 }
 
 input:checked + .toggle-slider:before {
     transform: translateX(20px);
-    background-color: #0f172a;
+    background-color: #ffffff;
 }
 
 .toggle-label {

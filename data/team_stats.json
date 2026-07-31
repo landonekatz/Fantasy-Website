@@ -282,8 +282,8 @@
     "made_playoffs": true,
     "high_score": 194.46,
     "low_score": 66.04,
-    "weeks_played": 15,
-    "avg_points_per_game": 114.77
+    "weeks_played": 16,
+    "avg_points_per_game": 107.6
   },
   {
     "season": 2019,
@@ -304,8 +304,8 @@
     "made_playoffs": true,
     "high_score": 155.9,
     "low_score": 85.88,
-    "weeks_played": 15,
-    "avg_points_per_game": 113.89
+    "weeks_played": 16,
+    "avg_points_per_game": 106.77
   },
   {
     "season": 2019,
@@ -326,8 +326,8 @@
     "made_playoffs": true,
     "high_score": 128.46,
     "low_score": 81.82,
-    "weeks_played": 15,
-    "avg_points_per_game": 98.61
+    "weeks_played": 16,
+    "avg_points_per_game": 92.45
   },
   {
     "season": 2019,
@@ -348,8 +348,8 @@
     "made_playoffs": true,
     "high_score": 158.22,
     "low_score": 60.6,
-    "weeks_played": 15,
-    "avg_points_per_game": 108.52
+    "weeks_played": 16,
+    "avg_points_per_game": 101.73
   },
   {
     "season": 2019,
@@ -370,8 +370,8 @@
     "made_playoffs": false,
     "high_score": 143.74,
     "low_score": 87.04,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.77
+    "weeks_played": 16,
+    "avg_points_per_game": 94.47
   },
   {
     "season": 2019,
@@ -392,8 +392,8 @@
     "made_playoffs": false,
     "high_score": 124.72,
     "low_score": 78.12,
-    "weeks_played": 15,
-    "avg_points_per_game": 94.5
+    "weeks_played": 16,
+    "avg_points_per_game": 88.6
   },
   {
     "season": 2019,
@@ -414,8 +414,8 @@
     "made_playoffs": false,
     "high_score": 146.74,
     "low_score": 86.06,
-    "weeks_played": 15,
-    "avg_points_per_game": 107.31
+    "weeks_played": 16,
+    "avg_points_per_game": 100.6
   },
   {
     "season": 2019,
@@ -436,8 +436,8 @@
     "made_playoffs": false,
     "high_score": 148.5,
     "low_score": 61.3,
-    "weeks_played": 15,
-    "avg_points_per_game": 96.41
+    "weeks_played": 16,
+    "avg_points_per_game": 90.39
   },
   {
     "season": 2019,
@@ -458,8 +458,8 @@
     "made_playoffs": false,
     "high_score": 151.0,
     "low_score": 66.58,
-    "weeks_played": 13,
-    "avg_points_per_game": 111.96
+    "weeks_played": 14,
+    "avg_points_per_game": 103.97
   },
   {
     "season": 2019,
@@ -478,10 +478,10 @@
     "streak": "L-5",
     "transactions": 20,
     "made_playoffs": false,
-    "high_score": 119.86,
+    "high_score": 135.08,
     "low_score": 56.38,
-    "weeks_played": 13,
-    "avg_points_per_game": 100.18
+    "weeks_played": 14,
+    "avg_points_per_game": 93.02
   },
   {
     "season": 2019,
@@ -502,8 +502,8 @@
     "made_playoffs": false,
     "high_score": 137.92,
     "low_score": 71.42,
-    "weeks_played": 13,
-    "avg_points_per_game": 110.6
+    "weeks_played": 14,
+    "avg_points_per_game": 102.7
   },
   {
     "season": 2019,
@@ -524,8 +524,8 @@
     "made_playoffs": false,
     "high_score": 114.64,
     "low_score": 71.86,
-    "weeks_played": 13,
-    "avg_points_per_game": 98.01
+    "weeks_played": 14,
+    "avg_points_per_game": 91.01
   },
   {
     "season": 2020,
@@ -546,8 +546,8 @@
     "made_playoffs": true,
     "high_score": 148.3,
     "low_score": 71.66,
-    "weeks_played": 15,
-    "avg_points_per_game": 106.26
+    "weeks_played": 16,
+    "avg_points_per_game": 99.62
   },
   {
     "season": 2020,
@@ -568,8 +568,8 @@
     "made_playoffs": true,
     "high_score": 152.76,
     "low_score": 80.86,
-    "weeks_played": 15,
-    "avg_points_per_game": 111.29
+    "weeks_played": 16,
+    "avg_points_per_game": 104.34
   },
   {
     "season": 2020,
@@ -590,8 +590,8 @@
     "made_playoffs": true,
     "high_score": 135.3,
     "low_score": 47.76,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.33
+    "weeks_played": 16,
+    "avg_points_per_game": 94.06
   },
   {
     "season": 2020,
@@ -612,8 +612,8 @@
     "made_playoffs": true,
     "high_score": 152.28,
     "low_score": 69.84,
-    "weeks_played": 15,
-    "avg_points_per_game": 107.13
+    "weeks_played": 16,
+    "avg_points_per_game": 100.43
   },
   {
     "season": 2020,
@@ -633,9 +633,9 @@
     "transactions": 12,
     "made_playoffs": false,
     "high_score": 141.58,
-    "low_score": 74.36,
-    "weeks_played": 15,
-    "avg_points_per_game": 95.29
+    "low_score": 73.22,
+    "weeks_played": 16,
+    "avg_points_per_game": 89.34
   },
   {
     "season": 2020,
@@ -656,8 +656,8 @@
     "made_playoffs": false,
     "high_score": 154.26,
     "low_score": 63.7,
-    "weeks_played": 15,
-    "avg_points_per_game": 99.85
+    "weeks_played": 16,
+    "avg_points_per_game": 93.61
   },
   {
     "season": 2020,
@@ -678,8 +678,8 @@
     "made_playoffs": false,
     "high_score": 138.0,
     "low_score": 87.8,
-    "weeks_played": 15,
-    "avg_points_per_game": 99.76
+    "weeks_played": 16,
+    "avg_points_per_game": 93.53
   },
   {
     "season": 2020,
@@ -700,8 +700,8 @@
     "made_playoffs": false,
     "high_score": 150.5,
     "low_score": 82.8,
-    "weeks_played": 15,
-    "avg_points_per_game": 102.56
+    "weeks_played": 16,
+    "avg_points_per_game": 96.15
   },
   {
     "season": 2020,
@@ -722,8 +722,8 @@
     "made_playoffs": false,
     "high_score": 126.14,
     "low_score": 85.5,
-    "weeks_played": 13,
-    "avg_points_per_game": 110.78
+    "weeks_played": 14,
+    "avg_points_per_game": 102.87
   },
   {
     "season": 2020,
@@ -744,8 +744,8 @@
     "made_playoffs": false,
     "high_score": 137.64,
     "low_score": 75.86,
-    "weeks_played": 13,
-    "avg_points_per_game": 109.5
+    "weeks_played": 14,
+    "avg_points_per_game": 101.68
   },
   {
     "season": 2020,
@@ -766,8 +766,8 @@
     "made_playoffs": false,
     "high_score": 202.94,
     "low_score": 64.12,
-    "weeks_played": 13,
-    "avg_points_per_game": 109.35
+    "weeks_played": 14,
+    "avg_points_per_game": 101.54
   },
   {
     "season": 2020,
@@ -788,8 +788,8 @@
     "made_playoffs": false,
     "high_score": 148.7,
     "low_score": 74.32,
-    "weeks_played": 13,
-    "avg_points_per_game": 108.57
+    "weeks_played": 14,
+    "avg_points_per_game": 100.82
   },
   {
     "season": 2021,
@@ -808,10 +808,10 @@
     "streak": "W-2",
     "transactions": 37,
     "made_playoffs": true,
-    "high_score": 143.26,
+    "high_score": 159.82,
     "low_score": 77.64,
-    "weeks_played": 15,
-    "avg_points_per_game": 106.24
+    "weeks_played": 16,
+    "avg_points_per_game": 99.6
   },
   {
     "season": 2021,
@@ -832,8 +832,8 @@
     "made_playoffs": true,
     "high_score": 158.62,
     "low_score": 84.5,
-    "weeks_played": 15,
-    "avg_points_per_game": 105.56
+    "weeks_played": 16,
+    "avg_points_per_game": 98.96
   },
   {
     "season": 2021,
@@ -854,8 +854,8 @@
     "made_playoffs": true,
     "high_score": 157.58,
     "low_score": 87.64,
-    "weeks_played": 15,
-    "avg_points_per_game": 111.73
+    "weeks_played": 16,
+    "avg_points_per_game": 104.74
   },
   {
     "season": 2021,
@@ -876,8 +876,8 @@
     "made_playoffs": true,
     "high_score": 169.76,
     "low_score": 81.62,
-    "weeks_played": 15,
-    "avg_points_per_game": 107.1
+    "weeks_played": 16,
+    "avg_points_per_game": 100.41
   },
   {
     "season": 2021,
@@ -898,8 +898,8 @@
     "made_playoffs": false,
     "high_score": 157.58,
     "low_score": 84.7,
-    "weeks_played": 15,
-    "avg_points_per_game": 102.68
+    "weeks_played": 16,
+    "avg_points_per_game": 96.26
   },
   {
     "season": 2021,
@@ -920,8 +920,8 @@
     "made_playoffs": false,
     "high_score": 128.94,
     "low_score": 67.4,
-    "weeks_played": 15,
-    "avg_points_per_game": 88.14
+    "weeks_played": 16,
+    "avg_points_per_game": 82.63
   },
   {
     "season": 2021,
@@ -942,8 +942,8 @@
     "made_playoffs": false,
     "high_score": 148.56,
     "low_score": 73.52,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.32
+    "weeks_played": 16,
+    "avg_points_per_game": 94.05
   },
   {
     "season": 2021,
@@ -964,8 +964,8 @@
     "made_playoffs": false,
     "high_score": 135.98,
     "low_score": 67.32,
-    "weeks_played": 15,
-    "avg_points_per_game": 101.24
+    "weeks_played": 16,
+    "avg_points_per_game": 94.91
   },
   {
     "season": 2021,
@@ -986,8 +986,8 @@
     "made_playoffs": false,
     "high_score": 140.7,
     "low_score": 65.44,
-    "weeks_played": 13,
-    "avg_points_per_game": 115.33
+    "weeks_played": 14,
+    "avg_points_per_game": 107.1
   },
   {
     "season": 2021,
@@ -1008,8 +1008,8 @@
     "made_playoffs": false,
     "high_score": 138.96,
     "low_score": 69.38,
-    "weeks_played": 13,
-    "avg_points_per_game": 109.21
+    "weeks_played": 14,
+    "avg_points_per_game": 101.41
   },
   {
     "season": 2021,
@@ -1030,8 +1030,8 @@
     "made_playoffs": false,
     "high_score": 113.2,
     "low_score": 64.8,
-    "weeks_played": 13,
-    "avg_points_per_game": 102.56
+    "weeks_played": 14,
+    "avg_points_per_game": 95.23
   },
   {
     "season": 2021,
@@ -1050,10 +1050,10 @@
     "streak": "L-5",
     "transactions": 13,
     "made_playoffs": false,
-    "high_score": 118.82,
+    "high_score": 125.04,
     "low_score": 66.82,
-    "weeks_played": 13,
-    "avg_points_per_game": 105.98
+    "weeks_played": 14,
+    "avg_points_per_game": 98.41
   },
   {
     "season": 2022,
@@ -1074,8 +1074,8 @@
     "made_playoffs": true,
     "high_score": 165.9,
     "low_score": 76.98,
-    "weeks_played": 16,
-    "avg_points_per_game": 95.62
+    "weeks_played": 17,
+    "avg_points_per_game": 90.0
   },
   {
     "season": 2022,
@@ -1096,8 +1096,8 @@
     "made_playoffs": true,
     "high_score": 174.62,
     "low_score": 65.92,
-    "weeks_played": 16,
-    "avg_points_per_game": 94.33
+    "weeks_played": 17,
+    "avg_points_per_game": 88.78
   },
   {
     "season": 2022,
@@ -1118,8 +1118,8 @@
     "made_playoffs": true,
     "high_score": 143.18,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 98.8
+    "weeks_played": 17,
+    "avg_points_per_game": 92.99
   },
   {
     "season": 2022,
@@ -1140,8 +1140,8 @@
     "made_playoffs": true,
     "high_score": 173.38,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 96.01
+    "weeks_played": 17,
+    "avg_points_per_game": 90.37
   },
   {
     "season": 2022,
@@ -1162,8 +1162,8 @@
     "made_playoffs": true,
     "high_score": 149.46,
     "low_score": 75.72,
-    "weeks_played": 15,
-    "avg_points_per_game": 107.41
+    "weeks_played": 16,
+    "avg_points_per_game": 100.7
   },
   {
     "season": 2022,
@@ -1184,8 +1184,8 @@
     "made_playoffs": true,
     "high_score": 173.58,
     "low_score": 65.76,
-    "weeks_played": 15,
-    "avg_points_per_game": 107.28
+    "weeks_played": 16,
+    "avg_points_per_game": 100.58
   },
   {
     "season": 2022,
@@ -1206,8 +1206,8 @@
     "made_playoffs": false,
     "high_score": 154.52,
     "low_score": 67.4,
-    "weeks_played": 15,
-    "avg_points_per_game": 99.87
+    "weeks_played": 16,
+    "avg_points_per_game": 93.63
   },
   {
     "season": 2022,
@@ -1226,10 +1226,10 @@
     "streak": "L-2",
     "transactions": 28,
     "made_playoffs": false,
-    "high_score": 149.0,
+    "high_score": 154.56,
     "low_score": 90.56,
-    "weeks_played": 15,
-    "avg_points_per_game": 109.16
+    "weeks_played": 16,
+    "avg_points_per_game": 102.34
   },
   {
     "season": 2022,
@@ -1250,8 +1250,8 @@
     "made_playoffs": false,
     "high_score": 146.0,
     "low_score": 73.1,
-    "weeks_played": 16,
-    "avg_points_per_game": 93.23
+    "weeks_played": 17,
+    "avg_points_per_game": 87.74
   },
   {
     "season": 2022,
@@ -1272,8 +1272,8 @@
     "made_playoffs": false,
     "high_score": 141.58,
     "low_score": 70.76,
-    "weeks_played": 16,
-    "avg_points_per_game": 94.99
+    "weeks_played": 17,
+    "avg_points_per_game": 89.4
   },
   {
     "season": 2022,
@@ -1294,8 +1294,8 @@
     "made_playoffs": false,
     "high_score": 134.76,
     "low_score": 65.7,
-    "weeks_played": 15,
-    "avg_points_per_game": 99.01
+    "weeks_played": 16,
+    "avg_points_per_game": 92.83
   },
   {
     "season": 2022,
@@ -1316,8 +1316,8 @@
     "made_playoffs": false,
     "high_score": 131.14,
     "low_score": 59.36,
-    "weeks_played": 15,
-    "avg_points_per_game": 84.01
+    "weeks_played": 16,
+    "avg_points_per_game": 78.76
   },
   {
     "season": 2023,
@@ -1338,8 +1338,8 @@
     "made_playoffs": true,
     "high_score": 156.28,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 101.64
+    "weeks_played": 17,
+    "avg_points_per_game": 95.66
   },
   {
     "season": 2023,
@@ -1360,8 +1360,8 @@
     "made_playoffs": true,
     "high_score": 126.24,
     "low_score": 71.84,
-    "weeks_played": 16,
-    "avg_points_per_game": 89.78
+    "weeks_played": 17,
+    "avg_points_per_game": 84.5
   },
   {
     "season": 2023,
@@ -1382,8 +1382,8 @@
     "made_playoffs": true,
     "high_score": 137.78,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 94.5
+    "weeks_played": 17,
+    "avg_points_per_game": 88.94
   },
   {
     "season": 2023,
@@ -1404,8 +1404,8 @@
     "made_playoffs": true,
     "high_score": 146.54,
     "low_score": 76.5,
-    "weeks_played": 16,
-    "avg_points_per_game": 98.09
+    "weeks_played": 17,
+    "avg_points_per_game": 92.32
   },
   {
     "season": 2023,
@@ -1426,8 +1426,8 @@
     "made_playoffs": true,
     "high_score": 136.74,
     "low_score": 77.6,
-    "weeks_played": 15,
-    "avg_points_per_game": 103.52
+    "weeks_played": 16,
+    "avg_points_per_game": 97.05
   },
   {
     "season": 2023,
@@ -1446,10 +1446,10 @@
     "streak": "L-1",
     "transactions": 34,
     "made_playoffs": true,
-    "high_score": 128.0,
+    "high_score": 158.68,
     "low_score": 67.36,
-    "weeks_played": 15,
-    "avg_points_per_game": 97.72
+    "weeks_played": 16,
+    "avg_points_per_game": 91.61
   },
   {
     "season": 2023,
@@ -1469,9 +1469,9 @@
     "transactions": 18,
     "made_playoffs": false,
     "high_score": 156.76,
-    "low_score": 67.06,
-    "weeks_played": 15,
-    "avg_points_per_game": 91.52
+    "low_score": 65.7,
+    "weeks_played": 16,
+    "avg_points_per_game": 85.8
   },
   {
     "season": 2023,
@@ -1490,10 +1490,10 @@
     "streak": "L-2",
     "transactions": 35,
     "made_playoffs": false,
-    "high_score": 144.36,
+    "high_score": 152.42,
     "low_score": 73.06,
-    "weeks_played": 15,
-    "avg_points_per_game": 96.22
+    "weeks_played": 16,
+    "avg_points_per_game": 90.2
   },
   {
     "season": 2023,
@@ -1514,8 +1514,8 @@
     "made_playoffs": false,
     "high_score": 156.7,
     "low_score": 66.02,
-    "weeks_played": 16,
-    "avg_points_per_game": 87.18
+    "weeks_played": 17,
+    "avg_points_per_game": 82.05
   },
   {
     "season": 2023,
@@ -1536,8 +1536,8 @@
     "made_playoffs": false,
     "high_score": 152.94,
     "low_score": 66.46,
-    "weeks_played": 16,
-    "avg_points_per_game": 95.44
+    "weeks_played": 17,
+    "avg_points_per_game": 89.83
   },
   {
     "season": 2023,
@@ -1558,8 +1558,8 @@
     "made_playoffs": false,
     "high_score": 121.7,
     "low_score": 61.46,
-    "weeks_played": 15,
-    "avg_points_per_game": 84.57
+    "weeks_played": 16,
+    "avg_points_per_game": 79.28
   },
   {
     "season": 2023,
@@ -1580,8 +1580,8 @@
     "made_playoffs": false,
     "high_score": 157.46,
     "low_score": 74.06,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.62
+    "weeks_played": 16,
+    "avg_points_per_game": 94.33
   },
   {
     "season": 2024,
@@ -1602,8 +1602,8 @@
     "made_playoffs": true,
     "high_score": 152.78,
     "low_score": 72.52,
-    "weeks_played": 16,
-    "avg_points_per_game": 96.23
+    "weeks_played": 17,
+    "avg_points_per_game": 90.57
   },
   {
     "season": 2024,
@@ -1624,8 +1624,8 @@
     "made_playoffs": true,
     "high_score": 123.5,
     "low_score": 69.94,
-    "weeks_played": 16,
-    "avg_points_per_game": 90.55
+    "weeks_played": 17,
+    "avg_points_per_game": 85.23
   },
   {
     "season": 2024,
@@ -1646,8 +1646,8 @@
     "made_playoffs": true,
     "high_score": 155.8,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 101.76
+    "weeks_played": 17,
+    "avg_points_per_game": 95.78
   },
   {
     "season": 2024,
@@ -1668,8 +1668,8 @@
     "made_playoffs": true,
     "high_score": 133.36,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 97.85
+    "weeks_played": 17,
+    "avg_points_per_game": 92.09
   },
   {
     "season": 2024,
@@ -1690,8 +1690,8 @@
     "made_playoffs": true,
     "high_score": 137.6,
     "low_score": 69.84,
-    "weeks_played": 15,
-    "avg_points_per_game": 93.1
+    "weeks_played": 16,
+    "avg_points_per_game": 87.28
   },
   {
     "season": 2024,
@@ -1712,8 +1712,8 @@
     "made_playoffs": true,
     "high_score": 143.16,
     "low_score": 70.66,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.75
+    "weeks_played": 16,
+    "avg_points_per_game": 94.45
   },
   {
     "season": 2024,
@@ -1734,8 +1734,8 @@
     "made_playoffs": false,
     "high_score": 146.08,
     "low_score": 74.3,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.14
+    "weeks_played": 16,
+    "avg_points_per_game": 93.88
   },
   {
     "season": 2024,
@@ -1754,10 +1754,10 @@
     "streak": "L-1",
     "transactions": 13,
     "made_playoffs": false,
-    "high_score": 144.12,
+    "high_score": 171.44,
     "low_score": 58.06,
-    "weeks_played": 15,
-    "avg_points_per_game": 103.07
+    "weeks_played": 16,
+    "avg_points_per_game": 96.63
   },
   {
     "season": 2024,
@@ -1778,8 +1778,8 @@
     "made_playoffs": false,
     "high_score": 126.66,
     "low_score": 62.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 80.78
+    "weeks_played": 17,
+    "avg_points_per_game": 76.03
   },
   {
     "season": 2024,
@@ -1800,8 +1800,8 @@
     "made_playoffs": false,
     "high_score": 148.3,
     "low_score": 65.74,
-    "weeks_played": 16,
-    "avg_points_per_game": 88.16
+    "weeks_played": 17,
+    "avg_points_per_game": 82.97
   },
   {
     "season": 2024,
@@ -1822,8 +1822,8 @@
     "made_playoffs": false,
     "high_score": 134.14,
     "low_score": 71.66,
-    "weeks_played": 15,
-    "avg_points_per_game": 93.04
+    "weeks_played": 16,
+    "avg_points_per_game": 87.22
   },
   {
     "season": 2024,
@@ -1844,8 +1844,8 @@
     "made_playoffs": false,
     "high_score": 153.76,
     "low_score": 59.38,
-    "weeks_played": 15,
-    "avg_points_per_game": 96.26
+    "weeks_played": 16,
+    "avg_points_per_game": 90.24
   },
   {
     "season": 2025,
@@ -1866,8 +1866,8 @@
     "made_playoffs": true,
     "high_score": 179.12,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 93.69
+    "weeks_played": 17,
+    "avg_points_per_game": 88.18
   },
   {
     "season": 2025,
@@ -1888,8 +1888,8 @@
     "made_playoffs": true,
     "high_score": 178.56,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 107.62
+    "weeks_played": 17,
+    "avg_points_per_game": 101.29
   },
   {
     "season": 2025,
@@ -1910,8 +1910,8 @@
     "made_playoffs": true,
     "high_score": 140.62,
     "low_score": 69.14,
-    "weeks_played": 16,
-    "avg_points_per_game": 92.57
+    "weeks_played": 17,
+    "avg_points_per_game": 87.13
   },
   {
     "season": 2025,
@@ -1932,8 +1932,8 @@
     "made_playoffs": true,
     "high_score": 139.42,
     "low_score": 75.28,
-    "weeks_played": 16,
-    "avg_points_per_game": 89.88
+    "weeks_played": 17,
+    "avg_points_per_game": 84.59
   },
   {
     "season": 2025,
@@ -1954,8 +1954,8 @@
     "made_playoffs": true,
     "high_score": 133.28,
     "low_score": 77.42,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.99
+    "weeks_played": 16,
+    "avg_points_per_game": 94.68
   },
   {
     "season": 2025,
@@ -1976,8 +1976,8 @@
     "made_playoffs": true,
     "high_score": 136.4,
     "low_score": 70.44,
-    "weeks_played": 15,
-    "avg_points_per_game": 96.21
+    "weeks_played": 16,
+    "avg_points_per_game": 90.19
   },
   {
     "season": 2025,
@@ -1998,8 +1998,8 @@
     "made_playoffs": false,
     "high_score": 140.44,
     "low_score": 60.64,
-    "weeks_played": 16,
-    "avg_points_per_game": 79.01
+    "weeks_played": 17,
+    "avg_points_per_game": 74.36
   },
   {
     "season": 2025,
@@ -2020,8 +2020,8 @@
     "made_playoffs": false,
     "high_score": 132.68,
     "low_score": 57.88,
-    "weeks_played": 16,
-    "avg_points_per_game": 84.56
+    "weeks_played": 17,
+    "avg_points_per_game": 79.59
   },
   {
     "season": 2025,
@@ -2041,9 +2041,9 @@
     "transactions": 30,
     "made_playoffs": false,
     "high_score": 149.88,
-    "low_score": 86.9,
-    "weeks_played": 15,
-    "avg_points_per_game": 103.79
+    "low_score": 82.46,
+    "weeks_played": 16,
+    "avg_points_per_game": 97.3
   },
   {
     "season": 2025,
@@ -2064,8 +2064,8 @@
     "made_playoffs": false,
     "high_score": 139.76,
     "low_score": 74.58,
-    "weeks_played": 15,
-    "avg_points_per_game": 101.23
+    "weeks_played": 16,
+    "avg_points_per_game": 94.91
   },
   {
     "season": 2025,
@@ -2086,8 +2086,8 @@
     "made_playoffs": false,
     "high_score": 159.88,
     "low_score": 65.88,
-    "weeks_played": 15,
-    "avg_points_per_game": 96.85
+    "weeks_played": 16,
+    "avg_points_per_game": 90.8
   },
   {
     "season": 2025,
@@ -2106,10 +2106,10 @@
     "streak": "L-1",
     "transactions": 31,
     "made_playoffs": false,
-    "high_score": 122.18,
+    "high_score": 124.0,
     "low_score": 44.24,
-    "weeks_played": 15,
-    "avg_points_per_game": 88.74
+    "weeks_played": 16,
+    "avg_points_per_game": 83.2
   },
   {
     "season": 2026,
@@ -2130,8 +2130,8 @@
     "made_playoffs": true,
     "high_score": 142.6,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 94.22
+    "weeks_played": 17,
+    "avg_points_per_game": 88.67
   },
   {
     "season": 2026,
@@ -2152,8 +2152,8 @@
     "made_playoffs": true,
     "high_score": 147.18,
     "low_score": 84.86,
-    "weeks_played": 16,
-    "avg_points_per_game": 98.38
+    "weeks_played": 17,
+    "avg_points_per_game": 92.59
   },
   {
     "season": 2026,
@@ -2174,8 +2174,8 @@
     "made_playoffs": true,
     "high_score": 143.14,
     "low_score": 0.0,
-    "weeks_played": 16,
-    "avg_points_per_game": 103.64
+    "weeks_played": 17,
+    "avg_points_per_game": 97.54
   },
   {
     "season": 2026,
@@ -2196,8 +2196,8 @@
     "made_playoffs": true,
     "high_score": 145.6,
     "low_score": 67.12,
-    "weeks_played": 16,
-    "avg_points_per_game": 85.17
+    "weeks_played": 17,
+    "avg_points_per_game": 80.16
   },
   {
     "season": 2026,
@@ -2218,8 +2218,8 @@
     "made_playoffs": true,
     "high_score": 152.86,
     "low_score": 89.58,
-    "weeks_played": 15,
-    "avg_points_per_game": 107.82
+    "weeks_played": 16,
+    "avg_points_per_game": 101.08
   },
   {
     "season": 2026,
@@ -2240,8 +2240,8 @@
     "made_playoffs": true,
     "high_score": 139.4,
     "low_score": 81.86,
-    "weeks_played": 15,
-    "avg_points_per_game": 105.28
+    "weeks_played": 16,
+    "avg_points_per_game": 98.7
   },
   {
     "season": 2026,
@@ -2262,8 +2262,8 @@
     "made_playoffs": false,
     "high_score": 131.48,
     "low_score": 87.12,
-    "weeks_played": 15,
-    "avg_points_per_game": 100.47
+    "weeks_played": 16,
+    "avg_points_per_game": 94.19
   },
   {
     "season": 2026,
@@ -2284,8 +2284,8 @@
     "made_playoffs": false,
     "high_score": 151.96,
     "low_score": 91.94,
-    "weeks_played": 15,
-    "avg_points_per_game": 106.41
+    "weeks_played": 16,
+    "avg_points_per_game": 99.76
   },
   {
     "season": 2026,
@@ -2306,8 +2306,8 @@
     "made_playoffs": false,
     "high_score": 157.2,
     "low_score": 78.3,
-    "weeks_played": 16,
-    "avg_points_per_game": 86.8
+    "weeks_played": 17,
+    "avg_points_per_game": 81.69
   },
   {
     "season": 2026,
@@ -2328,8 +2328,8 @@
     "made_playoffs": false,
     "high_score": 135.26,
     "low_score": 60.52,
-    "weeks_played": 16,
-    "avg_points_per_game": 82.68
+    "weeks_played": 17,
+    "avg_points_per_game": 77.82
   },
   {
     "season": 2026,
@@ -2350,8 +2350,8 @@
     "made_playoffs": false,
     "high_score": 123.1,
     "low_score": 46.58,
-    "weeks_played": 15,
-    "avg_points_per_game": 88.14
+    "weeks_played": 16,
+    "avg_points_per_game": 82.63
   },
   {
     "season": 2026,
@@ -2372,7 +2372,7 @@
     "made_playoffs": false,
     "high_score": 118.38,
     "low_score": 54.66,
-    "weeks_played": 15,
-    "avg_points_per_game": 83.54
+    "weeks_played": 16,
+    "avg_points_per_game": 78.32
   }
 ]

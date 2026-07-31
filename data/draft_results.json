@@ -524,7 +524,7 @@
     "manager_id": "will",
     "manager_name": "Will",
     "player_name": "Jarvis Landry",
-    "nfl_team": "MIA",
+    "nfl_team": "TB",
     "position": "WR"
   },
   {
@@ -596,7 +596,7 @@
     "manager_id": "landon",
     "manager_name": "Landon",
     "player_name": "Mark Ingram II",
-    "nfl_team": "",
+    "nfl_team": "TB",
     "position": "RB"
   },
   {
@@ -2660,7 +2660,7 @@
     "manager_id": "jack",
     "manager_name": "Jack",
     "player_name": "Jarvis Landry",
-    "nfl_team": "MIA",
+    "nfl_team": "TB",
     "position": "WR"
   },
   {
@@ -3032,7 +3032,7 @@
     "manager_id": "alex",
     "manager_name": "Alex",
     "player_name": "Mark Ingram II",
-    "nfl_team": "",
+    "nfl_team": "TB",
     "position": "RB"
   },
   {
@@ -3284,7 +3284,7 @@
     "manager_id": "benjamin",
     "manager_name": "Benjamin",
     "player_name": "Greg Zuerlein",
-    "nfl_team": "SF",
+    "nfl_team": "Ten",
     "position": "K"
   },
   {
@@ -3368,7 +3368,7 @@
     "manager_id": "jake",
     "manager_name": "Jake",
     "player_name": "Rashaad Penny",
-    "nfl_team": "NE",
+    "nfl_team": "Min",
     "position": "RB"
   },
   {
@@ -4940,7 +4940,7 @@
     "manager_id": "jordan",
     "manager_name": "Jordan",
     "player_name": "Mark Ingram II",
-    "nfl_team": "",
+    "nfl_team": "TB",
     "position": "RB"
   },
   {
@@ -5204,7 +5204,7 @@
     "manager_id": "carson",
     "manager_name": "Carson",
     "player_name": "Jarvis Landry",
-    "nfl_team": "MIA",
+    "nfl_team": "TB",
     "position": "WR"
   },
   {
@@ -5360,7 +5360,7 @@
     "manager_id": "landon",
     "manager_name": "Landon",
     "player_name": "Greg Zuerlein",
-    "nfl_team": "SF",
+    "nfl_team": "Ten",
     "position": "K"
   },
   {
@@ -5480,7 +5480,7 @@
     "manager_id": "alex",
     "manager_name": "Alex",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -5648,7 +5648,7 @@
     "manager_id": "landon",
     "manager_name": "Landon",
     "player_name": "Rashaad Penny",
-    "nfl_team": "NE",
+    "nfl_team": "Min",
     "position": "RB"
   },
   {
@@ -6728,7 +6728,7 @@
     "manager_id": "carson",
     "manager_name": "Carson",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -6824,7 +6824,7 @@
     "manager_id": "jack",
     "manager_name": "Jack",
     "player_name": "Mark Ingram II",
-    "nfl_team": "",
+    "nfl_team": "TB",
     "position": "RB"
   },
   {
@@ -7460,7 +7460,7 @@
     "manager_id": "yusuf",
     "manager_name": "Yusuf",
     "player_name": "Jarvis Landry",
-    "nfl_team": "MIA",
+    "nfl_team": "TB",
     "position": "WR"
   },
   {
@@ -8276,7 +8276,7 @@
     "manager_id": "benjamin",
     "manager_name": "Benjamin",
     "player_name": "Greg Zuerlein",
-    "nfl_team": "SF",
+    "nfl_team": "Ten",
     "position": "K"
   },
   {
@@ -8876,7 +8876,7 @@
     "manager_id": "alex",
     "manager_name": "Alex",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -9980,7 +9980,7 @@
     "manager_id": "luke",
     "manager_name": "Luke",
     "player_name": "Trey Lance",
-    "nfl_team": "LV",
+    "nfl_team": "KC",
     "position": ""
   },
   {
@@ -10040,7 +10040,7 @@
     "manager_id": "will",
     "manager_name": "Will",
     "player_name": "AJ Dillon",
-    "nfl_team": "NO",
+    "nfl_team": "LAC",
     "position": "RB"
   },
   {
@@ -10100,7 +10100,7 @@
     "manager_id": "yusuf",
     "manager_name": "Yusuf",
     "player_name": "Rashaad Penny",
-    "nfl_team": "NE",
+    "nfl_team": "Min",
     "position": "RB"
   },
   {
@@ -10196,7 +10196,7 @@
     "manager_id": "carson",
     "manager_name": "Carson",
     "player_name": "Jarvis Landry",
-    "nfl_team": "MIA",
+    "nfl_team": "TB",
     "position": "WR"
   },
   {
@@ -10640,7 +10640,7 @@
     "manager_id": "yusuf",
     "manager_name": "Yusuf",
     "player_name": "Greg Zuerlein",
-    "nfl_team": "SF",
+    "nfl_team": "Ten",
     "position": "K"
   },
   {
@@ -10964,7 +10964,7 @@
     "manager_id": "jack",
     "manager_name": "Jack",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -11732,7 +11732,7 @@
     "manager_id": "carson",
     "manager_name": "Carson",
     "player_name": "AJ Dillon",
-    "nfl_team": "NO",
+    "nfl_team": "LAC",
     "position": "RB"
   },
   {
@@ -11816,7 +11816,7 @@
     "manager_id": "luke",
     "manager_name": "Luke",
     "player_name": "Rashaad Penny",
-    "nfl_team": "NE",
+    "nfl_team": "Min",
     "position": "RB"
   },
   {
@@ -12224,7 +12224,7 @@
     "manager_id": "isabella",
     "manager_name": "Isabella",
     "player_name": "Albert Okwuegbunam Jr.",
-    "nfl_team": "LAC",
+    "nfl_team": "Ari",
     "position": ""
   },
   {
@@ -12596,7 +12596,7 @@
     "manager_id": "carson",
     "manager_name": "Carson",
     "player_name": "Jarvis Landry",
-    "nfl_team": "MIA",
+    "nfl_team": "TB",
     "position": "WR"
   },
   {
@@ -12656,7 +12656,7 @@
     "manager_id": "jack",
     "manager_name": "Jack",
     "player_name": "Daniel Carlson",
-    "nfl_team": "Den",
+    "nfl_team": "Buf",
     "position": "K"
   },
   {
@@ -12704,7 +12704,7 @@
     "manager_id": "jordan",
     "manager_name": "Jordan",
     "player_name": "Trey Lance",
-    "nfl_team": "LV",
+    "nfl_team": "KC",
     "position": ""
   },
   {
@@ -13172,7 +13172,7 @@
     "manager_id": "mike",
     "manager_name": "Mike",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -14000,7 +14000,7 @@
     "manager_id": "will",
     "manager_name": "Will",
     "player_name": "Rashaad Penny",
-    "nfl_team": "NE",
+    "nfl_team": "Min",
     "position": "RB"
   },
   {
@@ -14108,7 +14108,7 @@
     "manager_id": "luke",
     "manager_name": "Luke",
     "player_name": "AJ Dillon",
-    "nfl_team": "NO",
+    "nfl_team": "LAC",
     "position": "RB"
   },
   {
@@ -14792,7 +14792,7 @@
     "manager_id": "alex",
     "manager_name": "Alex",
     "player_name": "Daniel Carlson",
-    "nfl_team": "Den",
+    "nfl_team": "Buf",
     "position": "K"
   },
   {
@@ -15056,7 +15056,7 @@
     "manager_id": "mike",
     "manager_name": "Mike",
     "player_name": "Kenny Pickett",
-    "nfl_team": "Atl",
+    "nfl_team": "NO",
     "position": "QB"
   },
   {
@@ -15225,7 +15225,7 @@
     "manager_name": "Yusuf",
     "player_name": "Zamir White",
     "nfl_team": "Car",
-    "position": ""
+    "position": "RB"
   },
   {
     "season": 2024,
@@ -15993,7 +15993,7 @@
     "manager_name": "Alex",
     "player_name": "Zamir White",
     "nfl_team": "Car",
-    "position": ""
+    "position": "RB"
   },
   {
     "season": 2025,
@@ -16400,7 +16400,7 @@
     "manager_id": "jack",
     "manager_name": "Jack",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -16628,7 +16628,7 @@
     "manager_id": "will",
     "manager_name": "Will",
     "player_name": "AJ Dillon",
-    "nfl_team": "NO",
+    "nfl_team": "LAC",
     "position": "RB"
   },
   {
@@ -17252,7 +17252,7 @@
     "manager_id": "luke",
     "manager_name": "Luke",
     "player_name": "Greg Zuerlein",
-    "nfl_team": "SF",
+    "nfl_team": "Ten",
     "position": "K"
   },
   {
@@ -18080,7 +18080,7 @@
     "manager_id": "jordan",
     "manager_name": "Jordan",
     "player_name": "Kaleb Johnson",
-    "nfl_team": "NYJ",
+    "nfl_team": "Sea",
     "position": "RB"
   },
   {
@@ -19208,7 +19208,7 @@
     "manager_id": "ryan",
     "manager_name": "Ryan",
     "player_name": "Austin Ekeler",
-    "nfl_team": "Dal",
+    "nfl_team": "NYG",
     "position": "RB"
   },
   {
@@ -19244,7 +19244,7 @@
     "manager_id": "mike",
     "manager_name": "Mike",
     "player_name": "J.J. McCarthy",
-    "nfl_team": "Chi",
+    "nfl_team": "Atl",
     "position": "QB"
   },
   {
