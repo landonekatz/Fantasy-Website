@@ -53,7 +53,7 @@ class FantasyApp {
         // Support both fetch and offline FANTASY_DATA window variable fallback
         const fetchOrFallback = async (filename, bundleKey) => {
             try {
-                const res = await fetch(`data/${filename}`);
+                const res = await fetch(`data/${filename}?v=${Date.now()}`, { cache: 'no-store' });
                 if (res.ok) {
                     return await res.json();
                 }
@@ -561,24 +561,29 @@ class FantasyApp {
     }
 
     openBoxscoreModal(season, week, leftId, rightId) {
+        const sNum = Number(season);
+        const wNum = Number(week);
+        const lId = Number(leftId);
+        const rId = Number(rightId);
+
         const modal = document.getElementById('boxscore-modal');
         const modalContent = document.getElementById('boxscore-modal-content');
         if (!modal || !modalContent) return;
 
         // Find matchup metadata
-        const m = this.matchups.find(x => x.season === season && x.week === week && ((x.team_1_id === leftId && x.team_2_id === rightId) || (x.team_1_id === rightId && x.team_2_id === leftId)));
+        const m = this.matchups.find(x => x.season === sNum && x.week === wNum && ((x.team_1_id === lId && x.team_2_id === rId) || (x.team_1_id === rId && x.team_2_id === lId)));
         if (!m) return;
 
-        const isLeftTeam1 = m.team_1_id === leftId;
+        const isLeftTeam1 = m.team_1_id === lId;
         const leftName = isLeftTeam1 ? m.team_1_name : m.team_2_name;
         const rightName = isLeftTeam1 ? m.team_2_name : m.team_1_name;
         const leftScore = isLeftTeam1 ? m.team_1_actual_points : m.team_2_actual_points;
         const rightScore = isLeftTeam1 ? m.team_2_actual_points : m.team_1_actual_points;
-        const isLeftWin = m.winner_team_id === leftId;
-        const isRightWin = m.winner_team_id === rightId;
+        const isLeftWin = m.winner_team_id === lId;
+        const isRightWin = m.winner_team_id === rId;
 
         // Find all player stats for both teams in that season & week (deduplicating duplicate records)
-        const rawGamePlayers = this.playerStats.filter(p => p.season === season && p.week === week && (p.team_id === leftId || p.team_id === rightId));
+        const rawGamePlayers = this.playerStats.filter(p => p.season === sNum && p.week === wNum && (p.team_id === lId || p.team_id === rId));
         const seenPlayerKeys = new Set();
         const gamePlayers = [];
         for (const p of rawGamePlayers) {
@@ -589,8 +594,8 @@ class FantasyApp {
             }
         }
 
-        const leftPlayers = gamePlayers.filter(p => p.team_id === leftId);
-        const rightPlayers = gamePlayers.filter(p => p.team_id === rightId);
+        const leftPlayers = gamePlayers.filter(p => p.team_id === lId);
+        const rightPlayers = gamePlayers.filter(p => p.team_id === rId);
 
         const renderRosterTable = (players, teamName, score, isWinner) => {
             const starters = players.filter(p => p.is_starter);

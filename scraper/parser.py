@@ -776,6 +776,21 @@ def parse_matchups_and_boxscores(seasons, team_names_lookup, config=None, standi
                         "fantasy_points": actual_pts,
                     })
 
+                left_t_id = team_id
+                right_t_id = matchup_ctx.get("opponent_team_id")
+                if right_t_id:
+                    links = [a.get_text(strip=True) for a in soup.find_all("a", class_="F-link") if a.get_text(strip=True)]
+                    if len(links) >= 2:
+                        left_name, right_name = links[0].lower().strip(), links[1].lower().strip()
+                        t_name_clean = team_names_lookup.get((year, team_id), "").lower().strip()
+                        opp_name_clean = matchup_ctx.get("opponent_team_name", "").lower().strip()
+                        if (opp_name_clean and opp_name_clean in left_name and not (t_name_clean and t_name_clean in left_name)) or \
+                           (t_name_clean and t_name_clean in right_name and not (opp_name_clean and opp_name_clean in right_name)):
+                            left_t_id, right_t_id = right_t_id, left_t_id
+
+                left_ctx = weekly_matchups_lookup.get(left_t_id, matchup_ctx)
+                right_ctx = weekly_matchups_lookup.get(right_t_id, {}) if right_t_id else {}
+
                 # Table 1: Starters, Table 2: Bench/IR
                 for t_idx, table in enumerate([tables[1], tables[2]]):
                     is_starter = (t_idx == 0)
@@ -784,7 +799,7 @@ def parse_matchups_and_boxscores(seasons, team_names_lookup, config=None, standi
                         if len(cells) < 11:
                             continue
 
-                        # 1. Left Player (team_id)
+                        # 1. Left Player (left_t_id)
                         _parse_and_add_player(
                             p_cell=cells[1],
                             slot_str=cells[4].get_text(strip=True),
@@ -792,14 +807,12 @@ def parse_matchups_and_boxscores(seasons, team_names_lookup, config=None, standi
                             pts_str=cells[3].get_text(strip=True),
                             stat_str=cells[0].get_text(strip=True),
                             is_starter_flag=is_starter,
-                            t_id=team_id,
-                            t_ctx=matchup_ctx
+                            t_id=left_t_id,
+                            t_ctx=left_ctx
                         )
 
-                        # 2. Right Player (opponent_team_id)
-                        opp_id = matchup_ctx.get("opponent_team_id")
-                        if opp_id and len(cells) >= 11:
-                            opp_ctx = weekly_matchups_lookup.get(opp_id, {})
+                        # 2. Right Player (right_t_id)
+                        if right_t_id and len(cells) >= 11:
                             _parse_and_add_player(
                                 p_cell=cells[9],
                                 slot_str=cells[6].get_text(strip=True),
@@ -807,8 +820,8 @@ def parse_matchups_and_boxscores(seasons, team_names_lookup, config=None, standi
                                 pts_str=cells[7].get_text(strip=True),
                                 stat_str=cells[10].get_text(strip=True),
                                 is_starter_flag=is_starter,
-                                t_id=opp_id,
-                                t_ctx=opp_ctx
+                                t_id=right_t_id,
+                                t_ctx=right_ctx
                             )
 
     return matchups_data, boxscores_data
