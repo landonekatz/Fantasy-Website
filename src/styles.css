@@ -1942,25 +1942,116 @@ body.rivalry-dungeon-mode footer {
     box-shadow: 0 15px 40px rgba(255, 87, 34, 0.25), inset 0 0 30px rgba(255, 87, 34, 0.12);
 }
 
+/* ========================================================
+   RIVALRY WEEK: CONSTANT LOW GLOW + CRIMSON HALO + VS LETTERING
+   ======================================================== */
 .dungeon-card-header {
-    border-bottom: 1px solid rgba(255, 87, 34, 0.22);
-    padding-bottom: 18px;
-    margin-bottom: 20px;
+    border-bottom: none;
+    padding: 20px 0 14px 0;
+    margin-bottom: 24px;
+    width: 100%;
+    background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.25) 0%, transparent 72%);
+    border-radius: 12px;
+    position: relative;
+    filter: drop-shadow(0 0 16px rgba(255, 87, 34, 0.65)) drop-shadow(0 0 30px rgba(220, 38, 38, 0.45));
+}
+
+.dungeon-rivalry-title-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    padding: 0 10px;
+}
+
+.dungeon-rivalry-cell {
+    min-width: 0;
     width: 100%;
 }
 
-.dungeon-rivalry-title {
+.dungeon-rivalry-cell.cell-left {
+    text-align: right;
+    padding-right: 0px;
+}
+
+.dungeon-rivalry-cell.cell-right {
+    text-align: left;
+    padding-left: 0px;
+}
+
+.dungeon-rivalry-name {
+    display: inline-block;
     font-family: 'Cinzel', Georgia, serif;
-    font-size: 1.85rem;
-    font-weight: 800;
-    background: linear-gradient(180deg, #ffffff 0%, #ffb300 55%, #ff5722 100%);
+    font-size: 2.35rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    background: linear-gradient(180deg, #ffffff 0%, #ffeb3b 22%, #ffc107 48%, #ff8f00 76%, #d84315 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: 0.5px;
+    color: transparent;
     line-height: 1.15;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.6)) drop-shadow(0 0 1.8px rgba(255, 120, 31, 0.85)) drop-shadow(0 0 3.4px rgba(255, 60, 0, 0.75)) drop-shadow(0 0 5.2px rgba(220, 38, 38, 0.6));
+    white-space: nowrap;
+}
+
+.dungeon-vs-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', Georgia, serif;
+    font-size: 1.30rem;
+    font-weight: 900;
+    font-style: italic;
+    color: #ff5722;
+    letter-spacing: 2px;
+    text-shadow: 
+        0 0 12px #fff,
+        0 0 27px #ff781f,
+        0 0 51px #ff3c00,
+        0 0 78px #dc2626;
+    padding: 0 7px;
+    z-index: 2;
+}
+
+.dungeon-rivalry-underline {
+    height: 3px;
     width: 100%;
-    display: block;
+    max-width: 580px;
+    margin: 22px auto 0 auto;
+    background: linear-gradient(90deg, transparent 0%, #ff5722 20%, #ffb300 50%, #ff5722 80%, transparent 100%);
+    position: relative;
+    box-shadow: 0 0 18px #ff5722, 0 0 30px #ffb300;
+}
+
+.dungeon-rivalry-underline::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 11px;
+    height: 11px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 15px #ffffff, 0 0 25px #ffb300;
+}
+
+@media (max-width: 768px) {
+    .dungeon-rivalry-name {
+        font-size: 1.45rem;
+        letter-spacing: 1px;
+    }
+    .dungeon-rivalry-cell.cell-left {
+        padding-right: 10px;
+    }
+    .dungeon-rivalry-cell.cell-right {
+        padding-left: 10px;
+    }
+    .dungeon-vs-text {
+        font-size: 1.15rem;
+        padding: 0 8px;
+    }
 }
 
 /* Mike's Blurb Placeholder Above Matchups */

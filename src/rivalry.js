@@ -143,9 +143,18 @@ FantasyApp.prototype.renderRivalryWeek = function() {
         html += `
             <div class="dungeon-card">
                 <div>
-                    <!-- Card Header: Title spans 100% width across the top, zero extra tags -->
+                    <!-- Card Header: Concept 5 Hybrid Clash Title -->
                     <div class="dungeon-card-header">
-                        <div class="dungeon-rivalry-title">${rivalry.surname1} vs. ${rivalry.surname2}</div>
+                        <div class="dungeon-rivalry-title-grid">
+                            <div class="dungeon-rivalry-cell cell-left">
+                                <span class="dungeon-rivalry-name">${rivalry.surname1}</span>
+                            </div>
+                            <div class="dungeon-vs-text">VS.</div>
+                            <div class="dungeon-rivalry-cell cell-right">
+                                <span class="dungeon-rivalry-name">${rivalry.surname2}</span>
+                            </div>
+                        </div>
+                        <div class="dungeon-rivalry-underline"></div>
                     </div>
 
                     <!-- Mike's Blurb Placeholder Above Matchups -->

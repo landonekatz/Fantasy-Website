@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rivalry Week Title Mockups - Dumbarton Fantasy Football League HQ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@400;600;700&family=Newsreader:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f0709;
+            --card-bg: rgba(22, 10, 13, 0.85);
+            --border-amber: rgba(255, 87, 34, 0.35);
+            --text-primary: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 50% 15%, rgba(220, 38, 38, 0.15) 0%, transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(255, 179, 0, 0.08) 0%, transparent 50%),
+                linear-gradient(180deg, #0b0405 0%, #16080a 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            border-bottom: 1px solid var(--border-amber);
+            padding-bottom: 30px;
+        }
+
+        header h1 {
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 2.4rem;
+            letter-spacing: 2px;
+            background: linear-gradient(180deg, #ffffff 0%, #ffb300 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #ff8a65;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .mockup-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 50px;
+        }
+
+        .mockup-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 87, 34, 0.28);
+            border-radius: 16px;
+            padding: 36px 30px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mockup-header-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 87, 34, 0.15);
+            border: 1px solid rgba(255, 87, 34, 0.4);
+            color: #ff8a65;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+        }
+
+        .mockup-description {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .mockup-description strong {
+            color: #fbbf24;
+        }
+
+        /* ========================================================
+           CONCEPT 1: INFERNO FORGE & CRIMSON HALO (Pulsating Glow)
+           ======================================================== */
+        @keyframes inferno-pulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 12px rgba(255, 87, 34, 0.75)) drop-shadow(0 0 28px rgba(220, 38, 38, 0.55));
+            }
+            50% {
+                filter: drop-shadow(0 0 20px rgba(255, 179, 0, 0.95)) drop-shadow(0 0 45px rgba(239, 68, 68, 0.8));
+            }
+        }
+
+        .concept-1-wrap {
+            text-align: center;
+            padding: 24px 0;
+            background: radial-gradient(circle at center, rgba(220, 38, 38, 0.18) 0%, transparent 70%);
+            border-radius: 12px;
+        }
+
+        .concept-1-title {
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 2.6rem;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            background: linear-gradient(180deg, #ffffff 0%, #ffe082 40%, #ff8f00 75%, #d84315 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: inferno-pulse 3.5s infinite ease-in-out;
+            display: inline-block;
+            line-height: 1.2;
+        }
+
+        .concept-1-ornament {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 12px;
+            color: #ff5722;
+            font-family: 'Cinzel', serif;
+            font-size: 0.9rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            opacity: 0.85;
+        }
+
+        .concept-1-ornament::before,
+        .concept-1-ornament::after {
+            content: "";
+            height: 1px;
+            width: 70px;
+            background: linear-gradient(90deg, transparent, #ff5722);
+        }
+        .concept-1-ornament::after {
+            background: linear-gradient(90deg, #ff5722, transparent);
+        }
+
+
+        /* ========================================================
+           CONCEPT 2: MOLTEN GOLD & OBSIDIAN TROPHY CREST (Framed)
+           ======================================================== */
+        .concept-2-plaque {
+            background: linear-gradient(145deg, #18090c, #0a0304);
+            border: 1px solid rgba(255, 179, 0, 0.55);
+            border-radius: 12px;
+            padding: 24px 32px;
+            box-shadow: 
+                0 0 30px rgba(255, 179, 0, 0.25),
+                inset 0 1px 1px rgba(255, 255, 255, 0.15),
+                inset 0 0 25px rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 24px;
+            text-align: center;
+        }
+
+        .concept-2-name {
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 2.4rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(180deg, #fffbeb 0%, #fde68a 50%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9));
+        }
+
+        .concept-2-vs-badge {
+            background: radial-gradient(circle, #dc2626 0%, #7f1d1d 100%);
+            border: 2px solid #f59e0b;
+            color: #fef3c7;
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: 1.1rem;
+            padding: 8px 18px;
+            border-radius: 50px;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.8), inset 0 1px 2px rgba(255,255,255,0.4);
+            text-transform: uppercase;
+        }
+
+
+        /* ========================================================
+           CONCEPT 3: HELLFIRE NEON & SMOLDERING UNDERLINE (High Contrast)
+           ======================================================== */
+        .concept-3-wrap {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .concept-3-title {
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 2.7rem;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 
+                0 0 8px #fff,
+                0 0 18px #ff781f,
+                0 0 35px #ff3c00,
+                0 0 60px #dc2626;
+            margin-bottom: 18px;
+            line-height: 1.15;
+        }
+
+        .concept-3-underline {
+            height: 3px;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            background: linear-gradient(90deg, transparent 0%, #ff5722 20%, #ffb300 50%, #ff5722 80%, transparent 100%);
+            position: relative;
+            box-shadow: 0 0 18px #ff5722, 0 0 30px #ffb300;
+        }
+
+        .concept-3-underline::after {
+            content: "";
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #ffffff, 0 0 25px #ffb300;
+        }
+
+
+        /* ========================================================
+           CONCEPT 4: BLOOD FEUD & GOLDEN LAUREL (Gladiatorial Clash)
+           ======================================================== */
+        .concept-4-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 25px 0;
+            background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.22) 0%, transparent 75%);
+            border-radius: 12px;
+        }
+
+        .concept-4-name {
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 1px;
+            filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.65));
+            text-align: center;
+        }
+
+        .concept-4-vs-diamond {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(135deg, #ef4444 0%, #7f1d1d 100%);
+            border: 2px solid #fbbf24;
+            transform: rotate(45deg);
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.85);
+            flex-shrink: 0;
+        }
+
+        .concept-4-vs-diamond span {
+            transform: rotate(-45deg);
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: 1rem;
+            color: #fef3c7;
+            letter-spacing: 1px;
+        }
+
+        /* ========================================================
+           CONCEPT 5: ULTIMATE HYBRID CLASH (Recommended)
+           ======================================================== */
+        @keyframes inferno-hybrid-pulse {
+            0%, 100% {
+                filter: drop-shadow(0 0 14px rgba(255, 87, 34, 0.75)) drop-shadow(0 0 30px rgba(220, 38, 38, 0.55));
+            }
+            50% {
+                filter: drop-shadow(0 0 24px rgba(255, 179, 0, 0.95)) drop-shadow(0 0 50px rgba(239, 68, 68, 0.85));
+            }
+        }
+
+        .concept-5-wrap {
+            text-align: center;
+            padding: 28px 0 16px 0;
+            background: radial-gradient(ellipse at center, rgba(239, 68, 68, 0.25) 0%, transparent 70%);
+            border-radius: 12px;
+        }
+
+        .concept-5-title-container {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+            align-items: center;
+            width: 100%;
+            padding: 0 10px;
+            filter: drop-shadow(0 0 16px rgba(255, 87, 34, 0.65)) drop-shadow(0 0 30px rgba(220, 38, 38, 0.45));
+        }
+
+        .concept-5-cell {
+            min-width: 0;
+            width: 100%;
+        }
+
+        .concept-5-cell.cell-left {
+            text-align: right;
+            padding-right: 14px;
+        }
+
+        .concept-5-cell.cell-right {
+            text-align: left;
+            padding-left: 14px;
+        }
+
+        .concept-5-name {
+            display: inline-block;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 1.95rem;
+            font-weight: 900;
+            letter-spacing: 1.5px;
+            background: linear-gradient(180deg, #ffffff 0%, #ffeb3b 22%, #ffc107 48%, #ff8f00 76%, #d84315 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            line-height: 1.15;
+            filter: drop-shadow(0 2px 8px rgba(255, 120, 31, 0.55));
+            white-space: nowrap;
+        }
+
+        .concept-5-vs-text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', Georgia, serif;
+            font-size: 1.35rem;
+            font-weight: 900;
+            font-style: italic;
+            color: #ff5722;
+            letter-spacing: 2px;
+            text-shadow: 
+                0 0 10px rgba(255, 87, 34, 0.85),
+                0 0 20px rgba(255, 179, 0, 0.6);
+            padding: 0 12px;
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Rivalry Week Matchup Title Design Mockups</h1>
+            <p>Select your favorite visual style for the "X vs. Y" blood-feud headers</p>
+        </header>
+
+        <div class="mockup-grid">
+            <!-- Concept 5: ULTIMATE HYBRID CLASH -->
+            <div class="mockup-card" style="border: 2px solid #ffb300; box-shadow: 0 0 35px rgba(255, 179, 0, 0.25);">
+                <div class="mockup-header-label" style="background: rgba(255, 179, 0, 0.2); border-color: #ffb300; color: #ffb300;">Concept 5 • Ultimate Hybrid Clash (Requested Tweaks)</div>
+                <div class="concept-5-wrap">
+                    <div class="concept-5-title-container">
+                        <div class="concept-5-cell cell-left">
+                            <span class="concept-5-name">BENJAMIN</span>
+                        </div>
+                        <div class="concept-5-vs-text">VS.</div>
+                        <div class="concept-5-cell cell-right">
+                            <span class="concept-5-name">ISABELLA</span>
+                        </div>
+                    </div>
+                    <div class="concept-3-underline" style="margin-top: 24px;"></div>
+                </div>
+                <div class="mockup-description">
+                    <strong>Why it pops:</strong> Created directly from your specifications! Features a steady, constant crimson halo and low glow, shimmering royal-gold-to-crimson names (`2.35rem`, `4%` neon rim), clean "VS." lettering (`1.30rem`, `60%` hellfire corona) in the exact center with a tight `7px` distance gap, and the smoldering bottom underline with its centered ember dot.
+                </div>
+            </div>
+
+            <!-- Concept 1 -->
+            <div class="mockup-card">
+                <div class="mockup-header-label">Concept 1 • Inferno Forge & Crimson Halo</div>
+                <div class="concept-1-wrap">
+                    <div class="concept-1-ornament">Rivalry Blood Feud</div>
+                    <div class="concept-1-title">BENJAMIN vs. ISABELLA</div>
+                </div>
+                <div class="mockup-description">
+                    <strong>Why it pops:</strong> Features a continuous pulsating ember glow (using smooth CSS keyframe drop-shadows) and a vertical gold-to-crimson gradient. The decorative top ornament frames the title, making it feel like an ancient rivalry etched into molten fire.
+                </div>
+            </div>
+
+            <!-- Concept 2 -->
+            <div class="mockup-card">
+                <div class="mockup-header-label">Concept 2 • Molten Gold & Obsidian Trophy Plaque</div>
+                <div class="concept-2-plaque">
+                    <div class="concept-2-name">BENJAMIN</div>
+                    <div class="concept-2-vs-badge">VS</div>
+                    <div class="concept-2-name">ISABELLA</div>
+                </div>
+                <div class="mockup-description">
+                    <strong>Why it pops:</strong> Encased in an elevated obsidian crest with a molten amber glow and embossed borders. The glowing crimson circular badge for "VS" creates a distinct center focal point, giving it the gravitas of a title fight championship banner.
+                </div>
+            </div>
+
+            <!-- Concept 3 -->
+            <div class="mockup-card">
+                <div class="mockup-header-label">Concept 3 • Hellfire Neon & Smoldering Underline</div>
+                <div class="concept-3-wrap">
+                    <div class="concept-3-title">BENJAMIN vs. ISABELLA</div>
+                    <div class="concept-3-underline"></div>
+                </div>
+                <div class="mockup-description">
+                    <strong>Why it pops:</strong> Delivers maximum contrast with brilliant white text surrounded by a multi-layered searing neon orange and crimson corona. The smoldering horizontal underline line anchors the title and separates it cleanly from the matchup blurb below.
+                </div>
+            </div>
+
+            <!-- Concept 4 -->
+            <div class="mockup-card">
+                <div class="mockup-header-label">Concept 4 • Gladiatorial Blood Diamond</div>
+                <div class="concept-4-wrap">
+                    <div class="concept-4-name">BENJAMIN</div>
+                    <div class="concept-4-vs-diamond">
+                        <span>VS</span>
+                    </div>
+                    <div class="concept-4-name">ISABELLA</div>
+                </div>
+                <div class="mockup-description">
+                    <strong>Why it pops:</strong> Uses an angular crimson-and-gold diamond emblem to separate the two competing surnames. A soft radial crimson spotlight illuminates the entire background behind the names, making the clash feel like a gladiatorial arena duel.
+        </div>
+</body>
+</html>
