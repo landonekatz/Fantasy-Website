@@ -101,15 +101,15 @@ FantasyApp.prototype.renderRivalryWeek = function() {
                 </p>
                 <p class="dungeon-subtitle">
                     Forged in fire starting in 2027, every manager is bound to an eternal rival. 
-                    Contested annually during Week 13, where rivalry records are etched in stone forever.
+                    Contested annually during Thanksgiving, where rivalry records are etched in stone forever.
                 </p>
 
                 <!-- Commissioner Intro Box -->
                 <div class="dungeon-mike-box">
                     <span class="dungeon-box-tag">RIVALRY WEEK EST. 2027 — COMMISSIONER MANIFESTO</span>
-                    <p>[Placeholder for Mike: Write an official league introduction to Rivalry Week here. Declare the pride, blood feud, and eternal bragging rights on the line every November.]</p>
+                    <p>"I have no enemies" is what I would say if I had no enemies. But everyone has enemies. Opps. Rivals. And for the first time in the history of the Dumbarton football league, we'll have a week dedicated to that feeling in your chest that you get when you see their team name across from yours in the Yahoo matchups page. It just means more. This is rivalry week.</p>
                     <div class="dungeon-mike-note">
-                        Note to Mike: You can reorder the rivalry listings on this page as you please. Once games are played, listings will automatically be ordered by the most recent winner.
+                        
                     </div>
                 </div>
             </div>
