@@ -97,7 +97,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
                 </div>
                 <h1 class="dungeon-main-title">Rivalry Week</h1>
                 <p style="font-size:0.72rem;color:#9c787b;font-style:italic;margin-bottom:8px;">
-                    Mike — please feel free to update the blurb below, it was AI generated. Also mention that it occurs on Thanksgiving rather than Week 13.
+                    
                 </p>
                 <p class="dungeon-subtitle">
                     Forged in fire starting in 2027, every manager is bound to an eternal rival. 
