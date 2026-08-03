@@ -1100,7 +1100,7 @@ dialog.boxscore-modal::backdrop {
 }
 
 /* Footer */
-footer {
+footer:not(.dungeon-quote-credit) {
     text-align: center;
     padding: 40px 20px;
     color: var(--text-muted);
@@ -1801,7 +1801,7 @@ body.rivalry-dungeon-mode .top-nav-btn.active {
     box-shadow: 0 0 20px rgba(255, 87, 34, 0.6) !important;
 }
 
-body.rivalry-dungeon-mode footer {
+body.rivalry-dungeon-mode footer:not(.dungeon-quote-credit) {
     background: rgba(10, 4, 5, 0.85) !important;
     border-top: 1px solid rgba(255, 87, 34, 0.25) !important;
     color: #9c787b !important;
@@ -1871,6 +1871,47 @@ body.rivalry-dungeon-mode footer {
     -webkit-text-fill-color: transparent;
     margin-bottom: 12px;
     filter: drop-shadow(0 4px 15px rgba(255, 87, 34, 0.35));
+}
+
+.dungeon-quote {
+    font-family: 'Playfair Display', 'EB Garamond', Georgia, serif !important;
+    font-style: italic !important;
+    font-size: 0.92rem !important;
+    font-weight: 400 !important;
+    color: rgba(255, 204, 208, 0.7) !important;
+    max-width: 680px;
+    margin: 14px auto 0 !important;
+    line-height: 1.55 !important;
+    text-align: center !important;
+    padding: 0 20px;
+}
+
+.dungeon-quote p {
+    font-family: 'Playfair Display', 'EB Garamond', Georgia, serif !important;
+    font-style: italic !important;
+    font-size: 0.92rem !important;
+    margin: 0;
+    padding: 0;
+}
+
+body.rivalry-dungeon-mode footer.dungeon-quote-credit,
+footer.dungeon-quote-credit,
+.dungeon-quote-credit {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-style: normal !important;
+    font-size: 0.82rem !important;
+    font-weight: 400 !important;
+    color: rgba(255, 204, 208, 0.65) !important;
+    margin: 2px auto 36px !important;
+    text-align: center !important;
+    box-shadow: none !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    line-height: 1.4 !important;
 }
 
 .dungeon-subtitle {

@@ -14,42 +14,48 @@ FantasyApp.prototype.renderRivalryWeek = function() {
             surname1: 'RAUFMAN',
             surname2: 'FEY',
             manager1: 'Benjamin',
-            manager2: 'Jake'
+            manager2: 'Jake',
+            writeup: 'A former double champion struggling in a new era. A perennial contender - and one-time champ - riding a five-season playoff streak. Both men who never once have admitted defeat. It doesn\'t get much better than this. Ben vs. Jake.'
         },
         {
             id: 'stamatos_gutberlet',
             surname1: 'STAMATOS',
             surname2: 'GUTBERLET',
             manager1: 'Mike',
-            manager2: 'Luke'
+            manager2: 'Luke',
+            writeup: 'It\'s on sight. Their blood stains the walls of the groupchat. Vicious battles where nothing is below the belt and nothing is off limits. One looking for a record-breaking third ring. The other just wanting a playoff win. Mike vs. Luke.'
         },
         {
             id: 'katz_frey',
             surname1: 'KATZ',
             surname2: 'FREY',
             manager1: 'Landon',
-            manager2: 'Alex'
+            manager2: 'Alex',
+            writeup: 'One is commissioner. The other one wants his position - and what comes with it. The status. The control. The power. And he\'s the reigning champ. One is never out of it while the other always goes all in. One of the best rivalries you\'ll find anywhere. A real blue-blood matchup. Alex vs. Landon.'
         },
         {
             id: 'watson_boice',
             surname1: 'WATSON',
             surname2: 'BOICE',
             manager1: 'Madoc',
-            manager2: 'Ryan'
+            manager2: 'Ryan',
+            writeup: 'The two newest members. Lots to prove. Lots of questions. Every good rivalry has to start somewhere. Madoc vs. Ryan.'
         },
         {
             id: 'lehmann_sabatino',
             surname1: 'LEHMANN',
             surname2: 'SABATINO',
             manager1: 'Will',
-            manager2: 'Isabella'
+            manager2: 'Isabella',
+            writeup: '2021. The Championship. Kamara’s 54.7. Losing by less than two points. No playoff wins since. How does one break the curse of AK? Maybe by demolishing the one it all started against - a double champion who elevates come playoff time, with a ridiculous 6-1 record in the big games. Isabella vs. Will.'
         },
         {
             id: 'glikin_beck',
             surname1: 'GLIKIN',
             surname2: 'BECK',
             manager1: 'Carson',
-            manager2: 'Jordan'
+            manager2: 'Jordan',
+            writeup: 'It feels like one of these two are due. Both longtime league members. Both never won the big game. Both had years where it just slipped away. Completely different styles of coaching - one likes sticking with his guys, while the other will literally trade anything that’s not nailed down - and rip the nails out if he so chooses. Always a fun one. Jordan vs. Carson.'
         }
     ];
 
@@ -87,30 +93,23 @@ FantasyApp.prototype.renderRivalryWeek = function() {
     let html = `
         <div class="rivalry-dungeon-container">
             <!-- Masthead -->
-            <div class="dungeon-masthead">
-                <div class="dungeon-est-badge">
-                    <!-- SVG Iron Chain Icon -->
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M10 4H8A6 6 0 0 0 8 16H10V14H8A4 4 0 0 1 8 6H10V4M14 20H16A6 6 0 0 0 16 8H14V10H16A4 4 0 0 1 16 18H14V20M8 11H16V13H8V11Z"/>
-                    </svg>
-                    EST. 2027
-                </div>
+            <div class="dungeon-masthead" style="position: relative;">
                 <h1 class="dungeon-main-title">Rivalry Week</h1>
-                <p style="font-size:0.72rem;color:#9c787b;font-style:italic;margin-bottom:8px;">
-                    
-                </p>
+                <blockquote class="dungeon-quote">
+                    <p>Were half to half the world by the ears and he.</p>
+                    <p>Upon my party, I'ld revolt to make</p>
+                    <p>Only my wars with him: he is a lion</p>
+                    <p>That I am proud to hunt.</p>
+                </blockquote>
+                <div class="dungeon-quote-credit">— William Shakespeare, <em>Coriolanus</em></div>
                 <p class="dungeon-subtitle">
-                    Forged in fire starting in 2027, every manager is bound to an eternal rival. 
-                    Contested annually during Thanksgiving, where rivalry records are etched in stone forever.
+                    Starting in the 2026-2027 season, every manager is bound to an eternal rival. Contested annually during the week of Thanksgiving, where rivalry records are carved in stone forever.
                 </p>
 
                 <!-- Commissioner Intro Box -->
                 <div class="dungeon-mike-box">
-                    <span class="dungeon-box-tag">RIVALRY WEEK EST. 2027 — COMMISSIONER MANIFESTO</span>
-                    <p>"I have no enemies" is what I would say if I had no enemies. But everyone has enemies. Opps. Rivals. And for the first time in the history of the Dumbarton football league, we'll have a week dedicated to that feeling in your chest that you get when you see their team name across from yours in the Yahoo matchups page. It just means more. This is rivalry week.</p>
-                    <div class="dungeon-mike-note">
-                        
-                    </div>
+                    <span class="dungeon-box-tag">MIKE'S MANIFESTO</span>
+                    <p>"I have no enemies" is what I would say if I had no enemies. But everyone has enemies. Opps. Rivals. And for the first time in the history of the Dumbarton fantasy football league, we'll have a week dedicated to that feeling in your chest that you get when you see their team name across from yours in the Yahoo matchups page. It just means more. This is rivalry week.</p>
                 </div>
             </div>
 
@@ -161,7 +160,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
                     <div class="dungeon-blurb-box">
                         <span class="dungeon-blurb-label">Mike's Rivalry Feud Chronicle</span>
                         <div class="dungeon-blurb-text">
-                            [Placeholder for Mike: Write a short chronicle of the ${rivalry.surname1} vs. ${rivalry.surname2} blood feud and rivalry history...]
+                            ${rivalry.writeup || ''}
                         </div>
                     </div>
 
