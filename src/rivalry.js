@@ -163,7 +163,9 @@ FantasyApp.prototype.renderRivalryWeek = function() {
                             ${rivalry.writeup || ''}
                         </div>
                     </div>
+                </div>
 
+                <div>
                     <!-- Prominent Record & Points Highlight -->
                     <div class="dungeon-record-showcase">
                         <div class="dungeon-record-main">${wins1} - ${wins2}</div>
@@ -181,9 +183,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div>
                     <button class="dungeon-btn-view" onclick="FantasyApp.toggleRivalryDrawer(this)">
                         View Rivalry Matchups
                     </button>
