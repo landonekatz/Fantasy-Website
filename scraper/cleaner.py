@@ -79,6 +79,22 @@ def load_managers_mapping(filepath=MANAGERS_JSON_PATH):
             if tname:
                 by_name[(year, tname)] = cid
 
+    for mgr in data.get("managers", []):
+        cid = mgr.get("id")
+        if cid:
+            display_names[cid] = mgr.get("name", cid)
+
+    for mapping in data.get("team_mappings", []):
+        year = int(mapping.get("year", 0))
+        tid = str(mapping.get("team_id", ""))
+        tname = mapping.get("team_name", "").lower().strip()
+        cid = mapping.get("manager_id", "")
+        if cid:
+            if tid:
+                by_id[(year, tid)] = cid
+            if tname:
+                by_name[(year, tname)] = cid
+
     return {
         "by_id": by_id,
         "by_name": by_name,
