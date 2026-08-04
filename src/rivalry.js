@@ -31,7 +31,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
             surname2: 'FREY',
             manager1: 'Landon',
             manager2: 'Alex',
-            writeup: 'One is commissioner. The other one wants his position - and what comes with it. The status. The control. The power. And he\'s the reigning champ. One is never out of it while the other always goes all in. One of the best rivalries you\'ll find anywhere. A real blue-blood matchup. Alex vs. Landon.'
+            writeup: 'Polar opposites in record. One is 72-54 all time. The other is 54-72. But who cares? What really matters is trophies. Championships. They define your legacy. And in terms of trophies, both men are tied. The quest for a second ring. Landon vs. Alex'
         },
         {
             id: 'watson_boice',
@@ -39,7 +39,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
             surname2: 'BOICE',
             manager1: 'Madoc',
             manager2: 'Ryan',
-            writeup: 'The two newest members. Lots to prove. Lots of questions. Every good rivalry has to start somewhere. Madoc vs. Ryan.'
+            writeup: 'Ryan is the type of person who thinks everything is sunshine and rainbows - and for good reason. His handicap is low, his football team is good, and he was able to make a serious contender in year two as a member of the DMS Fantasy league. Madoc sees the world in a melancholy gray and thrives on the sadness of others - and nothing would make him happier than taking Ryan and his squad out behind the woodshed on a yearly basis. Madoc vs. Ryan. '
         },
         {
             id: 'lehmann_sabatino',
