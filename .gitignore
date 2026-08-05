@@ -12,3 +12,11 @@ __pycache__/
 
 # Temporary mockups (optional - delete if you want them ignored)
 mockup*.html
+
+# FantasyPros ADP CSVs & Manager Draft Profiles (personal analysis)
+FantasyPros_*_Overall_ADP_Rankings.csv
+manager_draft_profiles/
+scraper/generate_draft_profiles.py
+
+# Mock Draft App (personal tooling)
+mock_draft/

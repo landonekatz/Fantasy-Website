@@ -5,7 +5,7 @@ class FantasyApp {
         this.playerStats = [];
         this.standings = [];
         this.transactions = [];
-        this.currentYearFilter = 'all'; // 'all', '2019-present', 'custom'
+        this.currentYearFilter = 'all'; // 'all', '2020-present', 'custom'
         this.customStartYear = 2018;
         this.customEndYear = 2026;
         this.activeTab = 'home';
@@ -35,17 +35,13 @@ class FantasyApp {
         const label = document.getElementById('theme-toggle-label');
         if (!btn || !label) return;
 
-        let savedTheme = localStorage.getItem('dumbarton_theme') || 'light';
+        let savedTheme = 'light';
         document.documentElement.setAttribute('data-theme', savedTheme);
-        label.textContent = `Theme: ${savedTheme === 'dark' ? 'Dark' : 'Light'}`;
+        label.textContent = `Theme: Light`;
 
         btn.addEventListener('click', () => {
             if (document.body.classList.contains('rivalry-dungeon-mode')) return;
-            const current = document.documentElement.getAttribute('data-theme');
-            const next = current === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('dumbarton_theme', next);
-            label.textContent = `Theme: ${next === 'dark' ? 'Dark' : 'Light'}`;
+            // Dark mode removed
         });
     }
 
@@ -136,8 +132,7 @@ class FantasyApp {
                 }
                 const themeLabel = document.getElementById('theme-toggle-label');
                 if (themeLabel) {
-                    const savedTheme = document.documentElement.getAttribute('data-theme') || 'light';
-                    themeLabel.textContent = `Theme: ${savedTheme === 'dark' ? 'Dark' : 'Light'}`;
+                    themeLabel.textContent = `Theme: Light`;
                 }
             }
 
@@ -217,7 +212,7 @@ class FantasyApp {
 
         // Setup year filter buttons
         const btnAll = document.getElementById('filter-btn-all');
-        const btn2019 = document.getElementById('filter-btn-2019');
+        const btn2020 = document.getElementById('filter-btn-2020');
         const btnCustom = document.getElementById('filter-btn-custom');
         const customContainer = document.getElementById('custom-year-span-container');
         const selStart = document.getElementById('custom-start-year');
@@ -225,9 +220,11 @@ class FantasyApp {
 
         const updateFilterButtons = (mode) => {
             this.currentYearFilter = mode;
-            [btnAll, btn2019, btnCustom].forEach(btn => btn?.classList.remove('active'));
+            
+            // Update active state
+            [btnAll, btn2020, btnCustom].forEach(btn => btn?.classList.remove('active'));
             if (mode === 'all') btnAll?.classList.add('active');
-            if (mode === '2019-present') btn2019?.classList.add('active');
+            if (mode === '2020-present') btn2020?.classList.add('active');
             if (mode === 'custom') {
                 btnCustom?.classList.add('active');
                 if (customContainer) customContainer.style.display = 'flex';
@@ -238,7 +235,7 @@ class FantasyApp {
         };
 
         btnAll?.addEventListener('click', () => updateFilterButtons('all'));
-        btn2019?.addEventListener('click', () => updateFilterButtons('2019-present'));
+        btn2020?.addEventListener('click', () => updateFilterButtons('2020-present'));
         btnCustom?.addEventListener('click', () => updateFilterButtons('custom'));
 
         selStart?.addEventListener('change', () => {
@@ -266,8 +263,8 @@ class FantasyApp {
     getFilteredYearRange() {
         if (this.currentYearFilter === 'all') {
             return { min: 2018, max: 2026 };
-        } else if (this.currentYearFilter === '2019-present') {
-            return { min: 2019, max: 2026 };
+        } else if (this.currentYearFilter === '2020-present') {
+            return { min: 2020, max: 2026 };
         } else {
             return {
                 min: Math.min(this.customStartYear, this.customEndYear),
