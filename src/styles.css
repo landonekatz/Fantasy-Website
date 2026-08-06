@@ -1941,6 +1941,7 @@ footer.dungeon-quote-credit,
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
     gap: 32px;
+    align-items: start;
 }
 
 .dungeon-card {
@@ -2198,7 +2199,6 @@ footer.dungeon-quote-credit,
 
 .dungeon-matchups-drawer.open {
     display: block;
-    animation: fadeIn 0.3s ease;
 }
 
 .dungeon-inaugural-banner {

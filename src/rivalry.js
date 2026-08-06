@@ -188,6 +188,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
                         View Rivalry Matchups
                     </button>
                     <div class="dungeon-matchups-drawer">
+                        <div class="dungeon-matchups-drawer-inner">
         `;
 
         if (history.length === 0) {
@@ -213,6 +214,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
         }
 
         html += `
+                        </div>
                     </div>
                 </div>
             </div>
@@ -225,16 +227,33 @@ FantasyApp.prototype.renderRivalryWeek = function() {
     `;
 
     root.innerHTML = html;
+
+    // Equalize card heights so all cards in each visual row match,
+    // but without grid stretch (so opening a drawer won't shift siblings).
+    requestAnimationFrame(() => {
+        const cards = root.querySelectorAll('.dungeon-card');
+        // Reset first so we measure natural heights
+        cards.forEach(c => c.style.minHeight = '');
+        // Group cards into rows by their top offset
+        const rows = {};
+        cards.forEach(c => {
+            const top = c.getBoundingClientRect().top;
+            const key = Math.round(top);
+            if (!rows[key]) rows[key] = [];
+            rows[key].push(c);
+        });
+        // Set each row's cards to the tallest card in that row
+        Object.values(rows).forEach(row => {
+            const maxH = Math.max(...row.map(c => c.offsetHeight));
+            row.forEach(c => c.style.minHeight = maxH + 'px');
+        });
+    });
 };
 
 // Toggle handler for rivalry matchups drawer
 FantasyApp.toggleRivalryDrawer = function(btn) {
     const drawer = btn.nextElementSibling;
-    if (drawer && drawer.classList.contains('open')) {
-        drawer.classList.remove('open');
-        btn.textContent = 'View Rivalry Matchups';
-    } else if (drawer) {
-        drawer.classList.add('open');
-        btn.textContent = 'Hide Rivalry Matchups';
-    }
+    if (!drawer) return;
+    const isOpen = drawer.classList.toggle('open');
+    btn.textContent = isOpen ? 'Hide Rivalry Matchups' : 'View Rivalry Matchups';
 };
