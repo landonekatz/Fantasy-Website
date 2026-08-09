@@ -15,7 +15,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
             surname2: 'FEY',
             manager1: 'Benjamin',
             manager2: 'Jake',
-            writeup: 'A former double champion struggling in a new era. A perennial contender - and one-time champ - riding a five-season playoff streak. Both men who never once have admitted defeat. It doesn\'t get much better than this. Ben vs. Jake.'
+            writeup: 'A former double champion struggling in a new era. A perennial contender - and one-time champ - riding a five-season playoff streak. Both men who never once have admitted defeat. The championships were promised to them 3000 years ago. Two men fighting a holy war every year over the same religion - fantasy football. It doesn\'t get much better than this. Ben vs. Jake.'
         },
         {
             id: 'stamatos_gutberlet',
@@ -23,7 +23,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
             surname2: 'GUTBERLET',
             manager1: 'Mike',
             manager2: 'Luke',
-            writeup: 'It\'s on sight. Their blood stains the walls of the groupchat. Vicious battles where nothing is below the belt and nothing is off limits. One looking for a record-breaking third ring. The other just wanting a playoff win. Mike vs. Luke.'
+            writeup: 'It\'s on sight. Their blood stains the walls of the groupchat. Vicious battles where nothing is below the belt and nothing is off limits. Friends in the offseason. It all dissapears with the opening kickoff. To paraphrase a great double champion - "When you lose I celebrate". One looking for a record-breaking third ring. The other just wanting a playoff win. Mike vs. Luke.'
         },
         {
             id: 'katz_frey',
