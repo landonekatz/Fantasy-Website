@@ -104,6 +104,24 @@ class FantasyApp {
     }
 
     initPowerRankings() {
+        const titleEl = document.getElementById('power-rankings-title');
+        if (titleEl) {
+            const currentYear = new Date().getFullYear();
+            let maxSeason = currentYear;
+            if (this.standings && this.standings.length > 0) {
+                maxSeason = Math.max(...this.standings.map(s => s.season), currentYear);
+            }
+            
+            let maxWeek = 0;
+            if (maxSeason > 0) {
+                const matchupsThisSeason = this.matchups.filter(m => m.season === maxSeason);
+                if (matchupsThisSeason.length > 0) {
+                    maxWeek = Math.max(...matchupsThisSeason.map(m => m.week));
+                }
+            }
+            titleEl.textContent = `Power Rankings (Week ${maxWeek})`;
+        }
+
         const ranks = document.querySelectorAll('.rank[data-manager]');
         ranks.forEach(el => {
             const managerId = el.getAttribute('data-manager');
