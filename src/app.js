@@ -145,6 +145,11 @@ class FantasyApp {
             }
         }
 
+        const titleEl = document.getElementById('power-rankings-title');
+        if (titleEl) {
+            titleEl.textContent = `Power Rankings (Week ${week})`;
+        }
+
         const listEl = document.getElementById('power-rankings-list');
         if (listEl) {
             listEl.innerHTML = '';
@@ -190,7 +195,11 @@ class FantasyApp {
         
         const storyContentEl = document.getElementById('weekly-story-content');
         if (storyContentEl) {
-            storyContentEl.innerHTML = item.html_content || '';
+            if (window.marked) {
+                storyContentEl.innerHTML = marked.parse(item.html_content || '');
+            } else {
+                storyContentEl.innerHTML = item.html_content || '';
+            }
         }
     }
 

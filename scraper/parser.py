@@ -1117,13 +1117,21 @@ def parse_all_and_export(seasons=None):
     print(f"  -> Saved {len(team_stats)} seasonal team statistics summaries.")
 
     # 6. Export offline data bundle for frontend usage
+    # Load power rankings history
+    try:
+        with open("data/power_rankings_history.json", "r", encoding="utf-8") as f:
+            power_rankings_history = json.load(f)
+    except Exception:
+        power_rankings_history = []
+
     bundle = {
         "managers": config,
         "matchups": matchups,
         "weekly_player_stats": boxscores,
         "league_standings": standings,
         "seasons_metadata": metadata,
-        "team_stats": team_stats
+        "team_stats": team_stats,
+        "power_rankings_history": power_rankings_history
     }
     with open("data/data_bundle.js", "w", encoding="utf-8") as f:
         f.write("window.FANTASY_DATA = " + json.dumps(bundle, separators=(",", ":")) + ";")

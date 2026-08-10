@@ -53,6 +53,9 @@ python3 -m scraper.pipeline
 echo "[5.5/6] Running Power Rankings Parser..."
 python3 scraper/parse_power_rankings.py
 
+echo "[5.75/6] Re-bundling Offline Data..."
+python3 scraper/parser.py
+
 # 7. Commit to Git & Push to GitHub Pages
 echo "[6/6] Committing updates to GitHub..."
 git add data/
