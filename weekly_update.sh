@@ -47,6 +47,9 @@ python3 -m scraper.yahoo_scraper --year $CURRENT_YEAR
 echo "[5/6] Running Pandas Data Pipeline..."
 python3 -m scraper.pipeline
 
+echo "[5.5/6] Running Power Rankings Parser..."
+python3 scraper/parse_power_rankings.py
+
 # 7. Commit to Git & Push to GitHub Pages
 echo "[6/6] Committing updates to GitHub..."
 git add data/

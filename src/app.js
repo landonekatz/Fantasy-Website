@@ -63,12 +63,13 @@ class FantasyApp {
             return null;
         };
 
-        const [managersData, matchupsData, statsData, standingsData, transactionsData] = await Promise.all([
+        const [managersData, matchupsData, statsData, standingsData, transactionsData, powerRankingsData] = await Promise.all([
             fetchOrFallback('managers.json', 'managers'),
             fetchOrFallback('matchups.json', 'matchups'),
             fetchOrFallback('weekly_player_stats.json', 'weekly_player_stats'),
             fetchOrFallback('league_standings.json', 'league_standings'),
-            fetchOrFallback('transactions.json', 'transactions')
+            fetchOrFallback('transactions.json', 'transactions'),
+            fetchOrFallback('power_rankings_history.json', 'power_rankings_history')
         ]);
 
         if (managersData) {
@@ -91,8 +92,9 @@ class FantasyApp {
         this.playerStats = statsData || [];
         this.standings = standingsData || [];
         this.transactions = transactionsData || [];
+        this.powerRankingsHistory = powerRankingsData || [];
 
-        console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions.`);
+        console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings.`);
     }
 
     getCurrentTeamName(managerId) {
@@ -104,40 +106,92 @@ class FantasyApp {
     }
 
     initPowerRankings() {
-        const titleEl = document.getElementById('power-rankings-title');
-        if (titleEl) {
-            const currentYear = new Date().getFullYear();
-            let maxSeason = currentYear;
-            if (this.standings && this.standings.length > 0) {
-                maxSeason = Math.max(...this.standings.map(s => s.season), currentYear);
-            }
+        if (!this.powerRankingsHistory || this.powerRankingsHistory.length === 0) {
+            return;
+        }
+        
+        const weekSelect = document.getElementById('power-rankings-week-select');
+        if (weekSelect) {
+            weekSelect.innerHTML = '';
+            // Sort weeks descending
+            const sortedHistory = [...this.powerRankingsHistory].sort((a, b) => b.week - a.week);
             
-            let maxWeek = 0;
-            if (maxSeason > 0) {
-                const matchupsThisSeason = this.matchups.filter(m => m.season === maxSeason);
-                if (matchupsThisSeason.length > 0) {
-                    maxWeek = Math.max(...matchupsThisSeason.map(m => m.week));
-                }
+            sortedHistory.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.week;
+                opt.textContent = \`Week \${item.week}\`;
+                weekSelect.appendChild(opt);
+            });
+
+            weekSelect.addEventListener('change', (e) => {
+                this.renderPowerRankings(parseInt(e.target.value));
+            });
+
+            // Initial render
+            this.renderPowerRankings(sortedHistory[0].week);
+        }
+    }
+
+    renderPowerRankings(week) {
+        const item = this.powerRankingsHistory.find(h => h.week === week);
+        if (!item) return;
+
+        let prevItem = null;
+        if (week > 0) {
+            // Find the closest previous week
+            const prevWeeks = this.powerRankingsHistory.filter(h => h.week < week).sort((a, b) => b.week - a.week);
+            if (prevWeeks.length > 0) {
+                prevItem = prevWeeks[0];
             }
-            titleEl.textContent = `Power Rankings (Week ${maxWeek})`;
         }
 
-        const ranks = document.querySelectorAll('.rank[data-manager]');
-        ranks.forEach(el => {
-            const managerId = el.getAttribute('data-manager');
-            const manager = this.managers.find(m => m.id === managerId);
-            if (manager) {
-                const infoEl = el.querySelector('.rank-info');
-                if (infoEl) {
-                    const logoUrl = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
-                    const teamName = this.getCurrentTeamName(managerId);
-                    infoEl.innerHTML = `
-                        <span class="rank-manager-name">${manager.name}</span>
-                        <span class="rank-team-parenthetical">(<img class="rank-logo-inline" src="${logoUrl}" alt="logo"> ${teamName})</span>
-                    `;
+        const listEl = document.getElementById('power-rankings-list');
+        if (listEl) {
+            listEl.innerHTML = '';
+            item.rankings.forEach((managerId, index) => {
+                const currentRank = index + 1;
+                const manager = this.managers.find(m => m.id === managerId) || { name: managerId };
+                const teamName = this.getCurrentTeamName(managerId);
+                const logoUrl = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                
+                let trendHtml = \`<span class="trend-badge trend-flat">■ (--)</span>\`;
+                if (prevItem) {
+                    const prevRankIndex = prevItem.rankings.indexOf(managerId);
+                    if (prevRankIndex !== -1) {
+                        const prevRank = prevRankIndex + 1;
+                        const diff = prevRank - currentRank;
+                        if (diff > 0) {
+                            trendHtml = \`<span class="trend-badge trend-up">▲ (+\${diff})</span>\`;
+                        } else if (diff < 0) {
+                            trendHtml = \`<span class="trend-badge trend-down">▼ (\${diff})</span>\`;
+                        }
+                    }
                 }
-            }
-        });
+
+                const rankEl = document.createElement('div');
+                rankEl.className = 'rank';
+                rankEl.setAttribute('data-manager', managerId);
+                
+                rankEl.innerHTML = \`
+                    <div class="rank-info">
+                        <span class="rank-manager-name">\${manager.name}</span>
+                        <span class="rank-team-parenthetical">(<img class="rank-logo-inline" src="\${logoUrl}" alt="logo"> \${teamName})</span>
+                    </div>
+                    \${trendHtml}
+                \`;
+                listEl.appendChild(rankEl);
+            });
+        }
+
+        const storyTitleEl = document.getElementById('weekly-story-title');
+        if (storyTitleEl) {
+            storyTitleEl.textContent = \`Week \${week} Stories\`;
+        }
+        
+        const storyContentEl = document.getElementById('weekly-story-content');
+        if (storyContentEl) {
+            storyContentEl.innerHTML = item.html_content || '';
+        }
     }
 
     setupNavigation() {
