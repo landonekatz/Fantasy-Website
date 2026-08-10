@@ -25,11 +25,7 @@ class FantasyApp {
     async init() {
         this.setupThemeToggle();
         await this.loadData();
-        try {
-            this.initPowerRankings();
-        } catch (err) {
-            console.error('[FantasyApp] initPowerRankings failed:', err);
-        }
+        this.initPowerRankings();
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
@@ -98,7 +94,7 @@ class FantasyApp {
         this.transactions = transactionsData || [];
         this.powerRankingsHistory = powerRankingsData || [];
 
-        console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings.`);
+        console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
     }
 
     getCurrentTeamName(managerId) {
@@ -110,111 +106,40 @@ class FantasyApp {
     }
 
     initPowerRankings() {
-        if (!this.powerRankingsHistory || this.powerRankingsHistory.length === 0) {
-            return;
-        }
-        
-        const weekSelect = document.getElementById('power-rankings-week-select');
-        if (weekSelect) {
-            weekSelect.innerHTML = '';
-            // Sort weeks descending
-            const sortedHistory = [...this.powerRankingsHistory].sort((a, b) => b.week - a.week);
-            
-            sortedHistory.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.week;
-                opt.textContent = \`Week \${item.week}\`;
-                weekSelect.appendChild(opt);
-            });
+        // 1. Populate logo, team name, manager name from managers data (DOM-based - chips are hardcoded in HTML)
+        const ranks = document.querySelectorAll('.rank[data-manager]');
+        ranks.forEach(el => {
+            const managerId = el.getAttribute('data-manager');
+            const manager = this.managers.find(m => m.id === managerId);
+            if (manager) {
+                const logoEl = el.querySelector('.rank-logo');
+                const teamEl = el.querySelector('.rank-team');
+                const mgrEl = el.querySelector('.rank-manager');
 
-            weekSelect.addEventListener('change', (e) => {
-                this.renderPowerRankings(parseInt(e.target.value));
-            });
-
-            // Initial render
-            this.renderPowerRankings(sortedHistory[0].week);
-        }
-    }
-
-    renderPowerRankings(week) {
-        const item = this.powerRankingsHistory.find(h => h.week === week);
-        if (!item) return;
-
-        let prevItem = null;
-        if (week > 0) {
-            const prevWeeks = this.powerRankingsHistory.filter(h => h.week < week).sort((a, b) => b.week - a.week);
-            if (prevWeeks.length > 0) {
-                prevItem = prevWeeks[0];
+                if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
+                if (mgrEl) mgrEl.textContent = manager.name;
             }
-        }
+        });
 
-        const titleEl = document.getElementById('power-rankings-title');
-        if (titleEl) {
-            titleEl.textContent = `Power Rankings (Week ${week})`;
-        }
+        // 2. Render weekly story content from the latest week in power_rankings_history
+        if (this.powerRankingsHistory && this.powerRankingsHistory.length > 0) {
+            const latest = this.powerRankingsHistory.sort((a, b) => b.week - a.week)[0];
+            const rawContent = latest.html_content || '';
 
-        const listEl = document.getElementById('power-rankings-list');
-        if (listEl) {
-            listEl.innerHTML = '';
-            item.rankings.forEach((managerId, index) => {
-                const currentRank = index + 1;
-                const manager = this.managers.find(m => m.id === managerId) || { name: managerId };
-                const teamName = this.getCurrentTeamName(managerId);
-                const logoUrl = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+            // Split: everything before "### 1." goes to Personnel Changes card is already in HTML;
+            // ranked write-ups (### 1. onward) go to weekly story
+            const splitMatch = rawContent.match(/\n(#{1,3}\s*1\.)/);
+            const storyContent = splitMatch
+                ? rawContent.slice(rawContent.indexOf(splitMatch[0])).trim()
+                : rawContent;
 
-                let trendHtml = `<span class="trend-badge trend-flat">■ (--)</span>`;
-                if (prevItem) {
-                    const prevRankIndex = prevItem.rankings.indexOf(managerId);
-                    if (prevRankIndex !== -1) {
-                        const prevRank = prevRankIndex + 1;
-                        const diff = prevRank - currentRank;
-                        if (diff > 0) {
-                            trendHtml = `<span class="trend-badge trend-up">▲ (+${diff})</span>`;
-                        } else if (diff < 0) {
-                            trendHtml = `<span class="trend-badge trend-down">▼ (${diff})</span>`;
-                        }
-                    }
-                }
-
-                const rankEl = document.createElement('div');
-                rankEl.className = 'rank';
-                rankEl.setAttribute('data-manager', managerId);
-                rankEl.innerHTML = `
-                    <div class="rank-info">
-                        <span class="rank-manager-name">${manager.name}</span>
-                        <span class="rank-team-parenthetical">(<img class="rank-logo-inline" src="${logoUrl}" alt="logo"> ${teamName})</span>
-                    </div>
-                    ${trendHtml}
-                `;
-                listEl.appendChild(rankEl);
-            });
-        }
-
-        // Split html_content: intro (Personnel Changes etc.) before the ranked section (### 1. onward)
-        const rawContent = item.html_content || '';
-        const rankedSplitMatch = rawContent.match(/\n(?:#{1,3}\s*1\.)/);
-        let introContent = rawContent;
-        let rankedContent = '';
-        if (rankedSplitMatch) {
-            const splitIdx = rawContent.indexOf(rankedSplitMatch[0]);
-            introContent = rawContent.slice(0, splitIdx).trim();
-            rankedContent = rawContent.slice(splitIdx).trim();
-        }
-
-        const leagueUpdatesEl = document.getElementById('league-updates-content');
-        if (leagueUpdatesEl) {
-            leagueUpdatesEl.innerHTML = window.marked && introContent ? marked.parse(introContent) : introContent;
-        }
-
-        const storyTitleEl = document.getElementById('weekly-story-title');
-        if (storyTitleEl) {
-            storyTitleEl.textContent = `Week ${week} Stories`;
-        }
-
-        const storyContentEl = document.getElementById('weekly-story-content');
-        if (storyContentEl) {
-            const content = rankedContent || rawContent;
-            storyContentEl.innerHTML = window.marked && content ? marked.parse(content) : content;
+            const storyEl = document.getElementById('weekly-story-content');
+            if (storyEl) {
+                storyEl.innerHTML = (window.marked && storyContent)
+                    ? marked.parse(storyContent)
+                    : storyContent.replace(/\n/g, '<br>');
+            }
         }
     }
 

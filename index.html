@@ -41,35 +41,134 @@
             <div class="scroller-links">
                 <a href="#story" class="scroller-pill">Headlines</a>
                 <a href="#rankings" class="scroller-pill">Power Rankings</a>
-                <a href="#weekly-story" class="scroller-pill">Weekly Stories</a>
+                <a href="#template" class="scroller-pill">Weekly Stories</a>
             </div>
         </div>
 
         <div class="card" id="story">
             <h2>League Updates</h2>
-            <div id="league-updates-content">
-                <!-- Dynamically populated by JS from the intro section of html_content -->
-            </div>
+            <h3>Personnel Changes</h3>
+            <p>
+                The whole league was distraught to learn of perennial loser Jack Lovas's removal. It was not due to their love of Lovas - but the loss of a free win one could pencil in their schedule. 
+            </p>
+            <br>
+            <p>
+                Lovas's replacement, Madoc Watson, passed the Commissioner and Committee's physical and mental examinations and will debut in the opening week of the 2026 season. Watson is known for his delusional self-belief and scrappy playstyle and projects as a bottom-to-middle level contender.
+            </p>
         </div>
 
         <div class="card" id="rankings">
-            <div class="power-rankings-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h2 id="power-rankings-title" style="margin: 0;">Power Rankings</h2>
-                <select id="power-rankings-week-select" class="week-dropdown"></select>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h2 id="power-rankings-title" style="margin:0;">Power Rankings (Week 0)</h2>
             </div>
-            <div id="power-rankings-list">
-                <!-- Dynamically populated by JS -->
+            <!-- Order matches Week 0 rankings from power_rankings_history.json -->
+            <div class="rank" data-manager="will">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="jordan">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="madoc">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="luke">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="jake">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="mike">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="carson">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="benjamin">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="landon">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="isabella">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="ryan">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="alex">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
             </div>
         </div>
 
-        <div class="card" id="weekly-story">
-            <h2 id="weekly-story-title">Weekly Stories</h2>
+        <div class="card" id="template">
+            <h2 id="weekly-story-title">Week 0 Stories</h2>
             <div id="weekly-story-content">
-                <!-- Dynamically populated by JS from html_content -->
+                <!-- Dynamically populated from power_rankings_history.json -->
             </div>
         </div>
     </div>
     <!-- END LEAGUE HOME PAGE VIEW -->
+
 
     <!-- ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
     <div id="view-h2h" class="page-view">
@@ -199,9 +298,9 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="data/data_bundle.js?v=20260810"></script>
-<script src="src/app.js?v=20260810"></script>
-<script src="src/records.js?v=20260810"></script>
-<script src="src/rivalry.js?v=20260810"></script>
+<script src="data/data_bundle.js?v=20260811"></script>
+<script src="src/app.js?v=20260811"></script>
+<script src="src/records.js?v=20260811"></script>
+<script src="src/rivalry.js?v=20260811"></script>
 </body>
 </html>
