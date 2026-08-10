@@ -13,6 +13,7 @@ Handles:
 import os
 import re
 import json
+import urllib.request
 from pathlib import Path
 from bs4 import BeautifulSoup
 
@@ -254,9 +255,24 @@ def parse_seasons_metadata_and_standings(seasons, config=None):
             team_names_lookup[(year, team_id)] = team_name
             mgr = get_canonical_manager(year, team_id, team_name, config)
             if logo_url:
+                # Download logo locally
+                local_logo_path = f"assets/logos/{mgr['id']}.jpg"
+                full_logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "logos", f"{mgr['id']}.jpg")
+                if not os.path.exists(full_logo_path):
+                    try:
+                        req = urllib.request.Request(logo_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+                        with urllib.request.urlopen(req) as response, open(full_logo_path, 'wb') as out_file:
+                            out_file.write(response.read())
+                    except Exception as e:
+                        print(f"Warning: Failed to download logo for {mgr['id']}: {e}")
+                
+                # Assign local path to manager config
                 for m_cfg in config.get("managers", []):
                     if m_cfg["id"] == mgr["id"]:
-                        m_cfg["logo_url"] = logo_url
+                        m_cfg["logo_url"] = local_logo_path
+                        # Set current_team_name for easy frontend access
+                        if year == max(seasons):
+                            m_cfg["current_team_name"] = team_name
 
             team_record = {
                 "season": year,
@@ -266,7 +282,7 @@ def parse_seasons_metadata_and_standings(seasons, config=None):
                 "manager_id": mgr["id"],
                 "manager_name": mgr["name"],
                 "manager_status": mgr["status"],
-                "logo_url": logo_url,
+                "logo_url": local_logo_path if logo_url else "",
                 "waiver_order": waiver_order,
                 "faab_balance": faab_balance,
                 "wins": wins,

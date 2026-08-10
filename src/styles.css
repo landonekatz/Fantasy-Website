@@ -317,7 +317,31 @@ tr:hover td {
 }
 
 .rank:hover {
-    border-color: var(--text-primary);
+    border-color: var(--primary-color);
+}
+
+.rank-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 12px;
+}
+
+.rank-info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.rank-team {
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.rank-manager {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
 .trend-badge {

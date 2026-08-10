@@ -20,6 +20,10 @@ VENV_ACTIVATE="${PROJECT_DIR}/venv/bin/activate"
 cd "$PROJECT_DIR"
 echo "[1/6] Navigated to Project Directory: $(pwd)"
 
+# 2.5 Sync with remote to prevent conflicts
+echo "[1.5/6] Pulling latest changes from remote..."
+git pull origin main --rebase --autostash
+
 # 3. Activate Python Virtual Environment
 if [ -f "$VENV_ACTIVATE" ]; then
     source "$VENV_ACTIVATE"
@@ -57,7 +61,7 @@ fi
 
 # Always pull and push to ensure local and remote are synced
 echo "      Syncing with remote GitHub repository..."
-git pull origin main --rebase
+git pull origin main --rebase --autostash
 git push origin main
 echo "      Successfully synced with GitHub! GitHub Pages will auto-rebuild."
 

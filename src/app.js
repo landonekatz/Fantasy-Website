@@ -25,6 +25,7 @@ class FantasyApp {
     async init() {
         this.setupThemeToggle();
         await this.loadData();
+        this.initPowerRankings();
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
@@ -71,6 +72,7 @@ class FantasyApp {
         ]);
 
         if (managersData) {
+            this.managersData = managersData;
             const rawList = managersData.managers || [];
             this.managers = rawList.map(m => {
                 const isRetired = (m.status && m.status.toLowerCase() === 'retired');
@@ -91,6 +93,31 @@ class FantasyApp {
         this.transactions = transactionsData || [];
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions.`);
+    }
+
+    getCurrentTeamName(managerId) {
+        if (!this.managersData || !this.managersData.team_mappings) return 'Unknown Team';
+        const mappings = this.managersData.team_mappings.filter(m => m.manager_id === managerId);
+        if (mappings.length === 0) return 'Unknown Team';
+        mappings.sort((a, b) => b.year - a.year);
+        return mappings[0].team_name;
+    }
+
+    initPowerRankings() {
+        const ranks = document.querySelectorAll('.rank[data-manager]');
+        ranks.forEach(el => {
+            const managerId = el.getAttribute('data-manager');
+            const manager = this.managers.find(m => m.id === managerId);
+            if (manager) {
+                const logoEl = el.querySelector('.rank-logo');
+                const teamEl = el.querySelector('.rank-team');
+                const mgrEl = el.querySelector('.rank-manager');
+                
+                if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
+                if (mgrEl) mgrEl.textContent = manager.name;
+            }
+        });
     }
 
     setupNavigation() {
@@ -406,13 +433,16 @@ class FantasyApp {
         const barLeftPct = totalGames > 0 ? (m1Wins / (m1Wins + m2Wins || 1) * 100).toFixed(0) : 50;
         const barRightPct = 100 - barLeftPct;
 
+        const currentTeam1 = this.getCurrentTeamName(m1Id);
+        const currentTeam2 = this.getCurrentTeamName(m2Id);
+
         // Render BIG Hero Overall Record Banner
         heroContainer.innerHTML = `
             <div class="hero-content-grid">
                 <div class="hero-manager-col">
                     <img src="${m1Obj.logo_url || 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a0fe865f598d352044589dffd4119b4a5b5eab9fbb8d4a5b226a56f71aa36a3c.jpg'}" alt="${m1Name}" class="hero-avatar">
-                    <div class="hero-manager-name">${m1Name}</div>
-                    <div class="hero-team-names">${Array.from(m1TeamNames).join(' • ') || m1Name}</div>
+                    <div class="hero-team-names" style="font-size:1.1rem; color:var(--text-primary); font-weight:bold;">${currentTeam1}</div>
+                    <div class="hero-manager-name" style="font-size:0.9rem; color:var(--text-secondary); margin-top:2px;">${m1Name}</div>
                 </div>
 
                 <div class="hero-record-col">
@@ -427,8 +457,8 @@ class FantasyApp {
 
                 <div class="hero-manager-col">
                     <img src="${m2Obj.logo_url || 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a2cbd9723f84f4669346df652de732b6c5f6f3693459ee1df2940f334441bd13.jpg'}" alt="${m2Name}" class="hero-avatar">
-                    <div class="hero-manager-name">${m2Name}</div>
-                    <div class="hero-team-names">${Array.from(m2TeamNames).join(' • ') || m2Name}</div>
+                    <div class="hero-team-names" style="font-size:1.1rem; color:var(--text-primary); font-weight:bold;">${currentTeam2}</div>
+                    <div class="hero-manager-name" style="font-size:0.9rem; color:var(--text-secondary); margin-top:2px;">${m2Name}</div>
                 </div>
             </div>
         `;
