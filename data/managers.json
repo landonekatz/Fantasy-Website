@@ -4,7 +4,7 @@
       "id": "alex",
       "name": "Alex",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a0fe865f598d352044589dffd4119b4a5b5eab9fbb8d4a5b226a56f71aa36a3c.jpg"
+      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/65bdae48b332589fdb9b19fe1d356d5c24cca706306ebfb670cad4ba0abd3e9e.jpg"
     },
     {
       "id": "benjamin",
@@ -34,13 +34,13 @@
       "id": "landon",
       "name": "Landon",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/93a9876d8326490cb0d166ea3833e0b1993e2502d4b1e351d4e438f4dc1ada17.png"
+      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/f5d05065311484b29b90c8480db84f2b6ee5226325fb7dd446f369c6f93c5708.jpg"
     },
     {
       "id": "luke",
       "name": "Luke",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/36e8a5162f6767c2863597090f15434c92a2c4c6923889a99f01bd35164df7b3.png"
+      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/1acd9d79f50832bfd32b61d8d8f3b8bd28132cbbc040d450a757b08131262cf0.jpg"
     },
     {
       "id": "mike",
@@ -58,7 +58,7 @@
       "id": "ryan",
       "name": "Ryan",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/1b850992c09d364c2b27c541ce7653a070d9915a53e649a5ff0e912af398fa99.png"
+      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/4e8e6bb7e77ed3968eb99ec73deea46c03e9f73f3b6a1f1667df26b3e67f9ae2.jpg"
     },
     {
       "id": "jordan",
@@ -69,7 +69,8 @@
     {
       "id": "madoc",
       "name": "Madoc",
-      "status": "current"
+      "status": "current",
+      "logo_url": "https://s.yimg.com/ep/cx/blendr/v2/image-football-1-png_1721174938744.png"
     },
     {
       "id": "luke_b",

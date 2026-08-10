@@ -108,7 +108,7 @@ class FantasyApp {
     initPowerRankings() {
         // 1. Populate logo, team name, manager name from managers data (DOM-based - chips are hardcoded in HTML)
         const ranks = document.querySelectorAll('.rank[data-manager]');
-        ranks.forEach(el => {
+        ranks.forEach((el, index) => {
             const managerId = el.getAttribute('data-manager');
             const manager = this.managers.find(m => m.id === managerId);
             if (manager) {
@@ -116,9 +116,34 @@ class FantasyApp {
                 const teamEl = el.querySelector('.rank-team');
                 const mgrEl = el.querySelector('.rank-manager');
 
+                // Insert rank number if it doesn't exist
+                if (!el.querySelector('.rank-number')) {
+                    const rankNumEl = document.createElement('div');
+                    rankNumEl.className = 'rank-number';
+                    rankNumEl.style.cssText = 'font-size: 1.2rem; font-weight: bold; margin-right: 15px; width: 25px; text-align: center; color: var(--text-color);';
+                    rankNumEl.textContent = `${index + 1}.`;
+                    el.insertBefore(rankNumEl, el.firstChild);
+                }
+
                 if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
                 if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
                 if (mgrEl) mgrEl.textContent = manager.name;
+                
+                // Add click listener to scroll to this manager's recap
+                el.style.cursor = 'pointer';
+                el.addEventListener('click', () => {
+                    const storyContent = document.getElementById('weekly-story-content');
+                    if (storyContent) {
+                        const headings = Array.from(storyContent.querySelectorAll('h3, h2'));
+                        // Try to find the heading containing the manager's name
+                        const targetHeading = headings.find(h => 
+                            h.textContent.toLowerCase().includes(manager.name.toLowerCase())
+                        );
+                        if (targetHeading) {
+                            targetHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                });
             }
         });
 

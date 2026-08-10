@@ -65,6 +65,12 @@ def parse_teams_html():
                     team_name = a.text.strip()
                     break
                     
+            # Extract logo_url from teams.html since this is always the most up-to-date image
+            logo_url = ""
+            img_tag = row.find('img')
+            if img_tag and img_tag.get('src'):
+                logo_url = img_tag.get('src')
+                    
             # The manager name is in <td id="team-1-data" class="user-id">... <span><a>Manager</a></span>
             manager_name = ""
             td_data = row.find('td', class_='user-id')
@@ -140,6 +146,16 @@ def parse_teams_html():
                     "manager_id": canonical_id
                 })
                 updates_made = True
+                
+            # Update the manager's logo_url if this is the most recent year
+            if logo_url and year_str == years_found[-1]:
+                for m_data in managers_data.get("managers", []):
+                    if m_data.get("id") == canonical_id:
+                        if m_data.get("logo_url") != logo_url:
+                            print(f"  [Update] Manager '{canonical_id}' logo updated.")
+                            m_data["logo_url"] = logo_url
+                            updates_made = True
+                        break
 
     if updates_made:
         # Sort mappings by year (descending) and then team_id
