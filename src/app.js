@@ -25,7 +25,11 @@ class FantasyApp {
     async init() {
         this.setupThemeToggle();
         await this.loadData();
-        this.initPowerRankings();
+        try {
+            this.initPowerRankings();
+        } catch (err) {
+            console.error('[FantasyApp] initPowerRankings failed:', err);
+        }
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
