@@ -138,7 +138,6 @@ class FantasyApp {
 
         let prevItem = null;
         if (week > 0) {
-            // Find the closest previous week
             const prevWeeks = this.powerRankingsHistory.filter(h => h.week < week).sort((a, b) => b.week - a.week);
             if (prevWeeks.length > 0) {
                 prevItem = prevWeeks[0];
@@ -158,17 +157,17 @@ class FantasyApp {
                 const manager = this.managers.find(m => m.id === managerId) || { name: managerId };
                 const teamName = this.getCurrentTeamName(managerId);
                 const logoUrl = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
-                
-                let trendHtml = \`<span class="trend-badge trend-flat">■ (--)</span>\`;
+
+                let trendHtml = `<span class="trend-badge trend-flat">■ (--)</span>`;
                 if (prevItem) {
                     const prevRankIndex = prevItem.rankings.indexOf(managerId);
                     if (prevRankIndex !== -1) {
                         const prevRank = prevRankIndex + 1;
                         const diff = prevRank - currentRank;
                         if (diff > 0) {
-                            trendHtml = \`<span class="trend-badge trend-up">▲ (+\${diff})</span>\`;
+                            trendHtml = `<span class="trend-badge trend-up">▲ (+${diff})</span>`;
                         } else if (diff < 0) {
-                            trendHtml = \`<span class="trend-badge trend-down">▼ (\${diff})</span>\`;
+                            trendHtml = `<span class="trend-badge trend-down">▼ (${diff})</span>`;
                         }
                     }
                 }
@@ -176,30 +175,42 @@ class FantasyApp {
                 const rankEl = document.createElement('div');
                 rankEl.className = 'rank';
                 rankEl.setAttribute('data-manager', managerId);
-                
-                rankEl.innerHTML = \`
+                rankEl.innerHTML = `
                     <div class="rank-info">
-                        <span class="rank-manager-name">\${manager.name}</span>
-                        <span class="rank-team-parenthetical">(<img class="rank-logo-inline" src="\${logoUrl}" alt="logo"> \${teamName})</span>
+                        <span class="rank-manager-name">${manager.name}</span>
+                        <span class="rank-team-parenthetical">(<img class="rank-logo-inline" src="${logoUrl}" alt="logo"> ${teamName})</span>
                     </div>
-                    \${trendHtml}
-                \`;
+                    ${trendHtml}
+                `;
                 listEl.appendChild(rankEl);
             });
         }
 
+        // Split html_content: intro (Personnel Changes etc.) before the ranked section (### 1. onward)
+        const rawContent = item.html_content || '';
+        const rankedSplitMatch = rawContent.match(/\n(?:#{1,3}\s*1\.)/);
+        let introContent = rawContent;
+        let rankedContent = '';
+        if (rankedSplitMatch) {
+            const splitIdx = rawContent.indexOf(rankedSplitMatch[0]);
+            introContent = rawContent.slice(0, splitIdx).trim();
+            rankedContent = rawContent.slice(splitIdx).trim();
+        }
+
+        const leagueUpdatesEl = document.getElementById('league-updates-content');
+        if (leagueUpdatesEl) {
+            leagueUpdatesEl.innerHTML = window.marked && introContent ? marked.parse(introContent) : introContent;
+        }
+
         const storyTitleEl = document.getElementById('weekly-story-title');
         if (storyTitleEl) {
-            storyTitleEl.textContent = \`Week \${week} Stories\`;
+            storyTitleEl.textContent = `Week ${week} Stories`;
         }
-        
+
         const storyContentEl = document.getElementById('weekly-story-content');
         if (storyContentEl) {
-            if (window.marked) {
-                storyContentEl.innerHTML = marked.parse(item.html_content || '');
-            } else {
-                storyContentEl.innerHTML = item.html_content || '';
-            }
+            const content = rankedContent || rawContent;
+            storyContentEl.innerHTML = window.marked && content ? marked.parse(content) : content;
         }
     }
 
