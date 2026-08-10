@@ -44,7 +44,10 @@ echo "[4/6] Running Playwright Scraper for ${CURRENT_YEAR}..."
 python3 -m scraper.yahoo_scraper --year $CURRENT_YEAR
 
 # 6. Run Data Processing Pipeline (Recompiles all weeks & updates manager mappings)
-echo "[5/6] Running Pandas Data Pipeline..."
+echo "[5/6] Auto-updating Team Name Mappings..."
+python3 scraper/parse_teams.py
+
+echo "[5.25/6] Running Pandas Data Pipeline..."
 python3 -m scraper.pipeline
 
 echo "[5.5/6] Running Power Rankings Parser..."

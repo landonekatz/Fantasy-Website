@@ -110,6 +110,654 @@
   ],
   "team_mappings": [
     {
+      "year": 2027,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2027,
+      "team_id": 2,
+      "team_name": "Jewca Nacua",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2027,
+      "team_id": 3,
+      "team_name": "Jake\u2019s Jews",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2027,
+      "team_id": 4,
+      "team_name": "SHIPOOPI",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2027,
+      "team_id": 5,
+      "team_name": "JJ and the Gang",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2027,
+      "team_id": 6,
+      "team_name": "Sleepy Mike",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2027,
+      "team_id": 7,
+      "team_name": "will's Unbelievable Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2027,
+      "team_id": 8,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2027,
+      "team_id": 9,
+      "team_name": "Gay showers",
+      "manager_id": "ryan"
+    },
+    {
+      "year": 2027,
+      "team_id": 10,
+      "team_name": "Hit Squad Madoc",
+      "manager_id": "madoc"
+    },
+    {
+      "year": 2027,
+      "team_id": 11,
+      "team_name": "Dakking my Pick at Sonic speed",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2027,
+      "team_id": 12,
+      "team_name": "Carson\u2019s Criminals",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2026,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2026,
+      "team_id": 2,
+      "team_name": "Skid Marks",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2026,
+      "team_id": 3,
+      "team_name": "The Infirmary",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2026,
+      "team_id": 4,
+      "team_name": "ANITA MAX WYNN",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2026,
+      "team_id": 5,
+      "team_name": "JJ and the Gang",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2026,
+      "team_id": 6,
+      "team_name": "Sleepy Mike and the shitters",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2026,
+      "team_id": 7,
+      "team_name": "will's Unbelievable Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2026,
+      "team_id": 8,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2026,
+      "team_id": 9,
+      "team_name": "Sun\u2026 Dog?",
+      "manager_id": "ryan"
+    },
+    {
+      "year": 2026,
+      "team_id": 10,
+      "team_name": "Jack's Legit Team",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2026,
+      "team_id": 11,
+      "team_name": "LGBTQB1 \ud83d\udc85\ud83c\udfff\ud83d\udc85\ud83c\udfff",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2026,
+      "team_id": 12,
+      "team_name": "Carson\u2019s Criminals",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2025,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2025,
+      "team_id": 2,
+      "team_name": "Poop Game",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2025,
+      "team_id": 3,
+      "team_name": "It didn\u2019t come home",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2025,
+      "team_id": 4,
+      "team_name": "Heisenberg",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2025,
+      "team_id": 5,
+      "team_name": "The King is Back",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2025,
+      "team_id": 6,
+      "team_name": "mikes menaces",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2025,
+      "team_id": 7,
+      "team_name": "will's Unbelievable Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2025,
+      "team_id": 8,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2025,
+      "team_id": 9,
+      "team_name": "Ryan's Rookie Roster",
+      "manager_id": "ryan"
+    },
+    {
+      "year": 2025,
+      "team_id": 10,
+      "team_name": "Jack's Legit Team",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2025,
+      "team_id": 11,
+      "team_name": "LGBTQB1 \ud83d\udc85\ud83c\udfff\ud83d\udc85\ud83c\udfff",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2025,
+      "team_id": 12,
+      "team_name": "Carson\u2019s disappointing team",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2024,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2024,
+      "team_id": 2,
+      "team_name": "jalens dick hurts",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2024,
+      "team_id": 3,
+      "team_name": "Run it back",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2024,
+      "team_id": 4,
+      "team_name": "Misunderstood Genius",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2024,
+      "team_id": 5,
+      "team_name": "Dumpster Fire",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2024,
+      "team_id": 6,
+      "team_name": "mikes menaces",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2024,
+      "team_id": 7,
+      "team_name": "will's Unbelievable Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2024,
+      "team_id": 8,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2024,
+      "team_id": 9,
+      "team_name": "Yusuf's Crazy Team",
+      "manager_id": "yusuf"
+    },
+    {
+      "year": 2024,
+      "team_id": 10,
+      "team_name": "Jack's Legit Team",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2024,
+      "team_id": 11,
+      "team_name": "Team DGAF",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2024,
+      "team_id": 12,
+      "team_name": "Carson\u2019s Crack Induced Cunts",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2023,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2023,
+      "team_id": 2,
+      "team_name": "lukey team",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2023,
+      "team_id": 3,
+      "team_name": "will's Unreal Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2023,
+      "team_id": 4,
+      "team_name": "Isabella's Rad Team",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2023,
+      "team_id": 5,
+      "team_name": "Yusuf's Fine Team",
+      "manager_id": "yusuf"
+    },
+    {
+      "year": 2023,
+      "team_id": 6,
+      "team_name": "The Dream is Dead",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2023,
+      "team_id": 7,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2023,
+      "team_id": 8,
+      "team_name": "Liggity",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2023,
+      "team_id": 9,
+      "team_name": "Landon H. Christ",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2023,
+      "team_id": 10,
+      "team_name": "Jake's Jews",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2023,
+      "team_id": 11,
+      "team_name": "Sub par Carr",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2023,
+      "team_id": 12,
+      "team_name": "Ceedeez nutz",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2022,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2022,
+      "team_id": 2,
+      "team_name": "Winner POV ???????????????????",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2022,
+      "team_id": 3,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2022,
+      "team_id": 4,
+      "team_name": "Jackie Chan",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2022,
+      "team_id": 5,
+      "team_name": "Carson\u2019s cock cookers",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2022,
+      "team_id": 6,
+      "team_name": "Injured Reserve",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2022,
+      "team_id": 7,
+      "team_name": "Justinian II",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2022,
+      "team_id": 8,
+      "team_name": "RIP Henry",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2022,
+      "team_id": 9,
+      "team_name": "Mikes mesotheliomic mccafferys",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2022,
+      "team_id": 10,
+      "team_name": "Actually score a td wtf",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2022,
+      "team_id": 11,
+      "team_name": "willy\u2019s massive men",
+      "manager_id": "will"
+    },
+    {
+      "year": 2022,
+      "team_id": 12,
+      "team_name": "Yusuf's Awesome Team",
+      "manager_id": "yusuf"
+    },
+    {
+      "year": 2021,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2021,
+      "team_id": 2,
+      "team_name": "Loser POV",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2021,
+      "team_id": 3,
+      "team_name": "Benjamin's Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2021,
+      "team_id": 4,
+      "team_name": "Trump 2020 Jack",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2021,
+      "team_id": 5,
+      "team_name": "Carsons Injured Fags",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2021,
+      "team_id": 6,
+      "team_name": "Luke\u2019s shit team",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2021,
+      "team_id": 7,
+      "team_name": "I Have Never Lost",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2021,
+      "team_id": 8,
+      "team_name": "Isabella\u2019s Team",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2021,
+      "team_id": 9,
+      "team_name": "michael's Team",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2021,
+      "team_id": 10,
+      "team_name": "Jake's Jews",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2021,
+      "team_id": 11,
+      "team_name": "will's Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2021,
+      "team_id": 12,
+      "team_name": "Yusuf's Awesome Team",
+      "manager_id": "yusuf"
+    },
+    {
+      "year": 2020,
+      "team_id": 1,
+      "team_name": "Alex\u2019s fluffy Team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2020,
+      "team_id": 2,
+      "team_name": "Carson Big Boi Team",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2020,
+      "team_id": 3,
+      "team_name": "Jake's Team",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2020,
+      "team_id": 4,
+      "team_name": "Jfoggy",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2020,
+      "team_id": 5,
+      "team_name": "Isabella's Team",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2020,
+      "team_id": 6,
+      "team_name": "Benjamin\u2019s Erect Tea",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2020,
+      "team_id": 7,
+      "team_name": "come lick her lukey",
+      "manager_id": "luke"
+    },
+    {
+      "year": 2020,
+      "team_id": 8,
+      "team_name": "Jack's Team",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2020,
+      "team_id": 9,
+      "team_name": "will's Team",
+      "manager_id": "will"
+    },
+    {
+      "year": 2020,
+      "team_id": 10,
+      "team_name": "Landon's Silly Boys",
+      "manager_id": "landon"
+    },
+    {
+      "year": 2020,
+      "team_id": 11,
+      "team_name": "yusuf won\u2019t lose",
+      "manager_id": "yusuf"
+    },
+    {
+      "year": 2020,
+      "team_id": 12,
+      "team_name": "michael's Team",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2019,
+      "team_id": 1,
+      "team_name": "Alex\u2019s Team",
+      "manager_id": "alex"
+    },
+    {
+      "year": 2019,
+      "team_id": 2,
+      "team_name": "Isabella's Team",
+      "manager_id": "isabella"
+    },
+    {
+      "year": 2019,
+      "team_id": 3,
+      "team_name": "Jack's Optimal Team",
+      "manager_id": "jack"
+    },
+    {
+      "year": 2019,
+      "team_id": 4,
+      "team_name": "charley's Team",
+      "manager_id": "charley"
+    },
+    {
+      "year": 2019,
+      "team_id": 5,
+      "team_name": "Tyfoodnoodles",
+      "manager_id": "ty"
+    },
+    {
+      "year": 2019,
+      "team_id": 6,
+      "team_name": "Jordan Beck's Team",
+      "manager_id": "jordan"
+    },
+    {
+      "year": 2019,
+      "team_id": 7,
+      "team_name": "Benjamin's Team",
+      "manager_id": "benjamin"
+    },
+    {
+      "year": 2019,
+      "team_id": 8,
+      "team_name": "Yusuf's Yo-Yo\u2019s",
+      "manager_id": "yusuf"
+    },
+    {
+      "year": 2019,
+      "team_id": 9,
+      "team_name": "Jake's Shitty Team",
+      "manager_id": "jake"
+    },
+    {
+      "year": 2019,
+      "team_id": 10,
+      "team_name": "Cogger69",
+      "manager_id": "carson"
+    },
+    {
+      "year": 2019,
+      "team_id": 11,
+      "team_name": "michael's Team",
+      "manager_id": "mike"
+    },
+    {
+      "year": 2019,
+      "team_id": 12,
+      "team_name": "Landon's Team",
+      "manager_id": "landon"
+    },
+    {
       "year": 2018,
       "team_id": 1,
       "team_name": "FrenchFrey'sFastFood",
@@ -180,654 +828,6 @@
       "team_id": 12,
       "team_name": "3 O'clock Boys",
       "manager_id": "luke_b"
-    },
-    {
-      "year": 2019,
-      "team_id": 1,
-      "team_name": "Alex's Team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2019,
-      "team_id": 2,
-      "team_name": "Isabella's Team",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2019,
-      "team_id": 3,
-      "team_name": "Jack's Optimal Team",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2019,
-      "team_id": 4,
-      "team_name": "charley's Team",
-      "manager_id": "charley"
-    },
-    {
-      "year": 2019,
-      "team_id": 5,
-      "team_name": "Tyfoodnoodles",
-      "manager_id": "ty"
-    },
-    {
-      "year": 2019,
-      "team_id": 6,
-      "team_name": "Jordan Beck's Team",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2019,
-      "team_id": 7,
-      "team_name": "Benjamin's Team",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2019,
-      "team_id": 8,
-      "team_name": "Yusuf's Yo-Yo's",
-      "manager_id": "yusuf"
-    },
-    {
-      "year": 2019,
-      "team_id": 9,
-      "team_name": "Jake's Shitty Team",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2019,
-      "team_id": 10,
-      "team_name": "Cogger69",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2019,
-      "team_id": 11,
-      "team_name": "michael's Team",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2019,
-      "team_id": 12,
-      "team_name": "Landon's Team",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2020,
-      "team_id": 1,
-      "team_name": "Alex's fluffy Team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2020,
-      "team_id": 2,
-      "team_name": "Carson Big Boi Team",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2020,
-      "team_id": 3,
-      "team_name": "Jake's Team",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2020,
-      "team_id": 4,
-      "team_name": "Jfoggy",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2020,
-      "team_id": 5,
-      "team_name": "Isabella's Team",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2020,
-      "team_id": 6,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2020,
-      "team_id": 7,
-      "team_name": "come lick her lukey",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2020,
-      "team_id": 8,
-      "team_name": "Jack's Team",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2020,
-      "team_id": 9,
-      "team_name": "will's Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2020,
-      "team_id": 10,
-      "team_name": "Landon's Silly Boys",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2020,
-      "team_id": 11,
-      "team_name": "yusuf won't lose",
-      "manager_id": "yusuf"
-    },
-    {
-      "year": 2020,
-      "team_id": 12,
-      "team_name": "michael's Team",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2021,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2021,
-      "team_id": 2,
-      "team_name": "Loser POV",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2021,
-      "team_id": 3,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2021,
-      "team_id": 4,
-      "team_name": "Trump 2020 Jack",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2021,
-      "team_id": 5,
-      "team_name": "Carsons Injured Fags",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2021,
-      "team_id": 6,
-      "team_name": "Luke's shit team",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2021,
-      "team_id": 7,
-      "team_name": "I Have Never Lost",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2021,
-      "team_id": 8,
-      "team_name": "Isabella's Team",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2021,
-      "team_id": 9,
-      "team_name": "michael's Team",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2021,
-      "team_id": 10,
-      "team_name": "Jake's Jews",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2021,
-      "team_id": 11,
-      "team_name": "will's Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2021,
-      "team_id": 12,
-      "team_name": "Yusuf's Awesome Team",
-      "manager_id": "yusuf"
-    },
-    {
-      "year": 2022,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2022,
-      "team_id": 2,
-      "team_name": "Winner POV ???????????????????",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2022,
-      "team_id": 3,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2022,
-      "team_id": 4,
-      "team_name": "Jackie Chan",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2022,
-      "team_id": 5,
-      "team_name": "Carson's cock cookers",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2022,
-      "team_id": 6,
-      "team_name": "Injured Reserve",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2022,
-      "team_id": 7,
-      "team_name": "Justinian II",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2022,
-      "team_id": 8,
-      "team_name": "RIP Henry",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2022,
-      "team_id": 9,
-      "team_name": "Mikes mesotheliomic mccafferys",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2022,
-      "team_id": 10,
-      "team_name": "Actually score a td wtf",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2022,
-      "team_id": 11,
-      "team_name": "willy's massive men",
-      "manager_id": "will"
-    },
-    {
-      "year": 2022,
-      "team_id": 12,
-      "team_name": "Yusuf's Awesome Team",
-      "manager_id": "yusuf"
-    },
-    {
-      "year": 2023,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2023,
-      "team_id": 2,
-      "team_name": "lukey team",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2023,
-      "team_id": 3,
-      "team_name": "will's Unreal Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2023,
-      "team_id": 4,
-      "team_name": "Isabella's Rad Team",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2023,
-      "team_id": 5,
-      "team_name": "Yusuf's Fine Team",
-      "manager_id": "yusuf"
-    },
-    {
-      "year": 2023,
-      "team_id": 6,
-      "team_name": "The Dream is Dead",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2023,
-      "team_id": 7,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2023,
-      "team_id": 8,
-      "team_name": "Liggity",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2023,
-      "team_id": 9,
-      "team_name": "Landon H. Christ",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2023,
-      "team_id": 10,
-      "team_name": "Jake's Jews",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2023,
-      "team_id": 11,
-      "team_name": "Sub par Carr",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2023,
-      "team_id": 12,
-      "team_name": "Ceedeez nutz",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2024,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2024,
-      "team_id": 2,
-      "team_name": "jalens dick hurts",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2024,
-      "team_id": 3,
-      "team_name": "Run it back",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2024,
-      "team_id": 4,
-      "team_name": "Misunderstood Genius",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2024,
-      "team_id": 5,
-      "team_name": "Dumpster Fire",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2024,
-      "team_id": 6,
-      "team_name": "mikes menaces",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2024,
-      "team_id": 7,
-      "team_name": "will's Unbelievable Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2024,
-      "team_id": 8,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2024,
-      "team_id": 9,
-      "team_name": "Yusuf's Crazy Team",
-      "manager_id": "yusuf"
-    },
-    {
-      "year": 2024,
-      "team_id": 10,
-      "team_name": "Jack's Legit Team",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2024,
-      "team_id": 11,
-      "team_name": "Team DGAF",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2024,
-      "team_id": 12,
-      "team_name": "Carson's Crack Induced Cunts",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2025,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2025,
-      "team_id": 2,
-      "team_name": "Poop Game",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2025,
-      "team_id": 3,
-      "team_name": "It didn't come home",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2025,
-      "team_id": 4,
-      "team_name": "Heisenberg",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2025,
-      "team_id": 5,
-      "team_name": "The King is Back",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2025,
-      "team_id": 6,
-      "team_name": "mikes menaces",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2025,
-      "team_id": 7,
-      "team_name": "will's Unbelievable Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2025,
-      "team_id": 8,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2025,
-      "team_id": 9,
-      "team_name": "Ryan's Rookie Roster",
-      "manager_id": "ryan"
-    },
-    {
-      "year": 2025,
-      "team_id": 10,
-      "team_name": "Jack's Legit Team",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2025,
-      "team_id": 11,
-      "team_name": "LGBTQB1",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2025,
-      "team_id": 12,
-      "team_name": "Carson's disappointing team",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2026,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2026,
-      "team_id": 2,
-      "team_name": "Skid Marks",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2026,
-      "team_id": 3,
-      "team_name": "The Infirmary",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2026,
-      "team_id": 4,
-      "team_name": "ANITA MAX WYNN",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2026,
-      "team_id": 5,
-      "team_name": "JJ and the Gang",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2026,
-      "team_id": 6,
-      "team_name": "Sleepy Mike and the shitters",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2026,
-      "team_id": 7,
-      "team_name": "will's Unbelievable Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2026,
-      "team_id": 8,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2026,
-      "team_id": 9,
-      "team_name": "Sun\u2026 Dog?",
-      "manager_id": "ryan"
-    },
-    {
-      "year": 2026,
-      "team_id": 10,
-      "team_name": "Jack's Legit Team",
-      "manager_id": "jack"
-    },
-    {
-      "year": 2026,
-      "team_id": 11,
-      "team_name": "LGBTQB1",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2026,
-      "team_id": 12,
-      "team_name": "Carson's Criminals",
-      "manager_id": "carson"
-    },
-    {
-      "year": 2027,
-      "team_id": 1,
-      "team_name": "Alex's fluffy team",
-      "manager_id": "alex"
-    },
-    {
-      "year": 2027,
-      "team_id": 2,
-      "team_name": "Skid Marks",
-      "manager_id": "luke"
-    },
-    {
-      "year": 2027,
-      "team_id": 3,
-      "team_name": "The Infirmary",
-      "manager_id": "jake"
-    },
-    {
-      "year": 2027,
-      "team_id": 4,
-      "team_name": "SHIPOOPI",
-      "manager_id": "landon"
-    },
-    {
-      "year": 2027,
-      "team_id": 5,
-      "team_name": "JJ and the Gang",
-      "manager_id": "isabella"
-    },
-    {
-      "year": 2027,
-      "team_id": 6,
-      "team_name": "Sleepy Mike and the shitters",
-      "manager_id": "mike"
-    },
-    {
-      "year": 2027,
-      "team_id": 7,
-      "team_name": "will's Unbelievable Team",
-      "manager_id": "will"
-    },
-    {
-      "year": 2027,
-      "team_id": 8,
-      "team_name": "Benjamin's Erect Tea",
-      "manager_id": "benjamin"
-    },
-    {
-      "year": 2027,
-      "team_id": 9,
-      "team_name": "Sun\u2026 Dog?",
-      "manager_id": "ryan"
-    },
-    {
-      "year": 2027,
-      "team_id": 10,
-      "team_name": "Hit Squad Madoc",
-      "manager_id": "madoc"
-    },
-    {
-      "year": 2027,
-      "team_id": 11,
-      "team_name": "LGBTQB1",
-      "manager_id": "jordan"
-    },
-    {
-      "year": 2027,
-      "team_id": 12,
-      "team_name": "Carson's Criminals",
-      "manager_id": "carson"
     }
   ]
 }
