@@ -311,6 +311,7 @@ class YahooFantasyScraper:
                 print(f"    [WARN] Failed scoreboard week {wk}: {e}")
                 break
 
+            unplayed_week = False
             visited_teams = set()
             for team_id in range(1, max_teams + 1):
                 if team_id in visited_teams:
@@ -329,6 +330,20 @@ class YahooFantasyScraper:
                             if out_path.exists():
                                 out_path.unlink()
                             break
+                            
+                        # Detect if the week hasn't been played yet (e.g. "Projected Winner")
+                        if "Projected Winner" in html:
+                            print(f"    [Matchups] Week {wk} has not been played yet ('Projected Winner' detected). Aborting week.")
+                            if out_path.exists():
+                                out_path.unlink()
+                            
+                            # Also delete the scoreboard for this week so it's fresh next time
+                            sb_path = RAW_DATA_DIR / str(year) / "matchups" / f"scoreboard_wk{wk}.html"
+                            if sb_path.exists():
+                                sb_path.unlink()
+                                
+                            unplayed_week = True
+                            break
 
                         match = re.search(r'mid1=(\d+)&(?:amp;)?mid2=(\d+)', html)
                         if match:
@@ -343,6 +358,9 @@ class YahooFantasyScraper:
                         break
                 except Exception as e:
                     print(f"    [WARN] Failed boxscore wk{wk} team{team_id}: {e}")
+            
+            if unplayed_week:
+                break
 
     # =========================================================================
     # Full Season Orchestration
@@ -372,12 +390,20 @@ class YahooFantasyScraper:
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Yahoo Fantasy Football Scraper")
+    parser.add_argument("--year", type=int, help="Specific year to scrape (e.g., 2027). If not provided, scrapes all SEASONS_TO_SCRAPE.")
+    args = parser.parse_args()
+
     print("=" * 70)
     print("YAHOO FANTASY FOOTBALL - HISTORICAL DATA SCRAPER (2018-2027)")
     print("=" * 70)
-    print("Starting smart-cached, zero-redundancy scrape across all historical & upcoming seasons...")
+    print("Starting smart-cached, zero-redundancy scrape...")
+    
+    seasons = [args.year] if args.year else None
+    
     with YahooFantasyScraper(headless=False, delay=1.0) as scraper:
-        scraper.scrape_all_seasons()
+        scraper.scrape_all_seasons(seasons=seasons)
     print("=" * 70)
-    print("ALL HISTORICAL SEASONS SCRAPED AND CACHED IN /scraper/raw_data/ !")
+    print("SCRAPE COMPLETED!")
     print("=" * 70)
