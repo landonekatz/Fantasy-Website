@@ -20,3 +20,4 @@ scraper/generate_draft_profiles.py
 
 # Mock Draft App (personal tooling)
 mock_draft/
+scraper/.browser_context/

@@ -1,6 +1,0 @@
-2026/07/31-15:04:45.572 a2d9dc Reusing MANIFEST /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_football.fantasysports.yahoo.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/31-15:04:45.572 a2d9dc Recovering log #157
-2026/07/31-15:04:45.575 a2d9dc Reusing old log /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_football.fantasysports.yahoo.com_0.indexeddb.leveldb/000157.log 
-2026/07/31-15:05:21.213 a2d9de Level-0 table #162: started
-2026/07/31-15:05:21.220 a2d9de Level-0 table #162: 961479 bytes OK
-2026/07/31-15:05:21.222 a2d9de Delete type=0 #157

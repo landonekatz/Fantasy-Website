@@ -1,6 +1,0 @@
-2026/07/31-15:04:53.545 a2d9dc Creating DB /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_ecba199d23ab1106d184e94aaf780613.safeframe.googlesyndication.com_0.indexeddb.leveldb since it was missing.
-2026/07/31-15:04:53.547 a2d9dc Reusing MANIFEST /Users/Landon/Documents/Fantasy-Website/scraper/.browser_context/Default/IndexedDB/https_ecba199d23ab1106d184e94aaf780613.safeframe.googlesyndication.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/31-15:04:53.556 a2d9e2 Level-0 table #5: started
-2026/07/31-15:04:53.557 a2d9e2 Level-0 table #5: 1834 bytes OK
-2026/07/31-15:04:53.558 a2d9e2 Delete type=0 #3
-2026/07/31-15:04:53.558 a2d9dc Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
