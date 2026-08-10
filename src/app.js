@@ -109,13 +109,15 @@ class FantasyApp {
             const managerId = el.getAttribute('data-manager');
             const manager = this.managers.find(m => m.id === managerId);
             if (manager) {
-                const logoEl = el.querySelector('.rank-logo');
-                const teamEl = el.querySelector('.rank-team');
-                const mgrEl = el.querySelector('.rank-manager');
-                
-                if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
-                if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
-                if (mgrEl) mgrEl.textContent = manager.name;
+                const infoEl = el.querySelector('.rank-info');
+                if (infoEl) {
+                    const logoUrl = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                    const teamName = this.getCurrentTeamName(managerId);
+                    infoEl.innerHTML = `
+                        <span class="rank-manager-name">${manager.name}</span>
+                        <span class="rank-team-parenthetical">(<img class="rank-logo-inline" src="${logoUrl}" alt="logo"> ${teamName})</span>
+                    `;
+                }
             }
         });
     }
