@@ -4,67 +4,67 @@
       "id": "alex",
       "name": "Alex",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a0fe865f598d352044589dffd4119b4a5b5eab9fbb8d4a5b226a56f71aa36a3c.jpg"
+      "logo_url": "assets/logos/alex.jpg"
     },
     {
       "id": "benjamin",
       "name": "Benjamin",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a2cbd9723f84f4669346df652de732b6c5f6f3693459ee1df2940f334441bd13.jpg"
+      "logo_url": "assets/logos/benjamin.jpg"
     },
     {
       "id": "carson",
       "name": "Carson",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/157d30b0ea6df11735279d1313d3a50ce138d6aa3bb4e1f3f4b1d84c543dcfba.jpg"
+      "logo_url": "assets/logos/carson.jpg"
     },
     {
       "id": "isabella",
       "name": "Isabella",
       "status": "current",
-      "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_7_i.png"
+      "logo_url": "assets/logos/isabella.jpg"
     },
     {
       "id": "jake",
       "name": "Jake",
       "status": "current",
-      "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_5_j.png"
+      "logo_url": "assets/logos/jake.jpg"
     },
     {
       "id": "landon",
       "name": "Landon",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/93a9876d8326490cb0d166ea3833e0b1993e2502d4b1e351d4e438f4dc1ada17.png"
+      "logo_url": "assets/logos/landon.jpg"
     },
     {
       "id": "luke",
       "name": "Luke",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/36e8a5162f6767c2863597090f15434c92a2c4c6923889a99f01bd35164df7b3.png"
+      "logo_url": "assets/logos/luke.jpg"
     },
     {
       "id": "mike",
       "name": "Mike",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/02aeba59877daa6ec3049ed4109210a35d1ce3745d1d443ecdc3fab04c8122a8.png"
+      "logo_url": "assets/logos/mike.jpg"
     },
     {
       "id": "will",
       "name": "Will",
       "status": "current",
-      "logo_url": "https://s.yimg.com/ba/images/7274328e007d59a7ceaeae50b72d5d9e9c44a26ed464268c930e21d83b8d2b25.png"
+      "logo_url": "assets/logos/will.jpg"
     },
     {
       "id": "ryan",
       "name": "Ryan",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/1b850992c09d364c2b27c541ce7653a070d9915a53e649a5ff0e912af398fa99.png"
+      "logo_url": "assets/logos/ryan.jpg"
     },
     {
       "id": "jordan",
       "name": "Jordan",
       "status": "current",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/bcd5a0ae857c86c79f90bd3de3fa88543d09e8da44a460ef5db281a786ae1a98.png"
+      "logo_url": "assets/logos/jordan.jpg"
     },
     {
       "id": "madoc",
@@ -75,37 +75,37 @@
       "id": "luke_b",
       "name": "Luke B",
       "status": "retired",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/36107719650_c50244.jpg"
+      "logo_url": "assets/logos/luke_b.jpg"
     },
     {
       "id": "yusuf",
       "name": "Yusuf",
       "status": "retired",
-      "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_5_y.png"
+      "logo_url": "assets/logos/yusuf.jpg"
     },
     {
       "id": "jack",
       "name": "Jack",
       "status": "retired",
-      "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_9_j.png"
+      "logo_url": "assets/logos/jack.jpg"
     },
     {
       "id": "joey",
       "name": "Joey",
       "status": "retired",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/36122109310_da41de.jpg"
+      "logo_url": "assets/logos/joey.jpg"
     },
     {
       "id": "charley",
       "name": "Charley",
       "status": "retired",
-      "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_7.png"
+      "logo_url": "assets/logos/charley.jpg"
     },
     {
       "id": "ty",
       "name": "Ty",
       "status": "retired",
-      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/43885790671_7785f1.jpg"
+      "logo_url": "assets/logos/ty.jpg"
     }
   ],
   "team_mappings": [

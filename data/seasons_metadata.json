@@ -61,5 +61,12 @@
     "regular_season_weeks": 14,
     "total_weeks_scraped": 17,
     "playoff_teams": 6
+  },
+  {
+    "season": 2027,
+    "num_teams": 0,
+    "regular_season_weeks": 14,
+    "total_weeks_scraped": 0,
+    "playoff_teams": 4
   }
 ]

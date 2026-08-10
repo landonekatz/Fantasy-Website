@@ -65854,5 +65854,61 @@
     "trade_partner_manager_name": "",
     "faab_bid": 0,
     "timestamp": "Aug 10, 8:21 pm"
+  },
+  {
+    "season": 2027,
+    "type": "waiver",
+    "team_name": "Jewca Nacua",
+    "manager_id": "luke",
+    "manager_name": "Luke",
+    "details": "Harrison Mevis LAR - K Free Agent Nicholas Singleton Ten - RB To Waivers",
+    "added_players": [
+      "Harrison Mevis"
+    ],
+    "dropped_players": [
+      "Nicholas Singleton"
+    ],
+    "traded_players": [],
+    "trade_partner_team": "",
+    "trade_partner_manager_id": "",
+    "trade_partner_manager_name": "",
+    "faab_bid": 0,
+    "timestamp": "Aug 9, 10:22 pm"
+  },
+  {
+    "season": 2027,
+    "type": "free_agent",
+    "team_name": "Jake's Jews",
+    "manager_id": "jake",
+    "manager_name": "Jake",
+    "details": "Jake Ferguson Dal - TE Free Agent",
+    "added_players": [
+      "Jake Ferguson"
+    ],
+    "dropped_players": [],
+    "traded_players": [],
+    "trade_partner_team": "",
+    "trade_partner_manager_id": "",
+    "trade_partner_manager_name": "",
+    "faab_bid": 0,
+    "timestamp": "Aug 9, 10:15 pm"
+  },
+  {
+    "season": 2027,
+    "type": "free_agent",
+    "team_name": "SHIPOOPI",
+    "manager_id": "landon",
+    "manager_name": "Landon",
+    "details": "Tyler Allgeier Ari - RB Free Agent",
+    "added_players": [
+      "Tyler Allgeier"
+    ],
+    "dropped_players": [],
+    "traded_players": [],
+    "trade_partner_team": "",
+    "trade_partner_manager_id": "",
+    "trade_partner_manager_name": "",
+    "faab_bid": 0,
+    "timestamp": "Aug 9, 10:14 pm"
   }
 ]
