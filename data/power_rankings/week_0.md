@@ -17,7 +17,7 @@ Double XP weekend and meditation man, Pickens eating into CeeDee’s touches, pl
 ### 2. Jordan
 
 **Positives:**
-The one-man offense known formally as Jahmir Gibbs. Trey McBreezy - he makes that shit look easy. Dak/Pickens stack. Knuckles free from Sonic’s shackles. And they say that it’s Parker Washington’s year.
+The one-man offense known formally as Jahmyr Gibbs. Trey McBreezy - he makes that shit look easy. Dak/Pickens stack. Knuckles free from Sonic’s shackles. And they say that it’s Parker Washington’s year.
 
 **Negatives:**
 DMont, McBride, and Judkins are all on bad offensive teams. The upside of these guys could get capped pretty quickly if their QBs can’t move the ball. Also, the only true WR1 on Jordan’s team is Alec Pierce. Not that Pickens doesn’t get the touches of a 1, but still something to keep an eye on.
@@ -41,7 +41,7 @@ It’s Luke’s team. Something will happen. I really don’t love Swift this ye
 ### 5. Jake
 
 **Positives:**
-Kind of a lot of possible outcomes with this team. Jamaar and Nico are obviously elite – and Jamaar can keep you in it by himself – but there are some issues there with QB health (and CJ Stroud). Rice is great when on the field. Drake Maye is great when the schedule cooperates. Bucky Irving is great when not depressed. For now, this is a strong unit. Also a Jake-drafted team, so I’ll give him the benefit of the doubt.
+Kind of a lot of possible outcomes with this team. Jamarr and Nico are obviously elite – and Jamarr can keep you in it by himself – but there are some issues there with QB health (and CJ Stroud). Rice is great when on the field. Drake Maye is great when the schedule cooperates. Bucky Irving is great when not depressed. For now, this is a strong unit. Also a Jake-drafted team, so I’ll give him the benefit of the doubt.
 
 **Negatives:**
 See above.
