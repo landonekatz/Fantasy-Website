@@ -6,31 +6,60 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Custom Vite plugin to serve json files from /data/ directory
-function serveDataPlugin() {
+// Custom plugin to serve multi-league json files during dev and copy at build time
+function serveMultiLeagueDataPlugin() {
   return {
-    name: 'serve-data-plugin',
+    name: 'serve-multi-league-data-plugin',
     configureServer(server) {
-      server.middlewares.use('/data', (req, res, next) => {
+      server.middlewares.use((req, res, next) => {
         const cleanUrl = req.url.split('?')[0];
-        const filePath = path.join(__dirname, 'data', cleanUrl);
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          fs.createReadStream(filePath).pipe(res);
-        } else {
-          next();
+
+        // Handle /dmsfantasy/data/...
+        if (cleanUrl.startsWith('/dmsfantasy/data/')) {
+          const relPath = cleanUrl.replace('/dmsfantasy/data/', '');
+          const filePath = path.join(__dirname, 'dmsfantasy', 'data', relPath);
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return fs.createReadStream(filePath).pipe(res);
+          }
         }
+
+        // Handle /gaywoodfantasy/data/...
+        if (cleanUrl.startsWith('/gaywoodfantasy/data/')) {
+          const relPath = cleanUrl.replace('/gaywoodfantasy/data/', '');
+          const filePath = path.join(__dirname, 'gaywoodfantasy', 'data', relPath);
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            return fs.createReadStream(filePath).pipe(res);
+          }
+        }
+
+        next();
       });
     },
     closeBundle() {
-      const srcDir = path.join(__dirname, 'data');
-      const destDir = path.join(__dirname, 'dist', 'data');
-      if (fs.existsSync(srcDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-        for (const file of fs.readdirSync(srcDir)) {
-          if (file.endsWith('.json')) {
-            fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+      // Copy dmsfantasy/data to dist/dmsfantasy/data
+      const dmsSrc = path.join(__dirname, 'dmsfantasy', 'data');
+      const dmsDest = path.join(__dirname, 'dist', 'dmsfantasy', 'data');
+      if (fs.existsSync(dmsSrc)) {
+        fs.mkdirSync(dmsDest, { recursive: true });
+        for (const file of fs.readdirSync(dmsSrc)) {
+          if (file.endsWith('.json') || file.endsWith('.js')) {
+            fs.copyFileSync(path.join(dmsSrc, file), path.join(dmsDest, file));
+          }
+        }
+      }
+
+      // Copy gaywoodfantasy/data to dist/gaywoodfantasy/data
+      const gaywoodSrc = path.join(__dirname, 'gaywoodfantasy', 'data');
+      const gaywoodDest = path.join(__dirname, 'dist', 'gaywoodfantasy', 'data');
+      if (fs.existsSync(gaywoodSrc)) {
+        fs.mkdirSync(gaywoodDest, { recursive: true });
+        for (const file of fs.readdirSync(gaywoodSrc)) {
+          if (file.endsWith('.json') || file.endsWith('.js')) {
+            fs.copyFileSync(path.join(gaywoodSrc, file), path.join(gaywoodDest, file));
           }
         }
       }
@@ -39,7 +68,7 @@ function serveDataPlugin() {
 }
 
 export default defineConfig({
-  plugins: [serveDataPlugin()],
+  plugins: [serveMultiLeagueDataPlugin()],
   server: {
     port: 3000,
     open: false,
@@ -47,6 +76,13 @@ export default defineConfig({
   },
   publicDir: 'public',
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html'),
+        gaywoodfantasy: path.resolve(__dirname, 'gaywoodfantasy/index.html')
+      }
+    }
   }
 });

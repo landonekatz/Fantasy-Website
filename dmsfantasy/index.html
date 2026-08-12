@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Dumbarton Fantasy Football League HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="src/styles.css?v=20260802d">
+</head>
+
+<body>
+
+<header>
+    <div class="masthead-top-bar">
+        <div class="edition-info">VOL. IX • EST. 2018</div>
+        <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+            <span id="theme-toggle-label">Theme: Light</span>
+        </button>
+    </div>
+    <div class="masthead-main">
+        <h1>The Dumbarton Fantasy Football<br>League HQ</h1>
+        <p>Variance is an excuse for incompetence.</p>
+    </div>
+    <nav id="top-nav">
+        <button id="btn-tab-home" class="top-nav-btn active">League Home</button>
+        <button id="btn-tab-h2h" class="top-nav-btn">All-Time Head-to-Head History</button>
+        <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
+        <button id="btn-tab-rivalry" class="top-nav-btn">Rivalry Week</button>
+    </nav>
+</header>
+
+<div class="container">
+
+    <!-- LEAGUE HOME PAGE VIEW -->
+    <div id="view-home" class="page-view active">
+        <!-- On This Page Secondary Scroller Bar -->
+        <div class="page-scroller-bar">
+            <span class="scroller-label">On This Page:</span>
+            <div class="scroller-links">
+                <a href="#story" class="scroller-pill">Headlines</a>
+                <a href="#rankings" class="scroller-pill">Power Rankings</a>
+                <a href="#template" class="scroller-pill">Weekly Stories</a>
+            </div>
+        </div>
+
+        <div class="card" id="story">
+            <h2>League Updates</h2>
+            <h3>Personnel Changes</h3>
+            <p>
+                The whole league was distraught to learn of perennial loser Jack Lovas's removal. It was not due to their love of Lovas - but the loss of a free win one could pencil in their schedule. 
+            </p>
+            <br>
+            <p>
+                Lovas's replacement, Madoc Watson, passed the Commissioner and Committee's physical and mental examinations and will debut in the opening week of the 2026 season. Watson is known for his delusional self-belief and scrappy playstyle and projects as a bottom-to-middle level contender.
+            </p>
+        </div>
+
+        <div class="card" id="rankings">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h2 id="power-rankings-title" style="margin:0;">Power Rankings (Week 0)</h2>
+            </div>
+            <!-- Order matches Week 0 rankings from power_rankings_history.json -->
+            <div class="rank" data-manager="will">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="jordan">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="madoc">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="luke">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="jake">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="mike">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="carson">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="benjamin">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="landon">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="isabella">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="ryan">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+            <div class="rank" data-manager="alex">
+                <img class="rank-logo" src="" alt="">
+                <div class="rank-info">
+                    <span class="rank-team"></span>
+                    <span class="rank-manager"></span>
+                </div>
+                <span class="trend-badge trend-flat">■ (--)</span>
+            </div>
+        </div>
+
+        <div class="card" id="template">
+            <h2 id="weekly-story-title">Week 0 Stories</h2>
+            <h3>Power Rankings</h3>
+            <div id="weekly-story-content">
+                <!-- Dynamically populated from power_rankings_history.json -->
+            </div>
+        </div>
+    </div>
+    <!-- END LEAGUE HOME PAGE VIEW -->
+
+
+    <!-- ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
+    <div id="view-h2h" class="page-view">
+        
+        <!-- Controls & Filter Card -->
+        <div id="h2h-controls-card">
+            <div class="h2h-select-row">
+                <div class="manager-select-box">
+                    <label for="h2h-manager-1">Manager 1</label>
+                    <select id="h2h-manager-1"></select>
+                </div>
+
+                <div class="vs-badge">VS</div>
+
+                <div class="manager-select-box">
+                    <label for="h2h-manager-2">Manager 2</label>
+                    <select id="h2h-manager-2"></select>
+                </div>
+            </div>
+
+            <!-- Year Range Filters -->
+            <div class="h2h-filter-bar">
+                <button type="button" id="filter-btn-all" class="filter-btn active">All Years (2018–2026)</button>
+                <button type="button" id="filter-btn-2020" class="filter-btn">2020–Present</button>
+                <button type="button" id="filter-btn-custom" class="filter-btn">Custom Year Span</button>
+                
+                <div id="custom-year-span-container" class="custom-year-span" style="display: none;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">From</span>
+                    <select id="custom-start-year">
+                        <option value="2018" selected>2018</option>
+                        <option value="2019">2019</option>
+                        <option value="2020">2020</option>
+                        <option value="2021">2021</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
+                    <select id="custom-end-year">
+                        <option value="2018">2018</option>
+                        <option value="2019">2019</option>
+                        <option value="2020">2020</option>
+                        <option value="2021">2021</option>
+                        <option value="2022">2022</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                </div>
+
+                <div class="h2h-playoff-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-playoffs" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="toggle-playoffs-label" class="toggle-label">Include Playoffs: ON</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Overall Record Banner -->
+        <div id="h2h-hero"></div>
+
+        <!-- Chronological Matchups List -->
+        <div id="h2h-matchups-section">
+            <div id="h2h-matchups-list"></div>
+        </div>
+
+        <!-- Summary Stats Footer Card -->
+        <div id="h2h-summary-card" style="display: none;"></div>
+
+    </div>
+    <!-- END ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
+
+    <!-- RECORD BOOK PAGE VIEW -->
+    <div id="view-records" class="page-view">
+        <!-- On This Page Secondary Scroller Bar -->
+        <div class="page-scroller-bar">
+            <span class="scroller-label">Record Sections:</span>
+            <div class="scroller-links">
+                <a href="#sec-overview" class="scroller-pill">Standings & Titles</a>
+                <a href="#sec-singlegame" class="scroller-pill">Single Game Records</a>
+                <a href="#sec-singleseason" class="scroller-pill">Single Season Records</a>
+                <a href="#sec-streaks" class="scroller-pill">Streak Records</a>
+                <a href="#sec-playoffs" class="scroller-pill">Playoff Records</a>
+            </div>
+        </div>
+
+        <!-- Hero Record Book Banner -->
+        <div id="records-hero" class="records-hero"></div>
+
+        <!-- Section 1: Overview & Championships/Outright Losses -->
+        <div id="sec-overview" class="records-section-block"></div>
+
+        <!-- Section 2: Single Game Records -->
+        <div id="sec-singlegame" class="records-section-block"></div>
+
+        <!-- Section 3: Single Season Records -->
+        <div id="sec-singleseason" class="records-section-block"></div>
+
+        <!-- Section 4: Streak Records -->
+        <div id="sec-streaks" class="records-section-block"></div>
+
+        <!-- Section 5: Playoff Records -->
+        <div id="sec-playoffs" class="records-section-block"></div>
+    </div>
+    <!-- END RECORD BOOK PAGE VIEW -->
+
+    <!-- RIVALRY WEEK PAGE VIEW (DUNGEON THEME) -->
+    <div id="view-rivalry" class="page-view">
+        <div id="rivalry-dungeon-root"></div>
+    </div>
+    <!-- END RIVALRY WEEK PAGE VIEW -->
+
+</div>
+
+<!-- HTML5 Dialog Modal for Full Matchup Boxscore & Roster Detail -->
+<dialog id="boxscore-modal" class="boxscore-modal">
+    <div id="boxscore-modal-content"></div>
+</dialog>
+
+<footer>
+    Dumbarton Fantasy Football League HQ © 2026
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="data/data_bundle.js?v=20260811"></script>
+<script type="module" src="src/app.js?v=20260811"></script>
+<script type="module" src="src/records.js?v=20260811"></script>
+<script type="module" src="src/rivalry.js?v=20260811"></script>
+</body>
+</html>

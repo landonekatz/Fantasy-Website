@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Route Dumbarton League HQ
+[[redirects]]
+  from = "/dmsfantasy/*"
+  to = "/dmsfantasy/index.html"
+  status = 200
+
+# Route Gaywood / Katz Dad League HQ
+[[redirects]]
+  from = "/gaywoodfantasy/*"
+  to = "/gaywoodfantasy/index.html"
+  status = 200
+
+# Route landing hub SPA & custom dynamic league slugs fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
