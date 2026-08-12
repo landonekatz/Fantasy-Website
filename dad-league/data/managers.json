@@ -1,0 +1,172 @@
+{
+  "managers": [
+    {
+      "id": "daniel",
+      "name": "Daniel",
+      "full_name": "Daniel Hulbert",
+      "espn_id": "{B6808BDB-CD15-4F38-951E-2E3DD1B9319B}",
+      "display_name": "dwhulbert",
+      "status": "retired"
+    },
+    {
+      "id": "peter",
+      "name": "Peter",
+      "full_name": "Peter Sheehan",
+      "espn_id": "{09948E5A-A389-457D-BD8B-6BC78E867120}",
+      "display_name": "47Lucy1001",
+      "status": "retired"
+    },
+    {
+      "id": "steve",
+      "name": "Steve",
+      "full_name": "Steve Hochstein",
+      "espn_id": "{shoch001-0000-0000-0000-000000000000}",
+      "display_name": "shoch0011",
+      "status": "retired"
+    },
+    {
+      "id": "adam_b",
+      "name": "Adam B",
+      "full_name": "Adam Beck",
+      "espn_id": "{abeck71-0000-0000-0000-000000000000}",
+      "display_name": "abeck71",
+      "status": "active"
+    },
+    {
+      "id": "ethan",
+      "name": "Ethan",
+      "full_name": "Ethan",
+      "espn_id": "{wbaisy1688281-000-0000-0000-000000000000}",
+      "display_name": "wbaisy1688281",
+      "status": "active"
+    },
+    {
+      "id": "brady",
+      "name": "Brady",
+      "full_name": "Brady Locher",
+      "espn_id": "{bradylo-0000-0000-0000-000000000000}",
+      "display_name": "bradylocher",
+      "status": "active"
+    },
+    {
+      "id": "brendan",
+      "name": "Brendan",
+      "full_name": "Brendan Moag",
+      "espn_id": "{Brendan955158-000-0000-0000-000000000000}",
+      "display_name": "Brendan955158",
+      "status": "retired"
+    },
+    {
+      "id": "ira",
+      "name": "Ira",
+      "full_name": "Ira Katz",
+      "espn_id": "{irabka5685803-000-0000-0000-000000000000}",
+      "display_name": "irabka5685803",
+      "status": "active"
+    },
+    {
+      "id": "scott",
+      "name": "Scott",
+      "full_name": "Scott Fritze",
+      "espn_id": "{Maximus5252-0000-0000-0000-000000000000}",
+      "display_name": "Maximus5252",
+      "status": "active"
+    },
+    {
+      "id": "jason",
+      "name": "Jason",
+      "full_name": "Jason Cullum",
+      "espn_id": "{PeaShoote-0000-0000-0000-000000000000}",
+      "display_name": "Pea_Shooter",
+      "status": "retired"
+    },
+    {
+      "id": "seth",
+      "name": "Seth",
+      "full_name": "Seth Vannatta",
+      "espn_id": "{snowman4455-000-0000-0000-000000000000}",
+      "display_name": "snowman4455",
+      "status": "retired"
+    },
+    {
+      "id": "tyler",
+      "name": "Tyler",
+      "full_name": "Tyler Harrison",
+      "espn_id": "{tharris31-0000-0000-0000-000000000000}",
+      "display_name": "tharrison31",
+      "status": "active"
+    },
+    {
+      "id": "simon",
+      "name": "Simon LaBond (Jake Ro-?)",
+      "full_name": "Simon LaBond",
+      "espn_id": "{jakero3452398-000-0000-0000-000000000000}",
+      "display_name": "jakero3452398",
+      "status": "retired"
+    },
+    {
+      "id": "roland",
+      "name": "Roland",
+      "full_name": "Roland Williams",
+      "espn_id": "{Roland67-0000-0000-0000-000000000000}",
+      "display_name": "Roland67",
+      "status": "retired"
+    },
+    {
+      "id": "nick",
+      "name": "Nick",
+      "full_name": "Nick Gold",
+      "espn_id": "{nngold00-0000-0000-0000-000000000000}",
+      "display_name": "nngold",
+      "status": "active"
+    },
+    {
+      "id": "mike",
+      "name": "Mike",
+      "full_name": "Mike Huber",
+      "espn_id": "{RickyHub-0000-0000-0000-000000000000}",
+      "display_name": "Ricky Huber Jr.",
+      "status": "active"
+    },
+    {
+      "id": "lee",
+      "name": "Lee",
+      "full_name": "Lee Gustafson",
+      "espn_id": "{Nattyb4s-0000-0000-0000-000000000000}",
+      "display_name": "Nattybro4sho",
+      "status": "active"
+    },
+    {
+      "id": "john",
+      "name": "John",
+      "full_name": "John Baker",
+      "espn_id": "{hopkins28-000-0000-0000-000000000000}",
+      "display_name": "hopkins28",
+      "status": "active"
+    },
+    {
+      "id": "adam_c",
+      "name": "Adam C",
+      "full_name": "Adam Callaway",
+      "espn_id": "{espn1386-0000-0000-0000-000000000000}",
+      "display_name": "espn13861028",
+      "status": "active"
+    },
+    {
+      "id": "luis",
+      "name": "Luis",
+      "full_name": "Luis Batlle",
+      "espn_id": "{lbatll1-0000-0000-0000-000000000000}",
+      "display_name": "lbatll1",
+      "status": "active"
+    },
+    {
+      "id": "greg",
+      "name": "Greg",
+      "full_name": "Greg Weinhold",
+      "espn_id": "{BigDadd-0000-0000-0000-000000000000}",
+      "display_name": "BigDaddyGus",
+      "status": "retired"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "defaultPositionId": 3,
+  "eligibleSlots": [
+    3,
+    4,
+    5,
+    23,
+    7,
+    20,
+    21
+  ],
+  "firstName": "Stefon",
+  "fullName": "Stefon Diggs",
+  "id": 2976212,
+  "lastName": "Diggs",
+  "proTeamId": 2,
+  "stats": [
+    {
+      "appliedStats": {},
+      "appliedTotal": 0.0,
+      "externalId": "20231",
+      "id": "1120231",
+      "proTeamId": 0,
+      "scoringPeriodId": 1,
+      "seasonId": 2023,
+      "statSourceId": 1,
+      "statSplitTypeId": 1,
+      "stats": {
+        "210": 0.882352941
+      }
+    },
+    {
+      "appliedStats": {
+        "53": 5.0,
+        "56": 1.0,
+        "42": 10.200000000000001,
+        "43": 6.0
+      },
+      "appliedTotal": 22.2,
+      "externalId": "401547352",
+      "id": "01401547352",
+      "proTeamId": 2,
+      "scoringPeriodId": 1,
+      "seasonId": 2023,
+      "statSourceId": 0,
+      "statSplitTypeId": 1,
+      "stats": {
+        "41": 10.0,
+        "42": 102.0,
+        "43": 1.0,
+        "47": 20.0,
+        "48": 10.0,
+        "49": 5.0,
+        "50": 4.0,
+        "51": 2.0,
+        "52": 1.0,
+        "53": 10.0,
+        "54": 2.0,
+        "55": 1.0,
+        "56": 1.0,
+        "58": 13.0,
+        "59": 28.0,
+        "60": 10.2,
+        "61": 102.0,
+        "156": 1.0,
+        "158": 6.0,
+        "183": 1.0,
+        "210": 1.0,
+        "213": 6.0
+      }
+    }
+  ],
+  "universeId": 1
+}

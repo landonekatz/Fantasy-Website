@@ -1,3 +1,29 @@
+function formatDumbartonNflInfo(p) {
+    let opp = (p.nfl_team || '').trim();
+    let rawRes = (p.nfl_game_result || '').trim();
+    let statLine = (p.nfl_stat_line || '').trim();
+    
+    if (!rawRes && !opp) return statLine;
+    
+    let loc = '';
+    if (rawRes.endsWith('@')) {
+        loc = '@';
+        rawRes = rawRes.slice(0, -1).trim();
+    } else if (rawRes.endsWith('vs')) {
+        loc = 'vs';
+        rawRes = rawRes.slice(0, -2).trim();
+    }
+    
+    let gameStr = rawRes;
+    if (opp) {
+        if (loc) gameStr = `${rawRes} ${loc} ${opp}`;
+        else gameStr = `${rawRes} ${opp}`;
+    }
+    
+    const parts = [gameStr, statLine].filter(Boolean);
+    return parts.join(' • ');
+}
+
 class FantasyApp {
     constructor() {
         this.managers = [];
@@ -703,7 +729,7 @@ class FantasyApp {
                 if (matchIdx !== -1) {
                     const p = remainingStarters.splice(matchIdx, 1)[0];
                     const slotClass = slot.toLowerCase().replace(/[^a-z]/g, '');
-                    const nflInfo = [p.nfl_team, p.nfl_game_result, p.nfl_stat_line].filter(Boolean).join(' • ');
+                    const nflInfo = formatDumbartonNflInfo(p);
                     html += `
                         <div class="player-row">
                             <div class="player-left">
@@ -741,7 +767,7 @@ class FantasyApp {
 
             remainingStarters.forEach(p => {
                 const slotClass = p.roster_slot.toLowerCase().replace(/[^a-z]/g, '');
-                const nflInfo = [p.nfl_team, p.nfl_game_result, p.nfl_stat_line].filter(Boolean).join(' • ');
+                const nflInfo = formatDumbartonNflInfo(p);
                 html += `
                     <div class="player-row">
                         <div class="player-left">
@@ -763,7 +789,7 @@ class FantasyApp {
                 html += `<div class="roster-section-title" style="margin-top: 20px;"><span>Bench & IR</span></div>`;
                 bench.forEach(p => {
                     const slotClass = p.roster_slot.toLowerCase().replace(/[^a-z]/g, '');
-                    const nflInfo = [p.nfl_team, p.nfl_game_result, p.nfl_stat_line].filter(Boolean).join(' • ');
+                    const nflInfo = formatDumbartonNflInfo(p);
                     html += `
                         <div class="player-row" style="opacity: 0.8;">
                             <div class="player-left">

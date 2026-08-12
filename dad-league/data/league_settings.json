@@ -1,0 +1,2292 @@
+{
+  "2020": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2021": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2024": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2023": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2022": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2025": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2019": {
+    "Passing": [
+      {
+        "name": "Passing Yards",
+        "points": 0.05
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Rushing Yards",
+        "points": 0.1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Receiving Yards",
+        "points": 0.1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Made (50-59 yards)",
+        "points": 4
+      },
+      {
+        "name": "FG Made (60+ yards)",
+        "points": 4
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2016": {
+    "Passing": [
+      {
+        "name": "Every 20 passing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Every 10 rushing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Every 10 receiving yards",
+        "points": 1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Missed (40-49 yards)",
+        "points": -2
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      },
+      {
+        "name": "Less than 100 total yards allowed",
+        "points": 3
+      },
+      {
+        "name": "100-199 total yards allowed",
+        "points": 2
+      },
+      {
+        "name": "200-299 total yards allowed",
+        "points": 1
+      },
+      {
+        "name": "350-399 total yards allowed",
+        "points": -1
+      },
+      {
+        "name": "400-449 total yards allowed",
+        "points": -2
+      },
+      {
+        "name": "450-499 total yards allowed",
+        "points": -3
+      },
+      {
+        "name": "500-549 total yards allowed",
+        "points": -4
+      },
+      {
+        "name": "550+ total yards allowed",
+        "points": -5
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2017": {
+    "Passing": [
+      {
+        "name": "Every 20 passing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Every 10 rushing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Every 10 receiving yards",
+        "points": 1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Missed (40-49 yards)",
+        "points": -2
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      },
+      {
+        "name": "Less than 100 total yards allowed",
+        "points": 3
+      },
+      {
+        "name": "100-199 total yards allowed",
+        "points": 2
+      },
+      {
+        "name": "200-299 total yards allowed",
+        "points": 1
+      },
+      {
+        "name": "350-399 total yards allowed",
+        "points": -1
+      },
+      {
+        "name": "400-449 total yards allowed",
+        "points": -2
+      },
+      {
+        "name": "450-499 total yards allowed",
+        "points": -3
+      },
+      {
+        "name": "500-549 total yards allowed",
+        "points": -4
+      },
+      {
+        "name": "550+ total yards allowed",
+        "points": -5
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2018": {
+    "Passing": [
+      {
+        "name": "Every 20 passing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Every 10 rushing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Every 10 receiving yards",
+        "points": 1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Missed (40-49 yards)",
+        "points": -2
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      },
+      {
+        "name": "Less than 100 total yards allowed",
+        "points": 3
+      },
+      {
+        "name": "100-199 total yards allowed",
+        "points": 2
+      },
+      {
+        "name": "200-299 total yards allowed",
+        "points": 1
+      },
+      {
+        "name": "350-399 total yards allowed",
+        "points": -1
+      },
+      {
+        "name": "400-449 total yards allowed",
+        "points": -2
+      },
+      {
+        "name": "450-499 total yards allowed",
+        "points": -3
+      },
+      {
+        "name": "500-549 total yards allowed",
+        "points": -4
+      },
+      {
+        "name": "550+ total yards allowed",
+        "points": -5
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  },
+  "2015": {
+    "Passing": [
+      {
+        "name": "Every 20 passing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Pass",
+        "points": 4
+      },
+      {
+        "name": "Interceptions Thrown",
+        "points": -2
+      },
+      {
+        "name": "2pt Passing Conversion",
+        "points": 2
+      },
+      {
+        "name": "300-399 yard passing game",
+        "points": 1
+      },
+      {
+        "name": "400+ yard passing game",
+        "points": 1
+      }
+    ],
+    "Rushing": [
+      {
+        "name": "Every 10 rushing yards",
+        "points": 1
+      },
+      {
+        "name": "TD Rush",
+        "points": 6
+      },
+      {
+        "name": "2pt Rushing Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard rushing game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard rushing game",
+        "points": 1
+      }
+    ],
+    "Receiving": [
+      {
+        "name": "Every 10 receiving yards",
+        "points": 1
+      },
+      {
+        "name": "Each reception",
+        "points": 0.5
+      },
+      {
+        "name": "TD Reception",
+        "points": 6
+      },
+      {
+        "name": "2pt Receiving Conversion",
+        "points": 2
+      },
+      {
+        "name": "100-199 yard receiving game",
+        "points": 1
+      },
+      {
+        "name": "200+ yard receiving game",
+        "points": 1
+      }
+    ],
+    "Kicking": [
+      {
+        "name": "Each PAT Made",
+        "points": 1
+      },
+      {
+        "name": "FG Made (0-39 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Made (40-49 yards)",
+        "points": 3
+      },
+      {
+        "name": "FG Missed (0-39 yards)",
+        "points": -2
+      },
+      {
+        "name": "FG Missed (40-49 yards)",
+        "points": -2
+      }
+    ],
+    "Team Defense / Special Teams": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      },
+      {
+        "name": "Each Sack",
+        "points": 1
+      },
+      {
+        "name": "Blocked Punt, PAT or FG",
+        "points": 2
+      },
+      {
+        "name": "Each Interception",
+        "points": 2
+      },
+      {
+        "name": "Each Fumble Recovered",
+        "points": 2
+      },
+      {
+        "name": "Each Safety",
+        "points": 2
+      },
+      {
+        "name": "0 points allowed",
+        "points": 4
+      },
+      {
+        "name": "1-6 points allowed",
+        "points": 3
+      },
+      {
+        "name": "7-13 points allowed",
+        "points": 2
+      },
+      {
+        "name": "14-17 points allowed",
+        "points": 1
+      },
+      {
+        "name": "28-34 points allowed",
+        "points": -1
+      },
+      {
+        "name": "35-45 points allowed",
+        "points": -2
+      },
+      {
+        "name": "46+ points allowed",
+        "points": -3
+      },
+      {
+        "name": "Less than 100 total yards allowed",
+        "points": 3
+      },
+      {
+        "name": "100-199 total yards allowed",
+        "points": 2
+      },
+      {
+        "name": "200-299 total yards allowed",
+        "points": 1
+      },
+      {
+        "name": "350-399 total yards allowed",
+        "points": -1
+      },
+      {
+        "name": "400-449 total yards allowed",
+        "points": -2
+      },
+      {
+        "name": "450-499 total yards allowed",
+        "points": -3
+      },
+      {
+        "name": "500-549 total yards allowed",
+        "points": -4
+      },
+      {
+        "name": "550+ total yards allowed",
+        "points": -5
+      }
+    ],
+    "Miscellaneous": [
+      {
+        "name": "Kickoff Return TD",
+        "points": 6
+      },
+      {
+        "name": "Punt Return TD",
+        "points": 6
+      },
+      {
+        "name": "Total Fumbles Lost",
+        "points": -2
+      },
+      {
+        "name": "Interception Return TD",
+        "points": 6
+      },
+      {
+        "name": "Fumble Return TD",
+        "points": 6
+      },
+      {
+        "name": "Blocked Punt or FG return for TD",
+        "points": 6
+      }
+    ]
+  }
+}

@@ -1,33 +1,19 @@
-// The Record Book Analytics & UI Renderer for Dumbarton Fantasy Football League
+// The Record Book Analytics & UI Renderer for Gaywood Fantasy Football League HQ
 // Extends FantasyApp with all 5 Record Book sections, table PPG toggles, and custom interactive filtering
 
 Object.assign(FantasyApp.prototype, {
 
-    // Helper: format season year with asterisk for 2018-2019
+    // Helper: format season year with asterisk for 2015-2019
     formatSeasonYear(year) {
-        const y = Number(year);
-        if (y === 2018 || y === 2019) {
-            return `${y}*`;
-        }
-        return `${y}`;
-    },
-
-    formatDumbartonPlayoffRound(roundStr) {
-        if (!roundStr) return '';
-        const r = String(roundStr).toLowerCase().trim();
-        if (r.includes('final') && !r.includes('semi') && !r.includes('quarter')) return 'Championship';
-        if (r.includes('semi')) return 'Semifinals';
-        if (r.includes('quarter')) return 'Quarterfinals';
-        if (r.includes('3rd')) return '3rd Place';
-        if (r.includes('consolation')) return 'Consolation';
-        return roundStr.charAt(0).toUpperCase() + roundStr.slice(1);
+        if (year === undefined || year === null) return "";
+        return `${Number(year)}`;
     },
 
     // Helper: check if season/week is valid (through 2021, max week was 16; 2022 onward, 17+ weeks)
     isValidSeasonWeek(season, week) {
         const y = Number(season);
         const w = Number(week);
-        if (y <= 2021 && w > 16) return false;
+        if (y <= 2020 && w > 16) return false;
         return true;
     },
 
@@ -37,7 +23,7 @@ Object.assign(FantasyApp.prototype, {
         const gt = (m.game_type || '').toLowerCase();
         if (gt.includes('consolation') || gt.includes('3rd')) return false;
         if (m.is_consolation) return false;
-        if (!this.isValidSeasonWeek(m.season, m.week)) return false;
+        if (!this.isValidSeasonWeek(m.year, m.week)) return false;
         return true;
     },
 
@@ -45,10 +31,9 @@ Object.assign(FantasyApp.prototype, {
     filterSeasonByRule(season, filterObj) {
         const y = Number(season);
         if (!filterObj || filterObj.year === 'all') return true;
-        if (filterObj.year === '2020-present') return y >= 2020;
         if (filterObj.year === 'custom') {
-            const start = Number(filterObj.customStart || 2018);
-            const end = Number(filterObj.customEnd || 2026);
+            const start = Number(filterObj.customStart || 2015);
+            const end = Number(filterObj.customEnd || 2025);
             return y >= start && y <= end;
         }
         return true;
@@ -75,17 +60,41 @@ Object.assign(FantasyApp.prototype, {
         return true;
     },
 
-    // Helper: lookup manager name or return default
+    // Helper: lookup manager name or return formatted default
     getManagerName(managerId, fallbackName = '') {
-        const m = (this.managers || []).find(mgr => (mgr.id || mgr.manager_id) === managerId);
-        return m ? (m.name || m.manager_name) : (fallbackName || managerId);
+        if (!managerId && !fallbackName) return 'Unknown';
+        const searchId = String(managerId || '').toLowerCase().trim();
+        const searchFallback = String(fallbackName || '').toLowerCase().trim();
+
+        const m = (this.managers || []).find(mgr => {
+            const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
+            const fullName = String(mgr.full_name || '').toLowerCase().trim();
+            const dispName = String(mgr.display_name || '').toLowerCase().trim();
+            const espnId = String(mgr.espn_id || '').toLowerCase().trim();
+
+            return (id && (id === searchId || id === searchFallback)) ||
+                   (name && (name === searchId || name === searchFallback)) ||
+                   (fullName && (fullName === searchId || fullName === searchFallback)) ||
+                   (dispName && (dispName === searchId || dispName === searchFallback)) ||
+                   (espnId && (espnId === searchId || espnId === searchFallback));
+        });
+
+        if (m) {
+            return m.name || m.manager_name || m.display_name || m.full_name;
+        }
+
+        const raw = (fallbackName && fallbackName !== managerId) ? fallbackName : managerId;
+        if (!raw) return 'Unknown';
+        const clean = String(raw).replace(/_/g, ' ').trim();
+        return clean.replace(/\b\w/g, c => c.toUpperCase());
     },
 
     // Helper: get final placement badge HTML for a season and manager
     getFinalPlacementBadge(season, managerId) {
-        const s = (this.standings || []).find(row => Number(row.season) === Number(season) && (row.manager_id === managerId || row.id === managerId));
+        const s = (this.standings || []).find(row => Number(row.year) === Number(season) && (row.manager_id === managerId || row.id === managerId));
         if (!s) return '';
-        const rank = s.rank;
+        const rank = s.final_rank;
         if (rank === 1) {
             return `<span class="placement-pill placement-1st" title="League Champion">1st Place</span>`;
         }
@@ -106,7 +115,7 @@ Object.assign(FantasyApp.prototype, {
         if (!this.transactions || this.transactions.length === 0) return 0;
         let count = 0;
         for (const t of this.transactions) {
-            if (Number(t.season) === Number(season) && t.type === 'trade') {
+            if (Number(t.year) === Number(season) && t.type === 'trade') {
                 const details = (t.details || '').toLowerCase();
                 if (details.includes('veto')) continue;
                 if (t.manager_id === managerId || t.trade_partner_manager_id === managerId) {
@@ -132,18 +141,19 @@ Object.assign(FantasyApp.prototype, {
         const el = document.getElementById('records-hero');
         if (!el) return;
 
-        const seasonsCount = new Set((this.matchups || []).map(m => m.season)).size;
+        const seasonsCount = new Set((this.matchups || []).map(m => m.year)).size;
         const validGames = (this.matchups || []).filter(m => this.isValidRecordMatchup(m));
         const totalGames = validGames.length;
-        const regGames = validGames.filter(m => !m.is_playoffs).length;
-        const playoffGames = validGames.filter(m => m.is_playoffs).length;
-        const totalPoints = validGames.reduce((sum, m) => sum + (m.team_1_actual_points || 0) + (m.team_2_actual_points || 0), 0);
+        const regGames = validGames.filter(m => !m.is_playoff && !m.is_consolation).length;
+        const playoffGames = validGames.filter(m => m.is_playoff).length;
+        const consolationGames = validGames.filter(m => m.is_consolation).length;
+        const totalPoints = validGames.reduce((sum, m) => sum + (m.home_score || 0) + (m.away_score || 0), 0);
         const currentMgrs = (this.managers || []).filter(m => !m.is_retired && (m.status || '').toLowerCase() !== 'retired').length;
         const retiredMgrs = (this.managers || []).filter(m => m.is_retired || (m.status || '').toLowerCase() === 'retired').length;
 
         el.innerHTML = `
             <div class="records-hero-title">
-                <span>The Dumbarton League Record Book</span>
+                <span>The Gaywood League Record Book</span>
             </div>
             <div class="records-hero-stats">
                 <div class="hero-stat-badge">
@@ -173,14 +183,13 @@ Object.assign(FantasyApp.prototype, {
         const playoffs = filterObj.playoffs !== undefined ? filterObj.playoffs : true;
 
         const allActive = year === 'all' ? 'active' : '';
-        const presentActive = year === '2020-present' ? 'active' : '';
         const customActive = year === 'custom' ? 'active' : '';
 
-        const startYear = filterObj.customStart || 2018;
-        const endYear = filterObj.customEnd || 2026;
+        const startYear = filterObj.customStart || 2015;
+        const endYear = filterObj.customEnd || 2025;
 
         let yearOptions = '';
-        for (let y = 2018; y <= 2026; y++) {
+        for (let y = 2015; y <= 2025; y++) {
             yearOptions += `<option value="${y}">${y}</option>`;
         }
 
@@ -202,7 +211,6 @@ Object.assign(FantasyApp.prototype, {
                 <div class="records-filter-bar" data-section="${sectionKey}">
                     <div class="records-year-group">
                         <button class="records-year-btn ${allActive}" data-section="${sectionKey}" data-year="all">All Years</button>
-                        <button class="records-year-btn ${presentActive}" data-section="${sectionKey}" data-year="2020-present">2020–Present</button>
                         <button class="records-year-btn ${customActive}" data-section="${sectionKey}" data-year="custom">Custom Span</button>
                     </div>
                     <div class="records-custom-span-wrap" style="${customSelectsStyle}">
@@ -287,32 +295,34 @@ Object.assign(FantasyApp.prototype, {
             if (!this.isManagerIncluded(mid, filterObj, m.status)) continue;
             managerStatsMap[mid] = {
                 manager_id: mid,
-                manager_name: m.name || m.manager_name || mid,
+                manager_name: this.getManagerName(mid, m.manager_name || m.name),
                 wins: 0,
                 losses: 0,
                 ties: 0,
                 points_for: 0,
                 points_against: 0,
-                seasons_count: 0
+                seasons_count: 0,
+                years_count: 0
             };
         }
 
         // Aggregate REGULAR SEASON career stats per manager from standings
         for (const s of (this.standings || [])) {
-            if (!this.filterSeasonByRule(s.season, filterObj)) continue;
+            if (!this.filterSeasonByRule(s.year, filterObj)) continue;
             const mid = s.manager_id || s.id;
             if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
 
             if (!managerStatsMap[mid]) {
                 managerStatsMap[mid] = {
                     manager_id: mid,
-                    manager_name: s.manager_name || this.getManagerName(mid),
+                    manager_name: this.getManagerName(mid, s.manager_name),
                     wins: 0,
                     losses: 0,
                     ties: 0,
                     points_for: 0,
                     points_against: 0,
-                    seasons_count: 0
+                    seasons_count: 0,
+                    years_count: 0
                 };
             }
             managerStatsMap[mid].wins += (Number(s.wins) || 0);
@@ -320,7 +330,7 @@ Object.assign(FantasyApp.prototype, {
             managerStatsMap[mid].ties += (Number(s.ties) || 0);
             managerStatsMap[mid].points_for += (Number(s.points_for) || 0);
             managerStatsMap[mid].points_against += (Number(s.points_against) || 0);
-            managerStatsMap[mid].seasons_count += 1;
+            managerStatsMap[mid].years_count += 1;
         }
 
         const statsList = Object.values(managerStatsMap).map(m => {
@@ -374,7 +384,7 @@ Object.assign(FantasyApp.prototype, {
             const diffDisplay = `${diffVal >= 0 ? '+' : ''}${diffVal.toFixed(1)}`;
             const col8Display = mode === 'totals' ?
                 m.ppg.toFixed(1) :
-                `${m.seasons_count} <small style="font-size:0.7rem; color:var(--text-muted);">Yrs</small>`;
+                `${m.years_count} <small style="font-size:0.7rem; color:var(--text-muted);">Yrs</small>`;
 
             return `
                 <tr>
@@ -396,22 +406,22 @@ Object.assign(FantasyApp.prototype, {
         let mostRecentChampManagerId = null;
 
         for (const s of (this.standings || [])) {
-            if (!this.filterSeasonByRule(s.season, filterObj)) continue;
+            if (!this.filterSeasonByRule(s.year, filterObj)) continue;
             const mid = s.manager_id || s.id;
             if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
-            if (s.rank === 1) {
+            if (s.final_rank === 1) {
                 if (!champMap[mid]) {
                     champMap[mid] = {
                         manager_id: mid,
-                        manager_name: s.manager_name || this.getManagerName(mid),
+                        manager_name: this.getManagerName(mid, s.manager_name),
                         total: 0,
-                        seasons: []
+                        years: []
                     };
                 }
                 champMap[mid].total += 1;
-                champMap[mid].seasons.push(Number(s.season));
-                if (Number(s.season) > mostRecentChampYear) {
-                    mostRecentChampYear = Number(s.season);
+                champMap[mid].years.push(Number(s.year));
+                if (Number(s.year) > mostRecentChampYear) {
+                    mostRecentChampYear = Number(s.year);
                     mostRecentChampManagerId = mid;
                 }
             }
@@ -420,14 +430,14 @@ Object.assign(FantasyApp.prototype, {
         const champList = Object.values(champMap);
         champList.sort((a, b) => {
             if (b.total !== a.total) return b.total - a.total;
-            const maxA = Math.max(...a.seasons);
-            const maxB = Math.max(...b.seasons);
+            const maxA = Math.max(...a.years);
+            const maxB = Math.max(...b.years);
             return maxB - maxA;
         });
 
         const champHTML = champList.map(c => {
             const isReigning = (c.manager_id === mostRecentChampManagerId);
-            const seasonsFormatted = c.seasons.sort((x, y) => y - x).map(y => {
+            const seasonsFormatted = c.years.sort((x, y) => y - x).map(y => {
                 const badge = this.formatSeasonYear(y);
                 return `<span class="placement-pill placement-1st">${badge}</span>`;
             }).join(' ');
@@ -452,22 +462,22 @@ Object.assign(FantasyApp.prototype, {
         let mostRecentToiletManagerId = null;
 
         for (const s of (this.standings || [])) {
-            if (!this.filterSeasonByRule(s.season, filterObj)) continue;
+            if (!this.filterSeasonByRule(s.year, filterObj)) continue;
             const mid = s.manager_id || s.id;
             if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
-            if (s.rank === 12) {
+            if (s.final_rank === 12) {
                 if (!toiletMap[mid]) {
                     toiletMap[mid] = {
                         manager_id: mid,
-                        manager_name: s.manager_name || this.getManagerName(mid),
+                        manager_name: this.getManagerName(mid, s.manager_name),
                         total: 0,
-                        seasons: []
+                        years: []
                     };
                 }
                 toiletMap[mid].total += 1;
-                toiletMap[mid].seasons.push(Number(s.season));
-                if (Number(s.season) > mostRecentToiletYear) {
-                    mostRecentToiletYear = Number(s.season);
+                toiletMap[mid].years.push(Number(s.year));
+                if (Number(s.year) > mostRecentToiletYear) {
+                    mostRecentToiletYear = Number(s.year);
                     mostRecentToiletManagerId = mid;
                 }
             }
@@ -476,14 +486,14 @@ Object.assign(FantasyApp.prototype, {
         const toiletList = Object.values(toiletMap);
         toiletList.sort((a, b) => {
             if (b.total !== a.total) return b.total - a.total;
-            const maxA = Math.max(...a.seasons);
-            const maxB = Math.max(...b.seasons);
+            const maxA = Math.max(...a.years);
+            const maxB = Math.max(...b.years);
             return maxB - maxA;
         });
 
         const toiletHTML = toiletList.map(t => {
             const isReigningLoser = (t.manager_id === mostRecentToiletManagerId);
-            const seasonsFormatted = t.seasons.sort((x, y) => y - x).map(y => {
+            const seasonsFormatted = t.years.sort((x, y) => y - x).map(y => {
                 const badge = this.formatSeasonYear(y);
                 return `<span class="placement-pill placement-12th">${badge}</span>`;
             }).join(' ');
@@ -608,37 +618,39 @@ Object.assign(FantasyApp.prototype, {
         const singleGames = [];
         for (const m of (this.matchups || [])) {
             if (!this.isValidRecordMatchup(m)) continue;
-            if (!this.filterSeasonByRule(m.season, filterObj)) continue;
-            if (filterObj.playoffs === false && m.is_playoffs) continue;
+            if (!this.filterSeasonByRule(m.year, filterObj)) continue;
+            if (filterObj.playoffs === false && m.is_playoff) continue;
+            // Also ignore consolation games entirely for most records unless explicitly included
+            if (filterObj.playoffs === false && m.is_consolation) continue;
 
-            if (m.team_1_id && this.isManagerIncluded(m.team_1_manager_id, filterObj)) {
+            if (m.home_team_id && this.isManagerIncluded(m.home_manager_id, filterObj)) {
                 singleGames.push({
-                    season: m.season,
+                    season: m.year,
                     week: m.week,
-                    team_id: m.team_1_id,
-                    team_name: m.team_1_name || 'Team 1',
-                    manager_id: m.team_1_manager_id,
-                    manager_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
-                    score: Number(m.team_1_actual_points) || 0,
-                    opponent_id: m.team_2_id,
-                    opponent_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id, 'Opponent'),
-                    opponent_score: Number(m.team_2_actual_points) || 0,
-                    is_playoffs: !!m.is_playoffs
+                    team_id: m.home_team_id,
+                    team_name: m.home_team_name || 'Team 1',
+                    manager_id: m.home_manager_id,
+                    manager_name: this.getManagerName(m.home_manager_id, m.home_manager_name),
+                    score: Number(m.home_score) || 0,
+                    opponent_id: m.away_team_id,
+                    opponent_name: this.getManagerName(m.away_manager_id, 'Opponent', m.away_manager_name),
+                    opponent_score: Number(m.away_score) || 0,
+                    is_playoffs: !!m.is_playoff
                 });
             }
-            if (m.team_2_id && this.isManagerIncluded(m.team_2_manager_id, filterObj)) {
+            if (m.away_team_id && this.isManagerIncluded(m.away_manager_id, filterObj)) {
                 singleGames.push({
-                    season: m.season,
+                    season: m.year,
                     week: m.week,
-                    team_id: m.team_2_id,
-                    team_name: m.team_2_name || 'Team 2',
-                    manager_id: m.team_2_manager_id,
-                    manager_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
-                    score: Number(m.team_2_actual_points) || 0,
-                    opponent_id: m.team_1_id,
-                    opponent_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id, 'Opponent'),
-                    opponent_score: Number(m.team_1_actual_points) || 0,
-                    is_playoffs: !!m.is_playoffs
+                    team_id: m.away_team_id,
+                    team_name: m.away_team_name || 'Team 2',
+                    manager_id: m.away_manager_id,
+                    manager_name: this.getManagerName(m.away_manager_id, m.away_manager_name),
+                    score: Number(m.away_score) || 0,
+                    opponent_id: m.home_team_id,
+                    opponent_name: this.getManagerName(m.home_manager_id, 'Opponent', m.home_manager_name),
+                    opponent_score: Number(m.home_score) || 0,
+                    is_playoffs: !!m.is_playoff
                 });
             }
         }
@@ -653,28 +665,42 @@ Object.assign(FantasyApp.prototype, {
         const validMatchupKeys = new Set();
         for (const m of (this.matchups || [])) {
             if (!this.isValidRecordMatchup(m)) continue;
-            if (m.team_1_id) validMatchupKeys.add(`${m.season}_${m.week}_${m.team_1_id}`);
-            if (m.team_2_id) validMatchupKeys.add(`${m.season}_${m.week}_${m.team_2_id}`);
+            if (!this.filterSeasonByRule(m.year, filterObj)) continue;
+            if (filterObj.playoffs === false && m.is_playoff) continue;
+            if (filterObj.playoffs === false && m.is_consolation) continue;
+
+            if (m.home_team_id) validMatchupKeys.add(`${m.year}_${m.week}_${m.home_team_id}`);
+            if (m.away_team_id) validMatchupKeys.add(`${m.year}_${m.week}_${m.away_team_id}`);
         }
 
         const benchMap = {};
         for (const p of (this.playerStats || [])) {
-            if (!this.filterSeasonByRule(p.season, filterObj)) continue;
-            if (filterObj.playoffs === false && p.is_playoffs) continue;
+            if (!this.filterSeasonByRule(p.year, filterObj)) continue;
+            if (filterObj.playoffs === false && p.is_playoff) continue;
+            if (filterObj.playoffs === false && p.is_consolation) continue;
             if (!this.isManagerIncluded(p.manager_id, filterObj)) continue;
-            if (!validMatchupKeys.has(`${p.season}_${p.week}_${p.team_id}`)) continue;
+            if (!validMatchupKeys.has(`${p.year}_${p.week}_${p.team_id}`)) continue;
 
-            const key = `${p.season}_${p.week}_${p.team_id}`;
+            const key = `${p.year}_${p.week}_${p.manager_id}`;
             if (!benchMap[key]) {
+                const m = (this.matchups || []).find(x =>
+                    Number(x.year || x.season) === Number(p.year) && Number(x.week) === Number(p.week) &&
+                    (x.home_manager_id === p.manager_id || x.away_manager_id === p.manager_id ||
+                     x.team_1_manager_id === p.manager_id || x.team_2_manager_id === p.manager_id)
+                );
+                const isHome = m && (m.home_manager_id === p.manager_id || m.team_1_manager_id === p.manager_id);
+                const teamId = p.team_id || (m ? (isHome ? (m.home_team_id || m.team_1_id) : (m.away_team_id || m.team_2_id)) : 0);
+                const oppId = m ? (isHome ? (m.away_team_id || m.away_manager_id) : (m.home_team_id || m.home_manager_id)) : 0;
+                const oppName = m ? (isHome ? (m.away_manager_name || m.team_2_manager_name) : (m.home_manager_name || m.team_1_manager_name)) : '';
+
                 benchMap[key] = {
-                    season: p.season,
+                    year: p.year,
                     week: p.week,
-                    team_id: p.team_id,
-                    team_name: p.team_name,
+                    team_id: teamId,
+                    opponent_id: oppId,
+                    opponent_name: this.getManagerName(oppId, oppName),
                     manager_id: p.manager_id,
-                    manager_name: p.manager_name || this.getManagerName(p.manager_id),
-                    opponent_id: p.opponent_team_id || 0,
-                    opponent_name: this.getManagerName(p.opponent_manager_id, 'Opponent'),
+                    manager_name: this.getManagerName(p.manager_id),
                     bench_points: 0,
                     seen_players: new Set()
                 };
@@ -694,8 +720,13 @@ Object.assign(FantasyApp.prototype, {
             .slice(0, 10);
 
         const renderSingleGameItem = (item, idx, val, valSuffix = 'pts') => {
-            const seasonBadge = this.formatSeasonYear(item.season);
+            const seasonBadge = this.formatSeasonYear(item.year || item.season);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+            const displayYear = item.year || item.season;
+            const canViewBoxscore = displayYear >= 2018;
+            const btnHtml = canViewBoxscore
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>`
+                : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
                     <div class="record-item-left">
@@ -705,13 +736,13 @@ Object.assign(FantasyApp.prototype, {
                                 <span class="record-team-name" title="${item.team_name}">${item.manager_name}</span>
                             </div>
                             <div class="record-sub-info">
-                                <span>${seasonBadge} Week ${item.week} • vs ${item.opponent_name || 'Opponent'}</span>
+                                <span>${seasonBadge} Week ${item.week}${item.opponent_name ? ` • vs ${item.opponent_name}` : ''}</span>
                             </div>
                         </div>
                     </div>
                     <div class="record-item-right">
                         <span class="record-value">${typeof val === 'number' ? val.toFixed(2) : val} <small style="font-size:0.7rem; color:var(--text-muted);">${valSuffix}</small></span>
-                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${item.season}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>
+                        ${btnHtml}
                     </div>
                 </div>
             `;
@@ -765,33 +796,46 @@ Object.assign(FantasyApp.prototype, {
 
         const filteredStandings = (this.standings || []).filter(s => {
             const mid = s.manager_id || s.id;
-            return this.filterSeasonByRule(s.season, filterObj) &&
+            return this.filterSeasonByRule(s.year, filterObj) &&
                    this.isManagerIncluded(mid, filterObj, s.manager_status);
         });
 
         // 13 Top 5 Lists logic
-        const mostPtsMissPlayoffs = [...filteredStandings].filter(s => !s.made_playoffs)
+        const isPlayoffsMaker = (s) => (s && (s.made_playoffs === true || String(s.made_playoffs).toLowerCase() === 'true'));
+
+        const mostPtsMissPlayoffs = [...filteredStandings].filter(s => !isPlayoffsMaker(s))
             .sort((a, b) => (Number(b.points_for) || 0) - (Number(a.points_for) || 0)).slice(0, 5);
 
-        const leastPtsMakePlayoffs = [...filteredStandings].filter(s => s.made_playoffs)
+        const leastPtsMakePlayoffs = [...filteredStandings].filter(s => isPlayoffsMaker(s))
             .sort((a, b) => (Number(a.points_for) || 0) - (Number(b.points_for) || 0)).slice(0, 5);
 
-        const leastPtsWinLeague = [...filteredStandings].filter(s => s.rank === 1)
+        const leastPtsWinLeague = [...filteredStandings].filter(s => (s.final_rank || s.rank) === 1)
             .sort((a, b) => (Number(a.points_for) || 0) - (Number(b.points_for) || 0)).slice(0, 5);
 
-        const mostPtsLoseLeague = [...filteredStandings].filter(s => s.rank === 12)
+        const mostPtsLoseLeague = [...filteredStandings].filter(s => (s.final_rank || s.rank) === 12)
             .sort((a, b) => (Number(b.points_for) || 0) - (Number(a.points_for) || 0)).slice(0, 5);
+
+        const getWinPct = (s) => {
+            const wins = Number(s.wins) || 0;
+            const losses = Number(s.losses) || 0;
+            const ties = Number(s.ties) || 0;
+            const total = wins + losses + ties;
+            let pct = total > 0 ? (wins + 0.5 * ties) / total : (Number(s.win_pct) || 0);
+            return isNaN(pct) ? 0 : pct;
+        };
+
+        const getWinPctStr = (s) => `${(getWinPct(s) * 100).toFixed(1)}%`;
 
         const bestRecordEver = [...filteredStandings]
             .sort((a, b) => {
-                const diff = (Number(b.win_pct) || 0) - (Number(a.win_pct) || 0);
+                const diff = getWinPct(b) - getWinPct(a);
                 if (Math.abs(diff) > 0.0001) return diff;
                 return (Number(b.wins) || 0) - (Number(a.wins) || 0);
             }).slice(0, 5);
 
         const worstRecordEver = [...filteredStandings]
             .sort((a, b) => {
-                const diff = (Number(a.win_pct) || 0) - (Number(b.win_pct) || 0);
+                const diff = getWinPct(a) - getWinPct(b);
                 if (Math.abs(diff) > 0.0001) return diff;
                 return (Number(a.wins) || 0) - (Number(b.wins) || 0);
             }).slice(0, 5);
@@ -818,8 +862,8 @@ Object.assign(FantasyApp.prototype, {
             .sort((a, b) => {
                 const midB = b.manager_id || b.id;
                 const midA = a.manager_id || a.id;
-                const trB = this.getTradesCount(b.season, midB);
-                const trA = this.getTradesCount(a.season, midA);
+                const trB = (b.trades !== undefined) ? Number(b.trades) : this.getTradesCount(b.year, midB);
+                const trA = (a.trades !== undefined) ? Number(a.trades) : this.getTradesCount(a.year, midA);
                 if (trB !== trA) return trB - trA;
                 return (Number(b.transactions) || 0) - (Number(a.transactions) || 0);
             }).slice(0, 5);
@@ -827,8 +871,9 @@ Object.assign(FantasyApp.prototype, {
         const renderTop5ListCard = (title, list, valFn, valSuffix = 'PF', showPlacementBadge = true) => {
             const itemsHTML = list.map((s, idx) => {
                 const mid = s.manager_id || s.id;
-                const seasonBadge = this.formatSeasonYear(s.season);
-                const placementBadge = showPlacementBadge ? this.getFinalPlacementBadge(s.season, mid) : '';
+                const managerName = this.getManagerName(mid, s.manager_name);
+                const seasonBadge = this.formatSeasonYear(s.year);
+                const placementBadge = showPlacementBadge ? this.getFinalPlacementBadge(s.year, mid) : '';
                 const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
                 const valStr = valFn(s);
                 const suffixStr = typeof valSuffix === 'function' ? valSuffix(s) : valSuffix;
@@ -838,7 +883,7 @@ Object.assign(FantasyApp.prototype, {
                             <span class="rank-badge ${rankClass}">#${idx + 1}</span>
                             <div class="record-item-info">
                                 <div class="record-item-top">
-                                    <span class="record-team-name" title="${s.team_name}">${s.manager_name}</span>
+                                    <span class="record-team-name" title="${s.team_name}">${managerName}</span>
                                     ${placementBadge}
                                 </div>
                                 <div class="record-sub-info">
@@ -874,8 +919,8 @@ Object.assign(FantasyApp.prototype, {
                 ${renderTop5ListCard('Least Points to Make Playoffs', leastPtsMakePlayoffs, s => Number(s.points_for).toFixed(1), 'PF', true)}
                 ${renderTop5ListCard('Least Points to Win League', leastPtsWinLeague, s => Number(s.points_for).toFixed(1), 'PF', false)}
                 ${renderTop5ListCard('Most Points to Lose League', mostPtsLoseLeague, s => Number(s.points_for).toFixed(1), 'PF', false)}
-                ${renderTop5ListCard('Best Records', bestRecordEver, s => `${s.wins}-${s.losses}`, s => `${(Number(s.win_pct)*100).toFixed(1)}%`, true)}
-                ${renderTop5ListCard('Worst Records', worstRecordEver, s => `${s.wins}-${s.losses}`, s => `${(Number(s.win_pct)*100).toFixed(1)}%`, true)}
+                ${renderTop5ListCard('Best Records', bestRecordEver, s => `${s.wins}-${s.losses}`, s => getWinPctStr(s), true)}
+                ${renderTop5ListCard('Worst Records', worstRecordEver, s => `${s.wins}-${s.losses}`, s => getWinPctStr(s), true)}
                 ${renderTop5ListCard('Most Points For Ever', mostPointsForEver, s => Number(s.points_for).toFixed(1), 'PF', true)}
                 ${renderTop5ListCard('Least Points For Ever', leastPointsForEver, s => Number(s.points_for).toFixed(1), 'PF', true)}
                 ${renderTop5ListCard('Most Points Against Ever', mostPointsAgainstEver, s => Number(s.points_against).toFixed(1), 'PA', true)}
@@ -884,7 +929,7 @@ Object.assign(FantasyApp.prototype, {
                 ${renderTop5ListCard('Least Moves Ever', leastMovesEver, s => s.transactions || 0, 'Moves', true)}
                 ${renderTop5ListCard('Most Trades Ever', mostTradesEver, s => {
                     const mid = s.manager_id || s.id;
-                    return this.getTradesCount(s.season, mid);
+                    return (s.trades !== undefined) ? s.trades : this.getTradesCount(s.year, mid);
                 }, 'Trades', true)}
             </div>
         `;
@@ -902,9 +947,9 @@ Object.assign(FantasyApp.prototype, {
         const filterObj = this.recordFilters.streaks;
 
         // Collect chronological regular season games per manager (EXCLUDE consolation & 3rd place!)
-        const regMatchups = (this.matchups || []).filter(m => !m.is_playoffs && this.isValidRecordMatchup(m))
+        const regMatchups = (this.matchups || []).filter(m => !m.is_playoff && !m.is_consolation && this.isValidRecordMatchup(m))
             .sort((a, b) => {
-                if (Number(a.season) !== Number(b.season)) return Number(a.season) - Number(b.season);
+                if (Number(a.year) !== Number(b.year)) return Number(a.year) - Number(b.year);
                 return Number(a.week) - Number(b.week);
             });
 
@@ -920,7 +965,7 @@ Object.assign(FantasyApp.prototype, {
                 if (current && current.length > 0) {
                     multiStreaks.push({
                         manager_id: managerId,
-                        manager_name: managerName || this.getManagerName(managerId),
+                        manager_name: this.getManagerName(managerId, managerName),
                         type: current.type,
                         length: current.length,
                         startSeason: current.startSeason,
@@ -955,22 +1000,24 @@ Object.assign(FantasyApp.prototype, {
             const type = isWin ? 'W' : 'L';
             let current = activeSingle[managerId];
 
-            if (!current || current.season !== season || current.type !== type) {
+            if (!current || current.year !== season || current.type !== type) {
                 if (current && current.length > 0) {
                     singleSeasonStreaks.push({
                         manager_id: managerId,
-                        manager_name: managerName || this.getManagerName(managerId),
+                        manager_name: this.getManagerName(managerId, managerName),
                         type: current.type,
                         length: current.length,
-                        startSeason: current.season,
+                        startSeason: current.year,
                         startWeek: current.startWeek,
-                        endSeason: current.season,
+                        endSeason: current.year,
                         endWeek: current.endWeek,
-                        seasons: [current.season]
+                        seasons: [current.year]
                     });
                 }
                 activeSingle[managerId] = {
-                    season,
+                    year: season,
+                    startSeason: season,
+                    endSeason: season,
                     type,
                     length: 1,
                     startWeek: week,
@@ -983,18 +1030,18 @@ Object.assign(FantasyApp.prototype, {
         };
 
         for (const m of regMatchups) {
-            const s1 = Number(m.team_1_actual_points) || 0;
-            const s2 = Number(m.team_2_actual_points) || 0;
+            const s1 = Number(m.home_score) || 0;
+            const s2 = Number(m.away_score) || 0;
             if (s1 === s2) continue; // Skip ties for streak counts
 
             const isTeam1Win = s1 > s2;
-            if (m.team_1_manager_id) {
-                processMultiGame(m.team_1_manager_id, m.team_1_manager_name, isTeam1Win, m.season, m.week);
-                processSingleGame(m.team_1_manager_id, m.team_1_manager_name, isTeam1Win, m.season, m.week);
+            if (m.home_manager_id) {
+                processMultiGame(m.home_manager_id, m.home_manager_name, isTeam1Win, m.year, m.week);
+                processSingleGame(m.home_manager_id, m.home_manager_name, isTeam1Win, m.year, m.week);
             }
-            if (m.team_2_manager_id) {
-                processMultiGame(m.team_2_manager_id, m.team_2_manager_name, !isTeam1Win, m.season, m.week);
-                processSingleGame(m.team_2_manager_id, m.team_2_manager_name, !isTeam1Win, m.season, m.week);
+            if (m.away_manager_id) {
+                processMultiGame(m.away_manager_id, m.away_manager_name, !isTeam1Win, m.year, m.week);
+                processSingleGame(m.away_manager_id, m.away_manager_name, !isTeam1Win, m.year, m.week);
             }
         }
 
@@ -1022,11 +1069,11 @@ Object.assign(FantasyApp.prototype, {
                     manager_name: this.getManagerName(mid),
                     type: st.type,
                     length: st.length,
-                    startSeason: st.season,
+                    startSeason: st.year,
                     startWeek: st.startWeek,
-                    endSeason: st.season,
+                    endSeason: st.year,
                     endWeek: st.endWeek,
-                    seasons: [st.season]
+                    seasons: [st.year]
                 });
             }
         }
@@ -1052,7 +1099,7 @@ Object.assign(FantasyApp.prototype, {
         const renderStreakItem = (item, idx) => {
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
             const spanText = `${this.formatSeasonYear(item.startSeason)} W${item.startWeek} – ${this.formatSeasonYear(item.endSeason)} W${item.endWeek}`;
-            const placements = item.seasons.map(y => this.getFinalPlacementBadge(y, item.manager_id)).join(' ');
+            const placements = (item.seasons || item.years || []).map(y => this.getFinalPlacementBadge(y, item.manager_id)).join(' ');
 
             return `
                 <div class="record-item">
@@ -1138,7 +1185,7 @@ Object.assign(FantasyApp.prototype, {
             if (!this.isManagerIncluded(mid, filterObj, m.status)) continue;
             playoffStatsMap[mid] = {
                 manager_id: mid,
-                manager_name: m.name || m.manager_name || mid,
+                manager_name: this.getManagerName(mid, m.manager_name || m.name),
                 wins: 0,
                 losses: 0,
                 points_for: 0,
@@ -1149,20 +1196,20 @@ Object.assign(FantasyApp.prototype, {
 
         // Aggregate playoff games per manager (EXCLUDE consolation & 3rd place games!)
         for (const m of (this.matchups || [])) {
-            if (!m.is_playoffs) continue;
+            if (!m.is_playoff) continue;
             if (!this.isValidRecordMatchup(m)) continue;
-            if (!this.filterSeasonByRule(m.season, filterObj)) continue;
+            if (!this.filterSeasonByRule(m.year, filterObj)) continue;
 
-            const t1Mid = m.team_1_manager_id;
-            const t2Mid = m.team_2_manager_id;
-            const s1 = Number(m.team_1_actual_points) || 0;
-            const s2 = Number(m.team_2_actual_points) || 0;
+            const t1Mid = m.home_manager_id;
+            const t2Mid = m.away_manager_id;
+            const s1 = Number(m.home_score) || 0;
+            const s2 = Number(m.away_score) || 0;
 
             if (t1Mid && this.isManagerIncluded(t1Mid, filterObj)) {
                 if (!playoffStatsMap[t1Mid]) {
                     playoffStatsMap[t1Mid] = {
                         manager_id: t1Mid,
-                        manager_name: m.team_1_manager_name || this.getManagerName(t1Mid),
+                        manager_name: this.getManagerName(t1Mid, m.home_manager_name),
                         wins: 0, losses: 0, points_for: 0, points_against: 0, games_count: 0
                     };
                 }
@@ -1177,7 +1224,7 @@ Object.assign(FantasyApp.prototype, {
                 if (!playoffStatsMap[t2Mid]) {
                     playoffStatsMap[t2Mid] = {
                         manager_id: t2Mid,
-                        manager_name: m.team_2_manager_name || this.getManagerName(t2Mid),
+                        manager_name: this.getManagerName(t2Mid, m.away_manager_name),
                         wins: 0, losses: 0, points_for: 0, points_against: 0, games_count: 0
                     };
                 }
@@ -1257,14 +1304,14 @@ Object.assign(FantasyApp.prototype, {
         // 2. PLAYOFF APPEARANCES (Full-Width Card above 5-item lists)
         const mgrPlayoffMap = {};
         for (const s of (this.standings || [])) {
-            if (!this.filterSeasonByRule(s.season, filterObj)) continue;
+            if (!this.filterSeasonByRule(s.year, filterObj)) continue;
             const mid = s.manager_id || s.id;
             if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
 
             if (!mgrPlayoffMap[mid]) {
                 mgrPlayoffMap[mid] = {
                     manager_id: mid,
-                    manager_name: s.manager_name || this.getManagerName(mid),
+                    manager_name: this.getManagerName(mid, s.manager_name),
                     appearances: 0,
                     total_seasons: 0,
                     seasons_made: [],
@@ -1272,10 +1319,12 @@ Object.assign(FantasyApp.prototype, {
                 };
             }
             mgrPlayoffMap[mid].total_seasons += 1;
-            mgrPlayoffMap[mid].all_seasons.push({ season: Number(s.season), made: !!s.made_playoffs });
-            if (s.made_playoffs) {
+            const yr = Number(s.year || s.season);
+            const isMade = (s.made_playoffs === true || String(s.made_playoffs).toLowerCase() === 'true');
+            mgrPlayoffMap[mid].all_seasons.push({ year: yr, season: yr, made: isMade });
+            if (isMade) {
                 mgrPlayoffMap[mid].appearances += 1;
-                mgrPlayoffMap[mid].seasons_made.push(Number(s.season));
+                mgrPlayoffMap[mid].seasons_made.push(yr);
             }
         }
 
@@ -1291,7 +1340,7 @@ Object.assign(FantasyApp.prototype, {
         const activeMakeStreaks = [];
 
         for (const m of Object.values(mgrPlayoffMap)) {
-            const sortedSeasons = [...m.all_seasons].sort((a, b) => a.season - b.season);
+            const sortedSeasons = [...m.all_seasons].sort((a, b) => a.year - b.year);
             let curDrought = 0;
             let maxDrought = 0;
             let droughtStart = 0;
@@ -1306,20 +1355,20 @@ Object.assign(FantasyApp.prototype, {
             for (let i = 0; i < sortedSeasons.length; i++) {
                 const s = sortedSeasons[i];
                 if (!s.made) {
-                    if (curDrought === 0) droughtStart = s.season;
+                    if (curDrought === 0) droughtStart = s.year;
                     curDrought += 1;
-                    droughtEnd = s.season;
+                    droughtEnd = s.year;
                     if (curDrought > maxDrought) {
                         maxDrought = curDrought;
                         maxDroughtSpan = `${this.formatSeasonYear(droughtStart)} – ${this.formatSeasonYear(droughtEnd)}`;
                     }
                     curMake = 0;
                 } else {
-                    if (curMake === 0) makeStart = s.season;
+                    if (curMake === 0) makeStart = s.year;
                     curMake += 1;
                     if (curMake > maxMake) {
                         maxMake = curMake;
-                        maxMakeSpan = `${this.formatSeasonYear(makeStart)} – ${this.formatSeasonYear(s.season)}`;
+                        maxMakeSpan = `${this.formatSeasonYear(makeStart)} – ${this.formatSeasonYear(s.year)}`;
                     }
                     curDrought = 0;
                 }
@@ -1327,14 +1376,14 @@ Object.assign(FantasyApp.prototype, {
 
             if (maxDrought > 0) {
                 allDroughts.push({
-                    manager_name: m.manager_name,
+                    manager_name: this.getManagerName(m.manager_id, m.manager_name),
                     length: maxDrought,
                     span: maxDroughtSpan
                 });
             }
             if (maxMake > 0) {
                 allMakeStreaks.push({
-                    manager_name: m.manager_name,
+                    manager_name: this.getManagerName(m.manager_id, m.manager_name),
                     length: maxMake,
                     span: maxMakeSpan
                 });
@@ -1348,7 +1397,7 @@ Object.assign(FantasyApp.prototype, {
                 }
                 if (actD > 0) {
                     activeDroughts.push({
-                        manager_name: m.manager_name,
+                        manager_name: this.getManagerName(m.manager_id, m.manager_name),
                         length: actD,
                         span: `Last ${actD} Seasons`
                     });
@@ -1361,7 +1410,7 @@ Object.assign(FantasyApp.prototype, {
                 }
                 if (actM > 0) {
                     activeMakeStreaks.push({
-                        manager_name: m.manager_name,
+                        manager_name: this.getManagerName(m.manager_id, m.manager_name),
                         length: actM,
                         span: `Last ${actM} Seasons`
                     });
@@ -1380,54 +1429,54 @@ Object.assign(FantasyApp.prototype, {
         const playoffRunsMap = {}; // key: `${season}_${managerId}`
 
         for (const m of (this.matchups || [])) {
-            if (!m.is_playoffs) continue;
+            if (!m.is_playoff) continue;
             if (!this.isValidRecordMatchup(m)) continue;
-            if (!this.filterSeasonByRule(m.season, filterObj)) continue;
+            if (!this.filterSeasonByRule(m.year, filterObj)) continue;
 
-            const t1Inc = this.isManagerIncluded(m.team_1_manager_id, filterObj);
-            const t2Inc = this.isManagerIncluded(m.team_2_manager_id, filterObj);
+            const t1Inc = this.isManagerIncluded(m.home_manager_id, filterObj);
+            const t2Inc = this.isManagerIncluded(m.away_manager_id, filterObj);
             if (!t1Inc && !t2Inc) continue;
 
-            const s1 = Number(m.team_1_actual_points) || 0;
-            const s2 = Number(m.team_2_actual_points) || 0;
+            const s1 = Number(m.home_score) || 0;
+            const s2 = Number(m.away_score) || 0;
 
-            const roundName = this.formatDumbartonPlayoffRound(m.playoff_round || m.game_type);
+            const roundName = m.playoff_round || (this.getPlayoffRoundName ? this.getPlayoffRoundName(m.year, m.week) : '');
 
             if (t1Inc) {
                 playoffSingleGames.push({
-                    season: m.season, week: m.week, team_id: m.team_1_id,
+                    season: m.year, week: m.week, team_id: m.home_team_id,
                     playoff_round: roundName,
-                    manager_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
-                    score: s1, opponent_id: m.team_2_id,
-                    opponent_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id, 'Opponent')
+                    manager_name: this.getManagerName(m.home_manager_id, m.home_manager_name),
+                    score: s1, opponent_id: m.away_team_id,
+                    opponent_name: this.getManagerName(m.away_manager_id, 'Opponent', m.away_manager_name)
                 });
             }
             if (t2Inc) {
                 playoffSingleGames.push({
-                    season: m.season, week: m.week, team_id: m.team_2_id,
+                    season: m.year, week: m.week, team_id: m.away_team_id,
                     playoff_round: roundName,
-                    manager_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
-                    score: s2, opponent_id: m.team_1_id,
-                    opponent_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id, 'Opponent')
+                    manager_name: this.getManagerName(m.away_manager_id, m.away_manager_name),
+                    score: s2, opponent_id: m.home_team_id,
+                    opponent_name: this.getManagerName(m.home_manager_id, 'Opponent', m.home_manager_name)
                 });
             }
 
             playoffMatchups.push({
-                season: m.season, week: m.week, team_1_id: m.team_1_id, team_2_id: m.team_2_id,
+                season: m.year, week: m.week, home_team_id: m.home_team_id, away_team_id: m.away_team_id,
                 playoff_round: roundName,
-                team_1_manager: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
-                team_2_manager: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
+                home_manager: this.getManagerName(m.home_manager_id, m.home_manager_name),
+                away_manager: this.getManagerName(m.away_manager_id, m.away_manager_name),
                 score_1: s1, score_2: s2,
                 combined: s1 + s2
             });
 
             // Aggregate postseason runs
-            if (t1Inc && m.team_1_manager_id) {
-                const k = `${m.season}_${m.team_1_manager_id}`;
+            if (t1Inc && m.home_manager_id) {
+                const k = `${m.year}_${m.home_manager_id}`;
                 if (!playoffRunsMap[k]) {
                     playoffRunsMap[k] = {
-                        season: m.season, manager_id: m.team_1_manager_id,
-                        manager_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
+                        season: m.year, manager_id: m.home_manager_id,
+                        manager_name: this.getManagerName(m.home_manager_id, m.home_manager_name),
                         games: 0, total_points: 0, wins: 0, losses: 0
                     };
                 }
@@ -1436,12 +1485,12 @@ Object.assign(FantasyApp.prototype, {
                 if (s1 > s2) playoffRunsMap[k].wins++;
                 else if (s1 < s2) playoffRunsMap[k].losses++;
             }
-            if (t2Inc && m.team_2_manager_id) {
-                const k = `${m.season}_${m.team_2_manager_id}`;
+            if (t2Inc && m.away_manager_id) {
+                const k = `${m.year}_${m.away_manager_id}`;
                 if (!playoffRunsMap[k]) {
                     playoffRunsMap[k] = {
-                        season: m.season, manager_id: m.team_2_manager_id,
-                        manager_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
+                        season: m.year, manager_id: m.away_manager_id,
+                        manager_name: this.getManagerName(m.away_manager_id, m.away_manager_name),
                         games: 0, total_points: 0, wins: 0, losses: 0
                     };
                 }
@@ -1464,9 +1513,14 @@ Object.assign(FantasyApp.prototype, {
 
         // HTML Builders
         const renderSingleGameRow = (item, idx) => {
-            const seasonBadge = this.formatSeasonYear(item.season);
+            const seasonBadge = this.formatSeasonYear(item.year || item.season);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+            const displayYear = item.year || item.season;
+            const canViewBoxscore = displayYear >= 2018;
             const roundBadge = item.playoff_round ? ` (${item.playoff_round})` : '';
+            const btnHtml = canViewBoxscore
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>`
+                : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
                     <div class="record-item-left">
@@ -1482,23 +1536,28 @@ Object.assign(FantasyApp.prototype, {
                     </div>
                     <div class="record-item-right">
                         <span class="record-value">${item.score.toFixed(2)} <small style="font-size:0.7rem; color:var(--text-muted);">pts</small></span>
-                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${item.season}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>
+                        ${btnHtml}
                     </div>
                 </div>
             `;
         };
 
         const renderMatchupRow = (m, idx) => {
-            const seasonBadge = this.formatSeasonYear(m.season);
+            const seasonBadge = this.formatSeasonYear(m.year || m.season);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+            const displayYear = m.year || m.season;
+            const canViewBoxscore = displayYear >= 2018;
             const roundBadge = m.playoff_round ? ` (${m.playoff_round})` : ' (Playoffs)';
+            const btnHtml = canViewBoxscore
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${m.week}, ${m.home_team_id}, ${m.away_team_id})">View Matchup</button>`
+                : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
                     <div class="record-item-left">
                         <span class="rank-badge ${rankClass}">#${idx + 1}</span>
                         <div class="record-item-info">
                             <div class="record-item-top">
-                                <span class="record-team-name">${m.team_1_manager} (${m.score_1.toFixed(1)}) vs ${m.team_2_manager} (${m.score_2.toFixed(1)})</span>
+                                <span class="record-team-name">${m.home_manager} (${m.score_1.toFixed(1)}) vs ${m.away_manager} (${m.score_2.toFixed(1)})</span>
                             </div>
                             <div class="record-sub-info">
                                 <span>${seasonBadge} Week ${m.week}${roundBadge}</span>
@@ -1507,15 +1566,15 @@ Object.assign(FantasyApp.prototype, {
                     </div>
                     <div class="record-item-right">
                         <span class="record-value">${m.combined.toFixed(2)} <small style="font-size:0.7rem; color:var(--text-muted);">combined</small></span>
-                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${m.season}, ${m.week}, ${m.team_1_id}, ${m.team_2_id})">View Matchup</button>
+                        ${btnHtml}
                     </div>
                 </div>
             `;
         };
 
         const renderRunRow = (r, idx) => {
-            const seasonBadge = this.formatSeasonYear(r.season);
-            const placementBadge = this.getFinalPlacementBadge(r.season, r.manager_id);
+            const seasonBadge = this.formatSeasonYear(r.year || r.season);
+            const placementBadge = this.getFinalPlacementBadge(r.year, r.manager_id);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
             return `
                 <div class="record-item">
