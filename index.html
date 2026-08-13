@@ -342,6 +342,14 @@
     <div id="register-step-3" style="display: none; padding: 1rem 0;">
       <h3 class="modal-title">Create Admin Account</h3>
       <p class="modal-text" style="margin-bottom: 1.5rem;">To save this configuration and secure your league URL, please sign in or create an account.</p>
+
+      <div class="form-group" style="background: rgba(251, 188, 5, 0.05); padding: 1rem; border-radius: 6px; border: 1px solid var(--border-gold); margin-bottom: 1.5rem;">
+        <label for="input-vault-privacy" class="form-label" style="color: var(--accent-gold);">Vault Privacy Setting</label>
+        <select id="input-vault-privacy" class="form-input">
+          <option value="private">Private (Only members with an invite code can view)</option>
+          <option value="public">Public (Anyone with the link can view)</option>
+        </select>
+      </div>
       
       <button id="btn-register-google" class="btn-google-sso" style="width: 100%; justify-content: center; margin-bottom: 1rem; position: relative;">
         <svg style="width:18px; height:18px; position:absolute; left:1rem;" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.74-.06-1.28-.19-1.84H9v3.34h4.96c-.1.83-.64 2.08-1.84 2.92l2.84 2.2c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.84-2.2c-.76.53-1.78.9-3.12.9-2.38 0-4.41-1.57-5.13-3.74L.97 13.04C2.45 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.87 10.78c-.18-.53-.28-1.1-.28-1.78s.1-1.25.28-1.78L.97 4.96C.35 6.19 0 7.56 0 9s.35 2.81.97 4.04l2.9-2.26z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.45 2.02.97 4.96l2.9 2.26C4.59 5.05 6.62 3.58 9 3.58z"/></svg>
@@ -410,6 +418,22 @@
         Sign In / Create Account &rarr;
       </button>
     </form>
+
+    <div class="auth-divider" style="margin-top: 2rem;">Have an Invite Code?</div>
+    <div id="join-code-section">
+      <p style="font-size: 0.85rem; color: var(--ink-muted); margin-bottom: 1rem; text-align: center;">Enter the 6-character code from your commish to claim your manager profile.</p>
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="text" id="input-join-code" class="form-input" placeholder="e.g. DMS202" style="text-transform: uppercase; letter-spacing: 2px; text-align: center; font-weight: bold;">
+        <button id="btn-verify-join-code" class="btn-secondary">Verify</button>
+      </div>
+      <div id="join-profile-select-wrapper" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-line);">
+        <label for="select-join-profile" class="form-label">Which manager are you?</label>
+        <select id="select-join-profile" class="form-input" style="margin-bottom: 1rem;">
+          <!-- Populated by JS -->
+        </select>
+        <p style="font-size: 0.8rem; color: var(--accent-gold); margin-bottom: 1rem; text-align: center;">Select your profile and sign in above to claim it.</p>
+      </div>
+    </div>
 
   </dialog>
 

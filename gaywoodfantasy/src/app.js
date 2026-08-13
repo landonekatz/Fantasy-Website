@@ -118,9 +118,33 @@ class FantasyApp {
     }
 
     async init() {
+        // 1. Invite Link Intercept
+        const urlParams = new URLSearchParams(window.location.search);
+        const joinCode = urlParams.get('join');
+        if (joinCode) {
+            window.location.href = `/?join=${joinCode}`;
+            return;
+        }
+
+        // 2. Private League Guard
+        if (typeof window.AuthEngine !== 'undefined') {
+            const persona = window.AuthEngine.getPersona();
+            if (persona === 'public') {
+                document.body.innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#1a1d21; color:#fff; text-align:center; padding: 2rem; font-family: 'Inter', sans-serif;">
+                        <h1 style="font-family:'Cinzel', serif; color:#c5a059; margin-bottom: 1rem; font-size: 2.5rem;">Private League Archive</h1>
+                        <p style="margin-bottom: 2rem; color: #a1aab3; max-width: 420px; line-height: 1.6;">This Fantasy Vault is private. You must be an authenticated member or league administrator to view these records.</p>
+                        <a href="/" style="background:#c5a059; color:#000; padding: 0.85rem 1.75rem; border-radius: 4px; font-weight:600; text-decoration:none; font-size: 0.95rem;">Sign In / Enter Invite Code</a>
+                    </div>
+                `;
+                return;
+            }
+        }
+
         this.setupFounderControlBar();
         this.setupThemeToggle();
         await this.loadData();
+        this.initPowerRankings();
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();

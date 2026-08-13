@@ -241,6 +241,22 @@
             const activeHtml = [];
             const inactiveHtml = [];
 
+            // Pre-process active managers for the merge dropdown
+            const activeManagers = data.members.filter(m => m.isActive);
+            const getActiveOptions = (inactiveManagerAlias) => {
+              let options = '<option value="">Keep Separate (Do Not Merge)</option>';
+              activeManagers.forEach(active => {
+                const activeHandle = active.displayName || 'unknown';
+                let activeAlias = active.firstName || active.lastName || activeHandle;
+                if (active.firstName && active.lastName) {
+                    activeAlias = `${active.firstName} ${active.lastName.charAt(0)}.`;
+                }
+                const isMatch = (inactiveManagerAlias === activeAlias || activeHandle === (inactiveManagerAlias.displayName || ''));
+                options += `<option value="${active.id}" ${isMatch ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
+              });
+              return options;
+            };
+
             data.members.forEach((m, i) => {
               const handle = m.displayName || 'unknown';
               let alias = m.firstName || m.lastName || handle;
@@ -248,23 +264,40 @@
                   alias = `${m.firstName} ${m.lastName.charAt(0)}.`;
               }
               
-              const itemHtml = `
-              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: ${m.isActive ? '1' : '0.6'};">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                  <input type="checkbox" id="mgr-chk-${i}" ${m.isActive ? 'checked' : ''}>
-                  <div>
-                    <div style="font-weight: 600; font-size: 0.9rem;">${m.isActive ? 'Active' : `Last Seen: ${m.lastSeenYear}`}</div>
-                    <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
+              if (m.isActive) {
+                activeHtml.push(`
+                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <input type="checkbox" id="mgr-chk-${i}" checked>
+                      <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">Active</div>
+                        <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
-                </div>
-              </div>
-              `;
-
-              if (m.isActive) activeHtml.push(itemHtml);
-              else inactiveHtml.push(itemHtml);
+                `);
+              } else {
+                inactiveHtml.push(`
+                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: 0.85;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <input type="checkbox" id="mgr-chk-${i}">
+                      <div>
+                        <div style="font-weight: 600; font-size: 0.9rem;">Last Seen: ${m.lastSeenYear}</div>
+                        <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                      <select class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 180px;">
+                        ${getActiveOptions(alias)}
+                      </select>
+                      <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                    </div>
+                  </div>
+                `);
+              }
             });
 
             managerConfigList.innerHTML = `
@@ -375,27 +408,51 @@
     });
   }
 
-  // Post-Login Redirect Handler
-  function handlePostLogin(defaultMessage, defaultRedirect) {
-    if (window.pendingJoinCode) {
-      const code = window.pendingJoinCode;
-      window.pendingJoinCode = null;
-      if (typeof window.startManagerClaimFlow === 'function') {
-        window.startManagerClaimFlow(code, () => {
-          const res = AuthEngine.processJoinCode(code);
-          if (res.success) {
-            window.location.href = res.league.path + `?join=${code}`;
-          }
-        });
-      } else {
-        const res = AuthEngine.processJoinCode(code);
-        if (res.success) {
-          alert(`Joining ${res.league.name}... Directing to league archive.`);
-          window.location.href = res.league.path + `?join=${code}`;
-        } else {
-          alert(res.message);
-          if (defaultRedirect) window.location.href = defaultRedirect;
+  // Join Code Flow
+  const btnVerifyJoinCode = document.getElementById('btn-verify-join-code');
+  const inputJoinCode = document.getElementById('input-join-code');
+  const profileSelectWrapper = document.getElementById('join-profile-select-wrapper');
+  const selectJoinProfile = document.getElementById('select-join-profile');
+  
+  if (btnVerifyJoinCode && inputJoinCode) {
+    btnVerifyJoinCode.addEventListener('click', () => {
+      const code = inputJoinCode.value.trim().toUpperCase();
+      if (!code) {
+        alert("Please enter a join code");
+        return;
+      }
+      
+      const result = AuthEngine.processJoinCode(code);
+      if (result.success) {
+        // Populate manager dropdown
+        if (selectJoinProfile) {
+          selectJoinProfile.innerHTML = '<option value="" disabled selected>Select your profile...</option>';
+          result.league.managers.forEach(mgr => {
+            selectJoinProfile.innerHTML += `<option value="${mgr.id}">${mgr.name}</option>`;
+          });
         }
+        if (profileSelectWrapper) profileSelectWrapper.style.display = 'block';
+        window.pendingJoinCode = code; // save it to complete after auth
+      } else {
+        alert(result.message);
+      }
+    });
+  }
+
+  // Post-Login Redirect Handler
+  async function handlePostLogin(defaultMessage, defaultRedirect) {
+    if (window.pendingJoinCode && selectJoinProfile && selectJoinProfile.value) {
+      const code = window.pendingJoinCode;
+      const managerId = selectJoinProfile.value;
+      
+      window.pendingJoinCode = null;
+      
+      const res = await AuthEngine.finalizeJoin(code, managerId);
+      if (res.success) {
+        alert(`Successfully joined ${res.league.name}! Directing to league archive.`);
+        window.location.href = res.league.path;
+      } else {
+        alert(res.message);
       }
     } else {
       if (defaultMessage) alert(defaultMessage);
@@ -449,24 +506,32 @@
 
   // Google SSO 1-Click
   if (btnGoogleSSO) {
-    btnGoogleSSO.addEventListener('click', (e) => {
+    btnGoogleSSO.addEventListener('click', async (e) => {
       e.preventDefault();
-      AuthEngine.loginWithGoogle('manager@gmail.com');
-      if (authModal) authModal.close();
-      handlePostLogin('Signed in via Google SSO as manager@gmail.com.');
+      try {
+        const user = await AuthEngine.loginWithGoogle();
+        if (authModal) authModal.close();
+        await handlePostLogin(`Signed in via Google SSO as ${user.email}.`);
+      } catch (err) {
+        alert("Google Sign-In failed: " + err.message);
+      }
     });
   }
 
   // Email & Password Auth Form
   if (emailAuthForm) {
-    emailAuthForm.addEventListener('submit', (e) => {
+    emailAuthForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('input-auth-email').value.trim();
       const pass = document.getElementById('input-auth-pass').value;
 
-      AuthEngine.loginWithEmail(email, pass);
-      if (authModal) authModal.close();
-      handlePostLogin(`Signed in as ${email}. Session active.`);
+      try {
+        const user = await AuthEngine.loginWithEmail(email, pass);
+        if (authModal) authModal.close();
+        await handlePostLogin(`Signed in as ${user.email}. Session active.`);
+      } catch (err) {
+        alert("Sign In failed: " + err.message);
+      }
     });
   }
 
@@ -478,3 +543,17 @@
     });
   }
 
+  // Handle ?join=CODE URL Parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const joinParam = urlParams.get('join');
+  if (joinParam) {
+    if (authModal && typeof authModal.showModal === 'function') {
+      authModal.showModal();
+      if (inputJoinCode) {
+        inputJoinCode.value = joinParam;
+        if (btnVerifyJoinCode) {
+          btnVerifyJoinCode.click();
+        }
+      }
+    }
+  }
