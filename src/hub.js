@@ -1,6 +1,5 @@
 // The Fantasy Vault — Editorial Light Hub Script & Auth Integration
-document.addEventListener('DOMContentLoaded', () => {
-  // Elements
+// Elements
   const leagueNameInput = document.getElementById('input-league-name');
   const urlPreviewText = document.getElementById('url-preview-text');
   const registerForm = document.getElementById('register-demo-form');
@@ -343,4 +342,4 @@ document.addEventListener('DOMContentLoaded', () => {
       alert(`Password recovery link has been dispatched to ${email}. Check your inbox to reset your password.`);
     });
   }
-});
+
