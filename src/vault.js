@@ -1,7 +1,6 @@
 import { compileVaultData } from './compiler.js';
-import { storage } from './firebase.js';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-
+import { database } from './firebase.js';
+import { ref as dbRef, set, get, child } from 'firebase/database';
 function getPlayoffRoundName(season, week) {
     const yr = Number(season);
     const wk = Number(week);
@@ -184,12 +183,34 @@ class FantasyApp {
 
             try {
                 const currentYear = new Date().getFullYear();
-                const years = Array.from({ length: 15 }, (_, i) => currentYear - i);
-                const seasonsData = [];
+                const possibleYears = Array.from({ length: 30 }, (_, i) => currentYear - i);
+                
+                updateUI(5, "Discovering league history...");
 
+                const validYears = [];
+                const checkPromises = possibleYears.map(async (year) => {
+                    const checkUrl = `/api/scrape-season?leagueId=${leagueId}&year=${year}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}&checkOnly=true`;
+                    try {
+                        const res = await fetch(checkUrl);
+                        if (res.ok) validYears.push(year);
+                    } catch (e) {
+                        // ignore fetch failures
+                    }
+                });
+
+                await Promise.all(checkPromises);
+                
+                // Sort descending
+                validYears.sort((a, b) => b - a);
+
+                if (validYears.length === 0) {
+                    throw new Error("No data found for this league.");
+                }
+
+                const seasonsData = [];
                 let completed = 0;
-                for (const year of years) {
-                    updateUI(10 + (completed / years.length) * 70, `Syncing ${year} season...`);
+                for (const year of validYears) {
+                    updateUI(15 + (completed / validYears.length) * 70, `Syncing ${year} season...`);
                     const url = `/api/scrape-season?leagueId=${leagueId}&year=${year}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
                     const res = await fetch(url);
                     if (res.ok) {
@@ -198,7 +219,6 @@ class FantasyApp {
                             seasonsData.push(data);
                         }
                     } else if (res.status !== 404) {
-                        // Some historical APIs return 404 for missing years, which is fine
                         console.warn(`Failed to fetch ${year}:`, res.status);
                     }
                     completed++;
@@ -211,9 +231,9 @@ class FantasyApp {
                 updateUI(85, "Generating Vault payload...");
                 const compiledPayload = compileVaultData(seasonsData);
 
-                updateUI(92, "Uploading to Vault Storage...");
-                const storageRef = ref(storage, `leagues/${slug}/data_bundle.json`);
-                await uploadString(storageRef, JSON.stringify(compiledPayload), 'raw', { contentType: 'application/json' });
+                updateUI(92, "Saving to Vault Database...");
+                const databaseRef = dbRef(database, `leagues/${slug}`);
+                await set(databaseRef, compiledPayload);
 
                 sessionStorage.removeItem('pendingVaultBuild');
 
@@ -382,14 +402,13 @@ class FantasyApp {
         
         let bundleData = null;
         try {
-            const storageRef = ref(storage, `leagues/${slug}/data_bundle.json`);
-            const url = await getDownloadURL(storageRef);
-            const res = await fetch(url);
-            if (res.ok) {
-                bundleData = await res.json();
+            const databaseRef = dbRef(database, `leagues/${slug}`);
+            const snapshot = await get(databaseRef);
+            if (snapshot.exists()) {
+                bundleData = snapshot.val();
             }
         } catch (err) {
-            console.error("Failed to load league data from storage:", err);
+            console.error("Failed to load league data from database:", err);
             // Fallback for static demo routes
             if (window.FANTASY_DATA) {
                 bundleData = window.FANTASY_DATA;

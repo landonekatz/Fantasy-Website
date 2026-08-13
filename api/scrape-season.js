@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const { leagueId, year, s2, swid } = req.query;
+  const { leagueId, year, s2, swid, checkOnly } = req.query;
 
   if (!leagueId || !year) {
     return res.status(400).json({ error: 'Missing leagueId or year parameter' });
@@ -18,10 +18,14 @@ export default async function handler(req, res) {
   }
 
   let espnUrl = '';
+  const views = checkOnly === 'true' 
+    ? '?view=mStatus' 
+    : '?view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings&view=mDraftDetail';
+
   if (isCurrent) {
-    espnUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings&view=mDraftDetail`;
+    espnUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}${views}`;
   } else {
-    espnUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${year}&view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings&view=mDraftDetail`;
+    espnUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${year}&${views.substring(1)}`;
   }
 
   try {

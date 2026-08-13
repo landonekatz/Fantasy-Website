@@ -2,10 +2,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAmIKYxDd4JmZ0ejh6uOCs45kx6wGzfNUE",
   authDomain: "fantasy-vault-4f8da.firebaseapp.com",
+  databaseURL: "https://fantasy-vault-4f8da-default-rtdb.firebaseio.com",
   projectId: "fantasy-vault-4f8da",
   storageBucket: "fantasy-vault-4f8da.firebasestorage.app",
   messagingSenderId: "783166496442",
@@ -18,5 +20,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const database = getDatabase(app);
 
-export { auth, db, storage };
+export { auth, db, storage, database };
