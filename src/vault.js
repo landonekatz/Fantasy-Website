@@ -251,8 +251,6 @@ class FantasyApp {
                 sessionStorage.removeItem('pendingVaultBuild');
 
                 updateUI(100, "Complete!");
-                
-                const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
                 if (session && session.email) {
                     try {
                         const joinCode = slug.substring(0, 3).toUpperCase() + "24"; 
