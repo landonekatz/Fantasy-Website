@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   // Try current season first, then fallback to previous season
   for (let s of [currentSeason, currentSeason - 1]) {
     season = s;
-    const espnUrl = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mTeam`;
+    const espnUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mTeam`;
     try {
       response = await fetch(espnUrl, { 
         headers,
