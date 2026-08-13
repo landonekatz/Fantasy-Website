@@ -303,21 +303,52 @@
     }
   };
 
+  const triggerWelcomeEmail = async (email, slug) => {
+    try {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, slug })
+      });
+    } catch (e) {
+      console.error("Failed to send welcome email", e);
+    }
+  };
+
   if (btnRegisterGoogle) {
-    btnRegisterGoogle.addEventListener('click', () => {
-      AuthEngine.loginWithGoogle('admin@gmail.com');
-      advanceToStep4();
+    btnRegisterGoogle.addEventListener('click', async () => {
+      try {
+        const user = await AuthEngine.loginWithGoogle();
+        const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
+        const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
+        
+        // Trigger email
+        await triggerWelcomeEmail(user.email, slug);
+        advanceToStep4();
+      } catch (err) {
+        alert("Google Sign-In failed: " + err.message);
+      }
     });
   }
 
   if (btnRegisterEmail) {
-    btnRegisterEmail.addEventListener('click', () => {
+    btnRegisterEmail.addEventListener('click', async () => {
       const email = document.getElementById('register-email');
-      if (email && email.value) {
-        AuthEngine.loginWithEmail(email.value, 'password');
-        advanceToStep4();
+      const password = document.getElementById('register-password');
+      if (email && email.value && password && password.value) {
+        try {
+          const user = await AuthEngine.loginWithEmail(email.value, password.value);
+          const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
+          const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
+          
+          // Trigger email
+          await triggerWelcomeEmail(user.email, slug);
+          advanceToStep4();
+        } catch (err) {
+          alert("Sign In failed: " + err.message);
+        }
       } else {
-        alert("Please enter an email");
+        alert("Please enter both email and password");
       }
     });
   }

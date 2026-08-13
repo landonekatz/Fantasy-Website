@@ -1,152 +1,152 @@
 // The Fantasy Vault — Client-Side Auth Engine & Join Code System
-(function() {
-  const STORAGE_KEY = 'vault_auth_session';
-  const PERSONA_KEY = 'vault_active_persona';
-  const CLAIMS_KEY = 'vault_manager_claims';
+import { auth, db } from './firebase.js';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
-  // Registered League Join Codes (6-character uppercase alphanumeric)
-  const JOIN_CODES = {
-    'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/', managers: [{id: 'mgr_dms_1', name: 'Landon'}, {id: 'mgr_dms_2', name: 'Madoc'}, {id: 'mgr_dms_3', name: 'Jordan'}] },
-    'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy/', managers: [{id: 'mgr_katz_1', name: 'Landon'}, {id: 'mgr_katz_2', name: 'Doug'}, {id: 'mgr_katz_3', name: 'Mike'}] }
-  };
+const PERSONA_KEY = 'vault_active_persona';
 
-  const AuthEngine = {
-    // Session Management
-    getSession() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        return null;
-      }
-    },
+// Registered League Join Codes (6-character uppercase alphanumeric)
+const JOIN_CODES = {
+  'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/', managers: [{id: 'mgr_dms_1', name: 'Landon'}, {id: 'mgr_dms_2', name: 'Madoc'}, {id: 'mgr_dms_3', name: 'Jordan'}] },
+  'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy/', managers: [{id: 'mgr_katz_1', name: 'Landon'}, {id: 'mgr_katz_2', name: 'Doug'}, {id: 'mgr_katz_3', name: 'Mike'}] }
+};
 
-    setSession(userObj) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userObj));
-      // Dispatch custom event for UI updates across components
-      window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: userObj }));
-    },
+let currentSession = null;
 
-    logout() {
-      localStorage.removeItem(STORAGE_KEY);
+const AuthEngine = {
+  // Session Management
+  getSession() {
+    return currentSession;
+  },
+
+  logout() {
+    signOut(auth).then(() => {
       localStorage.removeItem(PERSONA_KEY);
       window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: null }));
-    },
+    });
+  },
 
-    // Persona Management (Founder, Admin, Member, Public)
-    getPersona() {
-      return localStorage.getItem(PERSONA_KEY) || (this.isFounder() ? 'founder' : 'public');
-    },
+  // Persona Management (Founder, Admin, Member, Public)
+  getPersona() {
+    return localStorage.getItem(PERSONA_KEY) || (this.isFounder() ? 'founder' : 'public');
+  },
 
-    setPersona(personaMode) {
-      localStorage.setItem(PERSONA_KEY, personaMode);
-      window.dispatchEvent(new CustomEvent('vault_persona_changed', { detail: personaMode }));
-    },
+  setPersona(personaMode) {
+    localStorage.setItem(PERSONA_KEY, personaMode);
+    window.dispatchEvent(new CustomEvent('vault_persona_changed', { detail: personaMode }));
+  },
 
-    isFounder() {
-      const session = this.getSession();
-      return session && session.email === 'landonekatz@gmail.com';
-    },
+  isFounder() {
+    const session = this.getSession();
+    return session && session.email === 'landonekatz@gmail.com';
+  },
 
-    // Authentication Actions
-    loginAsFounder() {
-      const founderUser = {
-        id: 'user_founder_landon',
-        email: 'landonekatz@gmail.com',
-        name: 'Landon Katz',
-        avatar: 'L',
-        isFounder: true,
-        joinedLeagues: ['dmsfantasy', 'gaywoodfantasy']
-      };
-      this.setSession(founderUser);
-      this.setPersona('founder');
-      return founderUser;
-    },
+  // Authentication Actions
+  async loginWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      return result.user;
+    } catch (error) {
+      console.error("Google Auth Error", error);
+      throw error;
+    }
+  },
 
-    loginWithGoogle(email = 'landonekatz@gmail.com') {
-      const isLandon = email.toLowerCase() === 'landonekatz@gmail.com';
-      const user = {
-        id: 'user_google_' + Math.random().toString(36).substr(2, 9),
-        email: email,
-        name: isLandon ? 'Landon Katz' : email.split('@')[0],
-        avatar: isLandon ? 'L' : email.charAt(0).toUpperCase(),
-        isFounder: isLandon,
-        joinedLeagues: isLandon ? ['dmsfantasy', 'gaywoodfantasy'] : []
-      };
-      this.setSession(user);
-      this.setPersona(isLandon ? 'founder' : 'member');
-      return user;
-    },
-
-    loginWithEmail(email, password) {
-      if (email.toLowerCase() === 'landonekatz@gmail.com' && (password === 'founder2026' || password === 'admin')) {
-        return this.loginAsFounder();
+  async loginWithEmail(email, password) {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        // Auto-signup if not found
+        try {
+          const newResult = await createUserWithEmailAndPassword(auth, email, password);
+          return newResult.user;
+        } catch (signupError) {
+          console.error("Signup Error", signupError);
+          throw signupError;
+        }
       }
-      const user = {
-        id: 'user_email_' + Math.random().toString(36).substr(2, 9),
-        email: email,
-        name: email.split('@')[0],
-        avatar: email.charAt(0).toUpperCase(),
-        isFounder: false,
-        joinedLeagues: []
-      };
-      this.setSession(user);
-      this.setPersona('member');
-      return user;
-    },
+      console.error("Email Auth Error", error);
+      throw error;
+    }
+  },
 
-    // 6-Character Join Code Processing (Validation only)
-    processJoinCode(code) {
-      const cleanCode = (code || '').trim().toUpperCase();
-      if (JOIN_CODES[cleanCode]) {
-        return { success: true, league: JOIN_CODES[cleanCode] };
-      }
-      return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
-    },
+  // 6-Character Join Code Processing (Validation only)
+  processJoinCode(code) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (JOIN_CODES[cleanCode]) {
+      return { success: true, league: JOIN_CODES[cleanCode] };
+    }
+    return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
+  },
 
-    finalizeJoin(code, managerId) {
-      const cleanCode = (code || '').trim().toUpperCase();
-      const info = JOIN_CODES[cleanCode];
-      if (!info) return { success: false, message: "Invalid code" };
-      
-      const session = this.getSession();
-      if (!session) return { success: false, message: "Not signed in" };
+  async finalizeJoin(code, managerId) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    const info = JOIN_CODES[cleanCode];
+    if (!info) return { success: false, message: "Invalid code" };
+    
+    const session = this.getSession();
+    if (!session) return { success: false, message: "Not signed in" };
 
-      if (!session.joinedLeagues.includes(info.leagueId)) {
-        session.joinedLeagues.push(info.leagueId);
-        if (!session.claims) session.claims = {};
-        session.claims[info.leagueId] = managerId;
-        this.setSession(session);
-      }
-      
-      this.claimManagerProfile(info.leagueId, managerId, session.name);
+    try {
+      const userRef = doc(db, 'users', session.uid);
+      await updateDoc(userRef, {
+        joinedLeagues: arrayUnion(info.leagueId)
+      });
+      await this.claimManagerProfile(info.leagueId, managerId, session.email);
       return { success: true, league: info };
-    },
+    } catch (e) {
+      console.error("Finalize join error", e);
+      return { success: false, message: "Failed to join league." };
+    }
+  },
 
-    // Manager Profile Claiming
-    getManagerClaims(leagueId) {
-      try {
-        const raw = localStorage.getItem(CLAIMS_KEY + '_' + leagueId);
-        return raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        return {};
-      }
-    },
-
-    claimManagerProfile(leagueId, managerId, managerName) {
-      const session = this.getSession();
-      const claims = this.getManagerClaims(leagueId);
-      claims[managerId] = {
-        userId: session ? session.id : 'guest_' + Date.now(),
-        email: session ? session.email : 'guest',
+  async claimManagerProfile(leagueId, managerId, managerName) {
+    const session = this.getSession();
+    if (!session) return;
+    try {
+      const claimRef = doc(db, 'leagues', leagueId, 'claims', managerId);
+      await setDoc(claimRef, {
+        userId: session.uid,
+        email: session.email,
         name: managerName,
         claimedAt: new Date().toISOString()
-      };
-      localStorage.setItem(CLAIMS_KEY + '_' + leagueId, JSON.stringify(claims));
-      window.dispatchEvent(new CustomEvent('vault_claims_changed', { detail: { leagueId, claims } }));
+      });
+    } catch (e) {
+      console.error("Claim error", e);
     }
-  };
+  }
+};
 
-  window.AuthEngine = AuthEngine;
-  window.JOIN_CODES = JOIN_CODES;
-})();
+// Set up listener for real-time auth state changes
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // Sync to Firestore Users collection
+    const userRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
+        email: user.email,
+        name: user.displayName || user.email.split('@')[0],
+        joinedLeagues: []
+      });
+    }
+    
+    currentSession = {
+      uid: user.uid,
+      email: user.email,
+      name: user.displayName || user.email.split('@')[0],
+      isFounder: user.email === 'landonekatz@gmail.com'
+    };
+    AuthEngine.setPersona(currentSession.isFounder ? 'founder' : 'member');
+  } else {
+    currentSession = null;
+    AuthEngine.setPersona('public');
+  }
+  window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: currentSession }));
+});
+
+window.AuthEngine = AuthEngine;
+window.JOIN_CODES = JOIN_CODES;

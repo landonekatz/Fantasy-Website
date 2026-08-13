@@ -10,5 +10,9 @@
   },
   "devDependencies": {
     "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "firebase": "^12.17.1",
+    "resend": "^6.19.0"
   }
 }
