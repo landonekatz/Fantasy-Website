@@ -150,10 +150,30 @@ let currentLeagueCreds = null;
   }
 
   if (registerForm && registerModal) {
-    registerForm.addEventListener('submit', (e) => {
+    registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
       const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
+
+      // Duplicate League Check EARLY
+      try {
+          // Disable button while checking
+          const submitBtn = registerForm.querySelector('button[type="submit"]');
+          const originalText = submitBtn ? submitBtn.textContent : '';
+          if (submitBtn) submitBtn.textContent = 'Checking...';
+          
+          const checkRes = await fetch(`https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues/${slug}.json?shallow=true`);
+          const existsData = await checkRes.json();
+          
+          if (submitBtn) submitBtn.textContent = originalText;
+
+          if (existsData !== null) {
+              alert(`The league name "${rawName}" (URL: /${slug}) already exists in our system. Please choose a different name so you don't overwrite an existing league!`);
+              return; // Stop the signup flow completely
+          }
+      } catch (err) {
+          console.error("Failed to check duplicate league name", err);
+      }
 
       if (modalGeneratedUrl) {
         modalGeneratedUrl.textContent = `thefantasyvault.com/${slug}`;
@@ -468,24 +488,6 @@ let currentLeagueCreds = null;
   const btnRegisterEmail = document.getElementById('btn-register-email');
 
   const advanceToStep4 = async (slug) => {
-    // Check if the league name already exists
-    try {
-        const checkRes = await fetch(`https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues/${slug}.json?shallow=true`);
-        const existsData = await checkRes.json();
-        if (existsData !== null) {
-            alert(`This league name already exists and you can't use it. Please choose a different name.`);
-            
-            // Go back to step auth
-            if (step1) step1.style.display = 'none';
-            if (step2) step2.style.display = 'none';
-            if (step3) step3.style.display = 'none';
-            if (stepAuth) stepAuth.style.display = 'block';
-            return;
-        }
-    } catch (e) {
-        console.error("Duplicate check failed:", e);
-    }
-
     if (currentLeagueCreds) {
       sessionStorage.setItem('pendingVaultBuild', JSON.stringify(currentLeagueCreds));
     }
