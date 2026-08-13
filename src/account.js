@@ -97,7 +97,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const tabsHTML = session.isFounder ? `
+        let currentLeagueId = null;
+        if (typeof JOIN_CODES !== 'undefined') {
+            for (const key in JOIN_CODES) {
+                const cleanPath = JOIN_CODES[key].path.replace(/\/$/, '');
+                if (cleanPath && window.location.pathname.includes(cleanPath)) {
+                    currentLeagueId = JOIN_CODES[key].leagueId;
+                    break;
+                }
+            }
+        }
+        
+        // Only show admin tab if we are on a specific league page and user is founder
+        const isLeagueAdmin = session.isFounder && currentLeagueId !== null;
+
+        const tabsHTML = isLeagueAdmin ? `
             <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-line); margin-bottom: 1.5rem;">
                 <button class="account-tab" data-tab="profile" style="background: none; border: none; padding: 0.5rem 0; cursor: pointer; color: ${activeTab === 'profile' ? 'var(--accent-gold)' : 'var(--text-muted)'}; font-weight: ${activeTab === 'profile' ? 'bold' : 'normal'}; border-bottom: ${activeTab === 'profile' ? '2px solid var(--accent-gold)' : 'none'};">My Profile</button>
                 <button class="account-tab" data-tab="admin" style="background: none; border: none; padding: 0.5rem 0; cursor: pointer; color: ${activeTab === 'admin' ? 'var(--accent-gold)' : 'var(--text-muted)'}; font-weight: ${activeTab === 'admin' ? 'bold' : 'normal'}; border-bottom: ${activeTab === 'admin' ? '2px solid var(--accent-gold)' : 'none'};">Admin Dashboard</button>
@@ -106,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let contentHTML = '';
 
-        if (activeTab === 'profile' || !session.isFounder) {
+        if (activeTab === 'profile' || !isLeagueAdmin) {
             let leaguesListHTML = '';
             if (session.joinedLeagues && session.joinedLeagues.length > 0) {
                 leaguesListHTML = session.joinedLeagues.map(leagueId => {
@@ -158,38 +172,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button id="btn-account-logout" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); padding: 0.4rem 0.8rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">Sign Out</button>
                 </div>
             `;
-        } else {
+        } else if (activeTab === 'admin' && isLeagueAdmin) {
             // ADMIN DASHBOARD CONTENT
             
-            // Find join codes for the leagues the user is in
-            const adminLeagues = (session.joinedLeagues || []).map(leagueId => {
-                const code = Object.keys(JOIN_CODES).find(k => JOIN_CODES[k].leagueId === leagueId);
-                const info = code ? JOIN_CODES[code] : null;
-                return { leagueId, code, info };
-            }).filter(l => l.code && l.info);
+            const code = Object.keys(JOIN_CODES).find(k => JOIN_CODES[k].leagueId === currentLeagueId);
+            const info = code ? JOIN_CODES[code] : null;
             
             let inviteLinksHTML = '';
-            if (adminLeagues.length > 0) {
-                inviteLinksHTML = adminLeagues.map(l => {
-                    const joinLink = window.location.origin + '/?join=' + l.code;
-                    return `
-                        <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-line); border-radius: 4px;">
-                            <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--accent-gold);">${l.info.name}</div>
-                            
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <span style="font-size: 0.85rem; color: var(--text-muted);">Join Code: <strong style="color: var(--text-main); font-family: monospace; font-size: 1rem; margin-left: 0.5rem;">${l.code}</strong></span>
-                                <button class="btn-copy-code" data-copy="${l.code}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Code</button>
-                            </div>
-                            
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span style="font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">Join Link: <span style="color: var(--text-main); font-size: 0.8rem; margin-left: 0.5rem;">${joinLink}</span></span>
-                                <button class="btn-copy-link" data-copy="${joinLink}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Link</button>
-                            </div>
+            if (code && info) {
+                const joinLink = window.location.origin + '/?join=' + code;
+                inviteLinksHTML = `
+                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-line); border-radius: 4px;">
+                        <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--accent-gold);">${info.name}</div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: var(--text-muted);">Join Code: <strong style="color: var(--text-main); font-family: monospace; font-size: 1rem; margin-left: 0.5rem;">${code}</strong></span>
+                            <button class="btn-copy-code" data-copy="${code}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Code</button>
                         </div>
-                    `;
-                }).join('');
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">Join Link: <span style="color: var(--text-main); font-size: 0.8rem; margin-left: 0.5rem;">${joinLink}</span></span>
+                            <button class="btn-copy-link" data-copy="${joinLink}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Link</button>
+                        </div>
+                    </div>
+                `;
             } else {
-                inviteLinksHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No leagues available to invite.</p>';
+                inviteLinksHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">Error loading league invite details.</p>';
             }
 
             contentHTML = `
@@ -258,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        if (activeTab === 'profile' || !session.isFounder) {
+        if (activeTab === 'profile' || !isLeagueAdmin) {
             const joinForm = document.getElementById('account-join-form');
             if (joinForm) {
                 joinForm.addEventListener('submit', (e) => {
@@ -277,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.reload();
                 });
             }
-        } else if (activeTab === 'admin' && session.isFounder) {
+        } else if (activeTab === 'admin' && isLeagueAdmin) {
             const btnTransfer = document.getElementById('btn-admin-transfer');
             if (btnTransfer) {
                 btnTransfer.addEventListener('click', () => {
