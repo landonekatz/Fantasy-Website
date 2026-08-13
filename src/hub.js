@@ -249,6 +249,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const groupPlatform = document.getElementById('group-platform');
   const groupPlatformsMultiple = document.getElementById('group-platforms-multiple');
 
+  const inputPlatform = document.getElementById('input-platform');
+  const inputAccess = document.getElementById('input-access');
+  const groupEspnLeagueId = document.getElementById('group-espn-league-id');
+  const groupEspnPrivate = document.getElementById('group-espn-private');
+
+  function updateEspnFields() {
+    if (!inputPlatform || !inputAccess || !groupEspnLeagueId || !groupEspnPrivate) return;
+    // Check if platform is ESPN (or if multiple platforms is selected and includes ESPN? Let's just handle single platform for now since it's a demo)
+    const isEspn = inputPlatform.value === 'espn' && inputLeagueType.value !== 'multiple-diff';
+    const isPrivate = inputAccess.value === 'private';
+    
+    groupEspnLeagueId.style.display = isEspn ? 'block' : 'none';
+    groupEspnPrivate.style.display = (isEspn && isPrivate) ? 'block' : 'none';
+  }
+
+  if (inputPlatform && inputAccess) {
+    inputPlatform.addEventListener('change', updateEspnFields);
+    inputAccess.addEventListener('change', updateEspnFields);
+    if (inputLeagueType) inputLeagueType.addEventListener('change', updateEspnFields);
+    updateEspnFields();
+  }
+
   if (inputLeagueType && groupPlatform && groupPlatformsMultiple) {
     inputLeagueType.addEventListener('change', (e) => {
       const val = e.target.value;
@@ -259,6 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         groupPlatform.style.display = 'block';
         groupPlatformsMultiple.style.display = 'none';
       }
+      updateEspnFields();
     });
   }
 

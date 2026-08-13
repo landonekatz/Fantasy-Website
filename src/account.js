@@ -183,16 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--border-line);">Madoc (Manager)</td>
-                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--border-line); color: var(--text-muted);">madoc123@gmail.com</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--border-line);">Jordan (Manager)</td>
-                                        <td style="padding: 0.75rem; border-bottom: 1px solid var(--border-line); color: var(--text-muted);">jordan.k@example.com</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 0.75rem;">Doug (Dad League)</td>
-                                        <td style="padding: 0.75rem; color: var(--text-muted);">doug.smith@example.com</td>
+                                        <td colspan="2" style="padding: 1rem; text-align: center; color: var(--text-muted); font-style: italic;">No members have registered with this league yet.</td>
                                     </tr>
                                 </tbody>
                             </table>

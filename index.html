@@ -208,12 +208,49 @@
               </div>
             </div>
 
+            <!-- ESPN Specific Fields -->
+            <div class="form-group" id="group-espn-league-id" style="display: block; padding: 1rem; background: var(--bg-card-alt); border-radius: 6px; border: 1px solid var(--border-line);">
+              <label for="input-espn-id" class="form-label">ESPN League ID</label>
+              <input type="text" id="input-espn-id" class="form-input" placeholder="e.g. 12345678">
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                This is the string of numbers found in your league's browser URL (e.g. <code>leagueId=12345678</code>).
+              </div>
+            </div>
+
             <div class="form-group">
               <label for="input-access" class="form-label">League Access Permission</label>
               <select id="input-access" class="form-input">
                 <option value="private">Private League (Invite link required)</option>
                 <option value="public">Public League (Anyone with URL can view)</option>
               </select>
+            </div>
+
+            <div id="group-espn-private" style="display: block; margin-bottom: 1rem; padding: 1rem; background: rgba(251, 188, 5, 0.05); border-radius: 6px; border: 1px solid var(--border-gold);">
+              <h4 style="margin-top: 0; color: var(--accent-gold); font-size: 0.95rem; margin-bottom: 0.5rem;">Private ESPN Authentication</h4>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;">
+                To connect to a private ESPN league, we temporarily require your <code>s2</code> and <code>SWID</code> browser cookies. <strong>We are fully transparent:</strong> these values are used strictly to authenticate the one-time data sync with ESPN. We do not permanently store this data or gain access to your personal account.
+              </p>
+              
+              <div style="margin-bottom: 0.75rem;">
+                <label for="input-espn-s2" class="form-label" style="font-size: 0.8rem;">ESPN s2 Cookie</label>
+                <input type="text" id="input-espn-s2" class="form-input" placeholder="Paste your s2 cookie string here">
+              </div>
+              
+              <div style="margin-bottom: 1rem;">
+                <label for="input-espn-swid" class="form-label" style="font-size: 0.8rem;">ESPN SWID</label>
+                <input type="text" id="input-espn-swid" class="form-input" placeholder="e.g. {1234-5678-ABCD}">
+              </div>
+
+              <details style="font-size: 0.8rem; color: var(--text-muted);">
+                <summary style="cursor: pointer; color: var(--accent-gold);">How to find these cookies</summary>
+                <ol style="margin-top: 0.5rem; padding-left: 1.2rem;">
+                  <li>Log into your ESPN league on a desktop browser.</li>
+                  <li>Right-click anywhere on the page and select <strong>Inspect</strong>.</li>
+                  <li>Go to the <strong>Application</strong> tab (in Chrome) or <strong>Storage</strong> tab (in Firefox).</li>
+                  <li>Expand the <strong>Cookies</strong> menu and click on <code>https://fantasy.espn.com</code>.</li>
+                  <li>Find the rows named <code>swid</code> and <code>espn_s2</code>. Copy their Values into these fields.</li>
+                </ol>
+              </details>
             </div>
 
             <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
