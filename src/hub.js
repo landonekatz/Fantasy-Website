@@ -1,4 +1,4 @@
-// The Fantasy Vault — Editorial Hub Script
+// The Fantasy Vault — Editorial Light Hub Script
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const leagueNameInput = document.getElementById('input-league-name');
@@ -8,10 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeRegisterModalBtn = document.getElementById('close-register-modal');
   const modalGeneratedUrl = document.getElementById('modal-generated-url');
 
-  const btnMemberLogin = document.getElementById('btn-member-login');
-  const joinModal = document.getElementById('join-modal');
-  const closeJoinModalBtn = document.getElementById('close-join-modal');
-  const joinForm = document.getElementById('join-form');
+  const btnFindLeague = document.getElementById('btn-find-league');
+  const findModal = document.getElementById('find-modal');
+  const closeFindModalBtn = document.getElementById('close-find-modal');
+  const leagueSearchInput = document.getElementById('input-league-search');
+  const searchResultsList = document.getElementById('search-results-list');
 
   // Live URL Preview matching input exactly
   if (leagueNameInput && urlPreviewText) {
@@ -51,35 +52,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Member Login / Join Modal Handler
-  if (btnMemberLogin && joinModal) {
-    btnMemberLogin.addEventListener('click', () => {
-      if (typeof joinModal.showModal === 'function') {
-        joinModal.showModal();
+  // Find Your League Modal Handler
+  if (btnFindLeague && findModal) {
+    btnFindLeague.addEventListener('click', () => {
+      if (typeof findModal.showModal === 'function') {
+        findModal.showModal();
       }
     });
   }
 
-  if (closeJoinModalBtn && joinModal) {
-    closeJoinModalBtn.addEventListener('click', () => {
-      joinModal.close();
+  if (closeFindModalBtn && findModal) {
+    closeFindModalBtn.addEventListener('click', () => {
+      findModal.close();
     });
   }
 
-  if (joinForm) {
-    joinForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const joinInput = document.getElementById('input-join-code').value.trim();
-      if (!joinInput) return;
+  // Filter Active Leagues in Finder Modal
+  if (leagueSearchInput && searchResultsList) {
+    const defaultHTML = searchResultsList.innerHTML;
 
-      const cleanTarget = joinInput.toLowerCase().replace(/[^a-z0-9]/g, '');
-      
-      if (cleanTarget.includes('dumbarton') || cleanTarget.includes('dms')) {
-        window.location.href = '/dmsfantasy/';
-      } else if (cleanTarget.includes('gaywood') || cleanTarget.includes('katz') || cleanTarget.includes('dad')) {
-        window.location.href = '/gaywoodfantasy/';
+    leagueSearchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      if (!query) {
+        searchResultsList.innerHTML = defaultHTML;
+        return;
+      }
+
+      const items = searchResultsList.querySelectorAll('.league-search-result');
+      let count = 0;
+      items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        if (text.includes(query)) {
+          item.style.display = 'flex';
+          count++;
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      if (count === 0) {
+        const noMatchMsg = document.getElementById('no-match-msg');
+        if (!noMatchMsg) {
+          const p = document.createElement('p');
+          p.id = 'no-match-msg';
+          p.style.color = 'var(--ink-muted)';
+          p.style.fontSize = '0.9rem';
+          p.style.marginTop = '0.5rem';
+          p.textContent = `No active league found for "${query}". Direct invite links grant immediate access to private league archives.`;
+          searchResultsList.appendChild(p);
+        }
       } else {
-        alert(`Searching for league "${joinInput}"... Direct invite links automatically sign you into your private league portal.`);
+        const noMatchMsg = document.getElementById('no-match-msg');
+        if (noMatchMsg) noMatchMsg.remove();
       }
     });
   }
