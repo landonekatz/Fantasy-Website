@@ -237,6 +237,16 @@
               managerConfigList.innerHTML = '<div style="padding: 1rem; color: #ff6b6b; text-align: center;">No managers found in this league. Please check your League ID.</div>';
               return;
             }
+            // Pre-populate aliases so they can be edited and stored
+            data.members.forEach(m => {
+                if (m.alias === undefined) {
+                    const handle = m.displayName || 'unknown';
+                    m.alias = m.firstName || m.lastName || handle;
+                    if (m.firstName && m.lastName) {
+                        m.alias = `${m.firstName} ${m.lastName.charAt(0)}.`;
+                    }
+                }
+            });
 
             const renderManagerList = () => {
               const activeHtml = [];
@@ -249,10 +259,7 @@
                 let options = '<option value="">Keep Separate</option>';
                 activeManagers.forEach(active => {
                   const activeHandle = active.displayName || 'unknown';
-                  let activeAlias = active.firstName || active.lastName || activeHandle;
-                  if (active.firstName && active.lastName) {
-                      activeAlias = `${active.firstName} ${active.lastName.charAt(0)}.`;
-                  }
+                  const activeAlias = active.alias;
                   
                   const isMatch = (
                     normalizeString(inactiveManagerAlias) === normalizeString(activeAlias) || 
@@ -266,18 +273,12 @@
 
               data.members.forEach((m, i) => {
                 const handle = m.displayName || 'unknown';
-                let alias = m.firstName || m.lastName || handle;
-                if (m.firstName && m.lastName) {
-                    alias = `${m.firstName} ${m.lastName.charAt(0)}.`;
-                }
+                const alias = m.alias;
                 
                 if (m.isActive) {
                   const duplicateActive = activeManagers.filter(am => {
                     const amHandle = am.displayName || 'unknown';
-                    let amAlias = am.firstName || am.lastName || amHandle;
-                    if (am.firstName && am.lastName) {
-                        amAlias = `${am.firstName} ${am.lastName.charAt(0)}.`;
-                    }
+                    const amAlias = am.alias;
                     
                     const isAliasMatch = normalizeString(amAlias) === normalizeString(alias);
                     const isHandleMatch = amHandle !== 'unknown' && amHandle === handle;
@@ -299,7 +300,7 @@
                         </div>
                       </div>
                       <div style="display: flex; align-items: center;">
-                        <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                        <input type="text" value="${alias}" class="form-input mgr-alias" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                         ${mergeBtnHtml}
                       </div>
                     </div>
@@ -318,7 +319,7 @@
                         <select class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
                           ${getActiveOptions(alias, handle)}
                         </select>
-                        <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                        <input type="text" value="${alias}" class="form-input mgr-alias" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                       </div>
                     </div>
                   `);
@@ -365,6 +366,18 @@
                   const idx = parseInt(e.target.getAttribute('data-index'));
                   data.members[idx].isActive = e.target.checked;
                   renderManagerList(); // Re-render the UI
+                });
+              });
+
+              // Attach event listeners to Alias inputs to enable dynamic renaming
+              document.querySelectorAll('.mgr-alias').forEach(input => {
+                input.addEventListener('change', (e) => {
+                  const idx = parseInt(e.target.getAttribute('data-index'));
+                  const newAlias = e.target.value.trim();
+                  if (newAlias) {
+                    data.members[idx].alias = newAlias;
+                    renderManagerList();
+                  }
                 });
               });
 
