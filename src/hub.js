@@ -14,6 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const leagueSearchInput = document.getElementById('input-league-search');
   const searchResultsList = document.getElementById('search-results-list');
 
+  const btnOpenFounderModal = document.getElementById('btn-open-founder-modal');
+  const founderModal = document.getElementById('founder-modal');
+  const closeFounderModalBtn = document.getElementById('close-founder-modal');
+  const founderLoginForm = document.getElementById('founder-login-form');
+
   // Live URL Preview matching input exactly
   if (leagueNameInput && urlPreviewText) {
     const updateUrlPreview = () => {
@@ -23,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       const slug = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
-      urlPreviewText.textContent = `thefantasyvault.com/${slug || 'yourleaguename'}`;
+      urlPreviewText.textContent = `thefantasyvault.com/${slug || 'ironcladdynastyleague'}`;
     };
 
     leagueNameInput.addEventListener('input', updateUrlPreview);
@@ -34,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     registerForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
-      const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'yourleaguename';
+      const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
 
       if (modalGeneratedUrl) {
         modalGeneratedUrl.textContent = `thefantasyvault.com/${slug}`;
@@ -64,6 +69,35 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeFindModalBtn && findModal) {
     closeFindModalBtn.addEventListener('click', () => {
       findModal.close();
+    });
+  }
+
+  // Founder Console Modal Handler
+  if (btnOpenFounderModal && founderModal) {
+    btnOpenFounderModal.addEventListener('click', () => {
+      if (findModal && typeof findModal.close === 'function') {
+        findModal.close();
+      }
+      if (typeof founderModal.showModal === 'function') {
+        founderModal.showModal();
+      }
+    });
+  }
+
+  if (closeFounderModalBtn && founderModal) {
+    closeFounderModalBtn.addEventListener('click', () => {
+      founderModal.close();
+    });
+  }
+
+  if (founderLoginForm) {
+    founderLoginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const pass = document.getElementById('input-founder-pass').value;
+      if (pass) {
+        alert('Welcome back, Landon! Platform Admin Console authenticated.');
+        window.location.href = '/dmsfantasy/';
+      }
     });
   }
 

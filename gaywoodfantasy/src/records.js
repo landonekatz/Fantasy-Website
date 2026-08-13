@@ -1,7 +1,8 @@
 // The Record Book Analytics & UI Renderer for Gaywood Fantasy Football League HQ
 // Extends FantasyApp with all 5 Record Book sections, table PPG toggles, and custom interactive filtering
 
-Object.assign(FantasyApp.prototype, {
+const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
+Object.assign(TargetApp.prototype, {
 
     // Helper: format season year with asterisk for 2015-2019
     formatSeasonYear(year) {

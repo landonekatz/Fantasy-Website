@@ -3,7 +3,8 @@
  * Est. 2027 • Dedicated Thanksgiving Week Rivalries
  */
 
-FantasyApp.prototype.renderRivalryWeek = function() {
+const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
+TargetApp.prototype.renderRivalryWeek = function() {
     const root = document.getElementById('view-rivalry');
     if (!root) return;
 
@@ -251,7 +252,7 @@ FantasyApp.prototype.renderRivalryWeek = function() {
 };
 
 // Toggle handler for rivalry matchups drawer
-FantasyApp.toggleRivalryDrawer = function(btn) {
+TargetApp.toggleRivalryDrawer = function(btn) {
     const drawer = btn.nextElementSibling;
     if (!drawer) return;
     const isOpen = drawer.classList.toggle('open');
