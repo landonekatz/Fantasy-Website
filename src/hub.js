@@ -126,12 +126,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Register Form Submit - Multi-Step Logic
+  const stepAuth = document.getElementById('register-step-auth');
   const step1 = document.getElementById('register-step-1');
   const step2 = document.getElementById('register-step-2');
   const step3 = document.getElementById('register-step-3');
   const managerConfigList = document.getElementById('manager-config-list');
   const btnConfirmManagers = document.getElementById('btn-confirm-managers');
   const btnFinishRegister = document.getElementById('btn-finish-register');
+  const btnAuthContinue = document.getElementById('btn-auth-continue');
+  const modalInputAccess = document.getElementById('modal-input-access');
+  const modalEspnPrivate = document.getElementById('modal-espn-private');
+  const inputPlatform = document.getElementById('input-platform');
+  const authPlatformName = document.getElementById('auth-platform-name');
+
+  if (modalInputAccess && modalEspnPrivate && inputPlatform) {
+    modalInputAccess.addEventListener('change', () => {
+      const isEspn = inputPlatform.value === 'espn';
+      const isPrivateOrUnsure = modalInputAccess.value === 'private' || modalInputAccess.value === 'unknown';
+      modalEspnPrivate.style.display = (isEspn && isPrivateOrUnsure) ? 'block' : 'none';
+    });
+  }
 
   if (registerForm && registerModal) {
     registerForm.addEventListener('submit', (e) => {
@@ -143,15 +157,34 @@ document.addEventListener('DOMContentLoaded', () => {
         modalGeneratedUrl.textContent = `thefantasyvault.com/${slug}`;
       }
 
-      // Reset to Step 1
-      if (step1 && step2 && step3) {
-        step1.style.display = 'block';
+      // Reset to Auth Step
+      if (stepAuth && step1 && step2 && step3) {
+        stepAuth.style.display = 'block';
+        step1.style.display = 'none';
         step2.style.display = 'none';
         step3.style.display = 'none';
+        
+        if (authPlatformName && inputPlatform) {
+          authPlatformName.textContent = inputPlatform.value;
+        }
+        
+        // Trigger the change event to ensure fields are correctly shown/hidden based on platform
+        if (modalInputAccess) {
+            modalInputAccess.dispatchEvent(new Event('change'));
+        }
       }
 
       if (typeof registerModal.showModal === 'function') {
         registerModal.showModal();
+      }
+    });
+  }
+
+  if (btnAuthContinue) {
+    btnAuthContinue.addEventListener('click', () => {
+      if (stepAuth && step1) {
+        stepAuth.style.display = 'none';
+        step1.style.display = 'block';
       }
 
       // Simulate loading API / import (Step 1 -> Step 2)
@@ -249,24 +282,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const groupPlatform = document.getElementById('group-platform');
   const groupPlatformsMultiple = document.getElementById('group-platforms-multiple');
 
-  const inputPlatform = document.getElementById('input-platform');
-  const inputAccess = document.getElementById('input-access');
   const groupEspnLeagueId = document.getElementById('group-espn-league-id');
-  const groupEspnPrivate = document.getElementById('group-espn-private');
 
   function updateEspnFields() {
-    if (!inputPlatform || !inputAccess || !groupEspnLeagueId || !groupEspnPrivate) return;
-    // Check if platform is ESPN (or if multiple platforms is selected and includes ESPN? Let's just handle single platform for now since it's a demo)
+    if (!inputPlatform || !groupEspnLeagueId) return;
     const isEspn = inputPlatform.value === 'espn' && inputLeagueType.value !== 'multiple-diff';
-    const isPrivate = inputAccess.value === 'private';
-    
     groupEspnLeagueId.style.display = isEspn ? 'block' : 'none';
-    groupEspnPrivate.style.display = (isEspn && isPrivate) ? 'block' : 'none';
   }
 
-  if (inputPlatform && inputAccess) {
+  if (inputPlatform) {
     inputPlatform.addEventListener('change', updateEspnFields);
-    inputAccess.addEventListener('change', updateEspnFields);
     if (inputLeagueType) inputLeagueType.addEventListener('change', updateEspnFields);
     updateEspnFields();
   }

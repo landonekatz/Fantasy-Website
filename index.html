@@ -217,44 +217,8 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label for="input-access" class="form-label">League Access Permission</label>
-              <select id="input-access" class="form-input">
-                <option value="private">Private League (Invite link required)</option>
-                <option value="public">Public League (Anyone with URL can view)</option>
-              </select>
-            </div>
-
-            <div id="group-espn-private" style="display: block; margin-bottom: 1rem; padding: 1rem; background: rgba(251, 188, 5, 0.05); border-radius: 6px; border: 1px solid var(--border-gold);">
-              <h4 style="margin-top: 0; color: var(--accent-gold); font-size: 0.95rem; margin-bottom: 0.5rem;">Private ESPN Authentication</h4>
-              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;">
-                To connect to a private ESPN league, we temporarily require your <code>s2</code> and <code>SWID</code> browser cookies. <strong>We are fully transparent:</strong> these values are used strictly to authenticate the one-time data sync with ESPN. We do not permanently store this data or gain access to your personal account.
-              </p>
-              
-              <div style="margin-bottom: 0.75rem;">
-                <label for="input-espn-s2" class="form-label" style="font-size: 0.8rem;">ESPN s2 Cookie</label>
-                <input type="text" id="input-espn-s2" class="form-input" placeholder="Paste your s2 cookie string here">
-              </div>
-              
-              <div style="margin-bottom: 1rem;">
-                <label for="input-espn-swid" class="form-label" style="font-size: 0.8rem;">ESPN SWID</label>
-                <input type="text" id="input-espn-swid" class="form-input" placeholder="e.g. {1234-5678-ABCD}">
-              </div>
-
-              <details style="font-size: 0.8rem; color: var(--text-muted);">
-                <summary style="cursor: pointer; color: var(--accent-gold);">How to find these cookies</summary>
-                <ol style="margin-top: 0.5rem; padding-left: 1.2rem;">
-                  <li>Log into your ESPN league on a desktop browser.</li>
-                  <li>Right-click anywhere on the page and select <strong>Inspect</strong>.</li>
-                  <li>Go to the <strong>Application</strong> tab (in Chrome) or <strong>Storage</strong> tab (in Firefox).</li>
-                  <li>Expand the <strong>Cookies</strong> menu and click on <code>https://fantasy.espn.com</code>.</li>
-                  <li>Find the rows named <code>swid</code> and <code>espn_s2</code>. Copy their Values into these fields.</li>
-                </ol>
-              </details>
-            </div>
-
             <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
-              Register League URL &rarr;
+              Connect League &rarr;
             </button>
           </form>
         </div>
@@ -266,6 +230,49 @@
   <dialog id="register-modal" class="modal" style="max-width: 650px;">
     <button id="close-register-modal" class="modal-close-x">&times;</button>
     
+    <!-- Step Auth: Privacy / Platform Cookies -->
+    <div id="register-step-auth" style="display: none; padding: 1.5rem 0;">
+      <h3 class="modal-title">League Authentication</h3>
+      <p class="modal-text" style="margin-bottom: 1rem;">Is your <span id="auth-platform-name" style="font-weight: 600; text-transform: capitalize;">ESPN</span> league public or private?</p>
+      
+      <div class="form-group">
+        <select id="modal-input-access" class="form-input">
+          <option value="public">Public (Anyone with link can view)</option>
+          <option value="private">Private (Requires invite/authentication)</option>
+          <option value="unknown">I'm not sure</option>
+        </select>
+      </div>
+
+      <div id="modal-espn-private" style="display: none; margin-bottom: 1rem; padding: 1rem; background: rgba(251, 188, 5, 0.05); border-radius: 6px; border: 1px solid var(--border-gold);">
+        <h4 style="margin-top: 0; color: var(--accent-gold); font-size: 0.95rem; margin-bottom: 0.5rem;">Private ESPN Authentication</h4>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;">
+          To connect to a private ESPN league, we temporarily require your <code>s2</code> and <code>SWID</code> browser cookies. <strong>We are fully transparent:</strong> these values are used strictly to authenticate the one-time data sync with ESPN. We do not store them.
+        </p>
+        <div style="margin-bottom: 0.75rem;">
+          <label for="modal-espn-s2" class="form-label" style="font-size: 0.8rem;">ESPN s2 Cookie</label>
+          <input type="text" id="modal-espn-s2" class="form-input" placeholder="Paste your s2 cookie string here">
+        </div>
+        <div style="margin-bottom: 1rem;">
+          <label for="modal-espn-swid" class="form-label" style="font-size: 0.8rem;">ESPN SWID</label>
+          <input type="text" id="modal-espn-swid" class="form-input" placeholder="e.g. {1234-5678-ABCD}">
+        </div>
+        <details style="font-size: 0.8rem; color: var(--text-muted);">
+          <summary style="cursor: pointer; color: var(--accent-gold);">How to find these cookies</summary>
+          <ol style="margin-top: 0.5rem; padding-left: 1.2rem;">
+            <li>Log into your ESPN league on a desktop browser.</li>
+            <li>Right-click anywhere on the page and select <strong>Inspect</strong>.</li>
+            <li>Go to the <strong>Application</strong> or <strong>Storage</strong> tab.</li>
+            <li>Expand the <strong>Cookies</strong> menu and click on <code>https://fantasy.espn.com</code>.</li>
+            <li>Find the rows named <code>swid</code> and <code>espn_s2</code>. Copy their Values into these fields.</li>
+          </ol>
+        </details>
+      </div>
+
+      <button id="btn-auth-continue" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+        Authenticate &amp; Import &rarr;
+      </button>
+    </div>
+
     <!-- Step 1: Loading -->
     <div id="register-step-1" style="text-align: center; padding: 2.5rem 0;">
       <h3 class="modal-title">Importing League Data...</h3>
