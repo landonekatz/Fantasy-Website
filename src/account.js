@@ -245,10 +245,11 @@
                     </div>
 
                     <div style="margin-bottom: 1.5rem;">
-                        <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold);">Member Permissions</h4>
+                        <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold);">Member Permissions & Admin Tools</h4>
                         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                             <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);"><input type="checkbox" disabled> Can Publish Power Rankings (Coming Soon)</label>
-                            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);"><input type="checkbox" disabled> Can Publish Weekly Matchup Recaps (Coming Soon)</label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);"><input type="checkbox" disabled> Can Edit Matchup Recaps (Coming Soon)</label>
+                            <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted);"><input type="checkbox" disabled> Merge Historical Managers (Coming Soon)</label>
                         </div>
                     </div>
 

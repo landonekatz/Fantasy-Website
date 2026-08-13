@@ -325,7 +325,35 @@
                 }
               });
 
+              const activeDuplicates = [];
+              const seenNorms = new Set();
+              activeManagers.forEach(am => {
+                  const amHandle = am.displayName || 'unknown';
+                  let amAlias = am.firstName || am.lastName || amHandle;
+                  if (am.firstName && am.lastName) {
+                      amAlias = `${am.firstName} ${am.lastName.charAt(0)}.`;
+                  }
+                  const norm = normalizeString(amAlias);
+                  if (seenNorms.has(norm)) {
+                      activeDuplicates.push(amAlias);
+                  } else {
+                      seenNorms.add(norm);
+                  }
+              });
+              
+              let duplicateWarningHtml = '';
+              if (activeDuplicates.length > 0) {
+                  const dupNames = [...new Set(activeDuplicates)].join(', ');
+                  duplicateWarningHtml = `
+                    <div style="background: rgba(255, 193, 7, 0.1); border-left: 4px solid var(--accent-gold); padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+                      <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 0.25rem;">Duplicate Active Managers Detected</div>
+                      <div style="font-size: 0.85rem; color: var(--text-main);">We pulled in multiple active profiles for: <strong>${dupNames}</strong>. Click "Merge Now" next to their names below to combine their history. (You can also merge managers later in the Admin Dashboard).</div>
+                    </div>
+                  `;
+              }
+
               managerConfigList.innerHTML = `
+                ${duplicateWarningHtml}
                 <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${data.activeSeason} Season)</div>
                 ${activeHtml.join('')}
                 ${inactiveHtml.length > 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem;">Historical Managers (Inactive)</div>${inactiveHtml.join('')}` : ''}
