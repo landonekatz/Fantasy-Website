@@ -238,73 +238,85 @@
               return;
             }
 
-            const activeHtml = [];
-            const inactiveHtml = [];
+            const renderManagerList = () => {
+              const activeHtml = [];
+              const inactiveHtml = [];
+              const activeManagers = data.members.filter(m => m.isActive);
+              
+              const getActiveOptions = (inactiveManagerAlias) => {
+                let options = '<option value="">Keep Separate</option>';
+                activeManagers.forEach(active => {
+                  const activeHandle = active.displayName || 'unknown';
+                  let activeAlias = active.firstName || active.lastName || activeHandle;
+                  if (active.firstName && active.lastName) {
+                      activeAlias = `${active.firstName} ${active.lastName.charAt(0)}.`;
+                  }
+                  const isMatch = (inactiveManagerAlias === activeAlias || activeHandle === (inactiveManagerAlias.displayName || ''));
+                  options += `<option value="${active.id}" ${isMatch ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
+                });
+                return options;
+              };
 
-            // Pre-process active managers for the merge dropdown
-            const activeManagers = data.members.filter(m => m.isActive);
-            const getActiveOptions = (inactiveManagerAlias) => {
-              let options = '<option value="">Keep Separate (Do Not Merge)</option>';
-              activeManagers.forEach(active => {
-                const activeHandle = active.displayName || 'unknown';
-                let activeAlias = active.firstName || active.lastName || activeHandle;
-                if (active.firstName && active.lastName) {
-                    activeAlias = `${active.firstName} ${active.lastName.charAt(0)}.`;
+              data.members.forEach((m, i) => {
+                const handle = m.displayName || 'unknown';
+                let alias = m.firstName || m.lastName || handle;
+                if (m.firstName && m.lastName) {
+                    alias = `${m.firstName} ${m.lastName.charAt(0)}.`;
                 }
-                const isMatch = (inactiveManagerAlias === activeAlias || activeHandle === (inactiveManagerAlias.displayName || ''));
-                options += `<option value="${active.id}" ${isMatch ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
+                
+                if (m.isActive) {
+                  activeHtml.push(`
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
+                      <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <input type="checkbox" class="mgr-chk" data-index="${i}" checked>
+                        <div>
+                          <div style="font-weight: 600; font-size: 0.9rem;">Active</div>
+                          <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
+                        </div>
+                      </div>
+                      <div>
+                        <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                      </div>
+                    </div>
+                  `);
+                } else {
+                  inactiveHtml.push(`
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: 0.85;">
+                      <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <input type="checkbox" class="mgr-chk" data-index="${i}">
+                        <div>
+                          <div style="font-weight: 600; font-size: 0.9rem;">Last Seen: ${m.lastSeenYear || 'Unknown'}</div>
+                          <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
+                        </div>
+                      </div>
+                      <div style="display: flex; gap: 0.5rem;">
+                        <select class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
+                          ${getActiveOptions(alias)}
+                        </select>
+                        <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                      </div>
+                    </div>
+                  `);
+                }
               });
-              return options;
+
+              managerConfigList.innerHTML = `
+                <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${activeManagers.length})</div>
+                ${activeHtml.join('')}
+                ${inactiveHtml.length > 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem;">Historical Managers (Inactive)</div>${inactiveHtml.join('')}` : ''}
+              `;
+
+              // Attach event listeners to checkboxes
+              document.querySelectorAll('.mgr-chk').forEach(chk => {
+                chk.addEventListener('change', (e) => {
+                  const idx = parseInt(e.target.getAttribute('data-index'));
+                  data.members[idx].isActive = e.target.checked;
+                  renderManagerList(); // Re-render the UI
+                });
+              });
             };
 
-            data.members.forEach((m, i) => {
-              const handle = m.displayName || 'unknown';
-              let alias = m.firstName || m.lastName || handle;
-              if (m.firstName && m.lastName) {
-                  alias = `${m.firstName} ${m.lastName.charAt(0)}.`;
-              }
-              
-              if (m.isActive) {
-                activeHtml.push(`
-                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                      <input type="checkbox" id="mgr-chk-${i}" checked>
-                      <div>
-                        <div style="font-weight: 600; font-size: 0.9rem;">Active</div>
-                        <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
-                      </div>
-                    </div>
-                    <div>
-                      <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
-                    </div>
-                  </div>
-                `);
-              } else {
-                inactiveHtml.push(`
-                  <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: 0.85;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                      <input type="checkbox" id="mgr-chk-${i}">
-                      <div>
-                        <div style="font-weight: 600; font-size: 0.9rem;">Last Seen: ${m.lastSeenYear}</div>
-                        <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
-                      </div>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem;">
-                      <select class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 180px;">
-                        ${getActiveOptions(alias)}
-                      </select>
-                      <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
-                    </div>
-                  </div>
-                `);
-              }
-            });
-
-            managerConfigList.innerHTML = `
-              <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${data.activeSeason})</div>
-              ${activeHtml.join('')}
-              ${inactiveHtml.length > 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem;">Historical Managers (Inactive)</div>${inactiveHtml.join('')}` : ''}
-            `;
+            renderManagerList();
           }
         }
       } catch (err) {
