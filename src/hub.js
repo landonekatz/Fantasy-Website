@@ -417,39 +417,8 @@
   const btnRegisterEmail = document.getElementById('btn-register-email');
 
   const advanceToStep4 = (slug) => {
-    if (step3 && step4) {
-      step3.style.display = 'none';
-      step4.style.display = 'block';
-      
-      const bar = document.getElementById('build-progress-bar');
-      const text = document.getElementById('build-progress-text');
-      const status = document.getElementById('build-status-text');
-      
-      if (!bar || !text || !status) return;
-
-      let progress = 0;
-      
-      // Fake progress timing sequence
-      setTimeout(() => { progress = 25; updateUI("Initializing database..."); }, 100);
-      setTimeout(() => { progress = 68; updateUI("Syncing historical matchups..."); }, 1500);
-      setTimeout(() => { progress = 85; updateUI("Generating power rankings..."); }, 3500);
-      setTimeout(() => { progress = 99; updateUI("Finalizing deployment..."); }, 5500);
-      
-      // Hit 100% and redirect
-      setTimeout(() => { 
-        progress = 100; 
-        updateUI("Complete!");
-        setTimeout(() => {
-          window.location.href = '/' + slug;
-        }, 500);
-      }, 7500);
-
-      function updateUI(msg) {
-        bar.style.width = progress + '%';
-        text.textContent = progress + '%';
-        status.textContent = msg;
-      }
-    }
+    // Immediately redirect to the new league page with the building flag
+    window.location.href = '/' + slug + '?building=true';
   };
 
   const triggerWelcomeEmail = async (email, slug) => {

@@ -46,11 +46,87 @@ class FantasyApp {
             streaks: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 },
             playoffs: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 }
         };
+        this.db = null;
+    }
+
+    async showBuildingSequence() {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.backgroundColor = 'var(--bg-main)';
+            overlay.style.zIndex = '9999';
+            overlay.style.display = 'flex';
+            overlay.style.flexDirection = 'column';
+            overlay.style.alignItems = 'center';
+            overlay.style.justifyContent = 'center';
+            overlay.style.fontFamily = 'var(--font-main, sans-serif)';
+            
+            overlay.innerHTML = `
+              <div style="text-align: center; padding: 3rem 1rem; width: 100%; max-width: 500px;">
+                <div class="spinner" style="margin: 0 auto 1.5rem auto; border: 4px solid rgba(255, 215, 0, 0.2); border-top-color: var(--accent-gold); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
+                <h3 style="font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold); margin-bottom: 0.5rem; font-size: 1.5rem;">Forging Your Vault</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">Please keep this page open while we import your league history.</p>
+                
+                <div style="width: 100%; background: var(--bg-card); border-radius: 8px; height: 12px; overflow: hidden; border: 1px solid var(--border-line); margin-bottom: 0.75rem;">
+                  <div id="build-progress-bar" style="width: 0%; height: 100%; background: var(--accent-gold); transition: width 0.3s ease;"></div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                  <span id="build-status-text">Starting up...</span>
+                  <span id="build-progress-text">0%</span>
+                </div>
+              </div>
+              <style>
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+              </style>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            const bar = document.getElementById('build-progress-bar');
+            const text = document.getElementById('build-progress-text');
+            const status = document.getElementById('build-status-text');
+            
+            let progress = 0;
+            
+            const updateUI = (msg) => {
+              bar.style.width = progress + '%';
+              text.textContent = progress + '%';
+              status.textContent = msg;
+            };
+
+            setTimeout(() => { progress = 25; updateUI("Initializing database..."); }, 100);
+            setTimeout(() => { progress = 68; updateUI("Syncing historical matchups..."); }, 1500);
+            setTimeout(() => { progress = 85; updateUI("Generating power rankings..."); }, 3500);
+            setTimeout(() => { progress = 99; updateUI("Finalizing deployment..."); }, 5500);
+            
+            setTimeout(() => { 
+              progress = 100; 
+              updateUI("Complete!");
+              setTimeout(() => {
+                overlay.style.opacity = '0';
+                overlay.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    document.body.removeChild(overlay);
+                    resolve();
+                }, 500);
+              }, 500);
+            }, 7500);
+        });
     }
 
     async init() {
         // 1. Invite Link Intercept
         const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('building')) {
+            await this.showBuildingSequence();
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+
         const joinCode = urlParams.get('join');
         if (joinCode) {
             window.location.href = `/?join=${joinCode}`;
