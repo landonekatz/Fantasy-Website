@@ -229,7 +229,7 @@ class FantasyApp {
                 }
 
                 updateUI(85, "Generating Vault payload...");
-                const compiledPayload = compileVaultData(seasonsData);
+                const compiledPayload = compileVaultData(seasonsData, creds.members);
 
                 updateUI(92, "Saving to Vault Database...");
                 const databaseRef = dbRef(database, `leagues/${slug}`);

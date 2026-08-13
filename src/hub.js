@@ -229,6 +229,9 @@ let currentLeagueCreds = null;
         }
 
         const data = await res.json();
+        if (currentLeagueCreds) {
+          currentLeagueCreds.members = data.members;
+        }
         
         if (step1 && step2) {
           step1.style.display = 'none';
@@ -257,19 +260,24 @@ let currentLeagueCreds = null;
               
               const normalizeString = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
               
-              const getActiveOptions = (inactiveManagerAlias, inactiveManagerHandle) => {
+              const getActiveOptions = (inactiveMember) => {
                 let options = '<option value="">Keep Separate</option>';
+                let matchedId = null;
                 activeManagers.forEach(active => {
                   const activeHandle = active.displayName || 'unknown';
                   const activeAlias = active.alias;
                   
                   const isMatch = (
-                    normalizeString(inactiveManagerAlias) === normalizeString(activeAlias) || 
-                    (inactiveManagerHandle && inactiveManagerHandle !== 'unknown' && inactiveManagerHandle === activeHandle)
+                    normalizeString(inactiveMember.alias) === normalizeString(activeAlias) || 
+                    (inactiveMember.displayName && inactiveMember.displayName !== 'unknown' && inactiveMember.displayName === activeHandle)
                   );
+                  if (isMatch) matchedId = active.id;
                   
                   options += `<option value="${active.id}" ${isMatch ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
                 });
+                if (matchedId && !inactiveMember.mergedInto) {
+                   inactiveMember.mergedInto = matchedId;
+                }
                 return options;
               };
 
@@ -318,8 +326,8 @@ let currentLeagueCreds = null;
                         </div>
                       </div>
                       <div style="display: flex; gap: 0.5rem;">
-                        <select class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
-                          ${getActiveOptions(alias, handle)}
+                        <select class="form-input mgr-merge-select" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
+                          ${getActiveOptions(m)}
                         </select>
                         <input type="text" value="${alias}" class="form-input mgr-alias" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                       </div>
@@ -355,8 +363,26 @@ let currentLeagueCreds = null;
                   `;
               }
 
+              let autoMergedNames = [];
+              data.members.forEach(m => {
+                  if (!m.isActive && m.mergedInto) {
+                      autoMergedNames.push(m.alias || m.displayName);
+                  }
+              });
+
+              let inactiveMergedWarningHtml = '';
+              if (autoMergedNames.length > 0) {
+                  inactiveMergedWarningHtml = `
+                    <div style="background: rgba(255, 193, 7, 0.1); border-left: 4px solid var(--accent-gold); padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+                      <div style="color: var(--accent-gold); font-weight: bold; margin-bottom: 0.25rem;">Historical Managers Auto-Merged</div>
+                      <div style="font-size: 0.85rem; color: var(--text-main);">We found historical profiles matching active managers (<strong>${[...new Set(autoMergedNames)].join(', ')}</strong>) and automatically merged them. Check the "Historical Managers" list below to review and change the dropdown to "Keep Separate" if you wish to unmerge them.</div>
+                    </div>
+                  `;
+              }
+
               managerConfigList.innerHTML = `
                 ${duplicateWarningHtml}
+                ${inactiveMergedWarningHtml}
                 <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${data.activeSeason} Season)</div>
                 ${activeHtml.join('')}
                 ${inactiveHtml.length > 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem;">Historical Managers (Inactive)</div>${inactiveHtml.join('')}` : ''}
@@ -380,6 +406,14 @@ let currentLeagueCreds = null;
                     data.members[idx].alias = newAlias;
                     renderManagerList();
                   }
+                });
+              });
+
+              // Attach event listeners to Merge selects
+              document.querySelectorAll('.mgr-merge-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                  const idx = parseInt(e.target.getAttribute('data-index'));
+                  data.members[idx].mergedInto = e.target.value;
                 });
               });
 

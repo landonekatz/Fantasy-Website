@@ -56,21 +56,16 @@ export default async function handler(req, res) {
     );
 
     // Aggregate all unique managers across all time
-    const allMembersMap = new Map(); // Canonical Name -> manager
-    const canonicalNameMap = new Map(); // Canonical Name -> primary ID
+    const allMembersMap = new Map(); // id -> manager
     
     for (const seasonObj of successfulSeasons) {
       if (seasonObj.data.members) {
         for (const m of seasonObj.data.members) {
           const first = m.firstName ? m.firstName.trim() : '';
           const last = m.lastName ? m.lastName.trim() : '';
-          let canonicalName = `${first} ${last}`.trim();
-          if (!canonicalName) canonicalName = m.displayName || m.id;
-
-          let primaryId = canonicalNameMap.get(canonicalName);
-          if (!primaryId) {
-            primaryId = m.id;
-            canonicalNameMap.set(canonicalName, primaryId);
+          
+          let primaryId = m.id;
+          if (!allMembersMap.has(primaryId)) {
             allMembersMap.set(primaryId, {
               id: primaryId,
               displayName: m.displayName || 'Unknown',
@@ -82,9 +77,6 @@ export default async function handler(req, res) {
             });
           } else {
             const existing = allMembersMap.get(primaryId);
-            if (!existing.espn_ids.includes(m.id)) {
-                existing.espn_ids.push(m.id);
-            }
             if (activeMemberIds.has(m.id)) {
                 existing.isActive = true;
             }

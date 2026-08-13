@@ -1,9 +1,9 @@
 // Fantasy Vault Data Compiler
 // Replicates the core functionality of the Python scraper/parser for client-side execution.
 
-export function compileVaultData(rawSeasonsData) {
+export function compileVaultData(rawSeasonsData, uiMembersConfig = []) {
   if (!rawSeasonsData || rawSeasonsData.length === 0) return null;
-
+  
   const ESPN_STAT_MAP = {
     3: ["Passing", "Passing Yards"],
     4: ["Passing", "TD Pass"],
@@ -82,53 +82,94 @@ export function compileVaultData(rawSeasonsData) {
   const activeSeason = seasonsData[0];
   const activeYear = activeSeason.year;
   
-  // Create a mapping of canonical names to primary ID
-  const canonicalNameMap = new Map(); // "First Last" -> manager_id
+  // 2. Build mapping and managers from raw data and uiMembersConfig
   const originalToCanonicalMap = new Map(); // m.id -> manager_id
   const managersMap = new Map();
 
+  // First, map everyone to themselves
   for (const season of seasonsData) {
     for (const m of (season.data.members || [])) {
-      const first = m.firstName ? m.firstName.trim() : '';
-      const last = m.lastName ? m.lastName.trim() : '';
-      let canonicalName = `${first} ${last}`.trim();
-      if (!canonicalName) canonicalName = m.displayName || m.id;
-      
-      let primaryId = canonicalNameMap.get(canonicalName);
-      if (!primaryId) {
-        primaryId = m.id; // use the first seen ID as the primary ID
-        canonicalNameMap.set(canonicalName, primaryId);
+      if (!managersMap.has(m.id)) {
+        const first = m.firstName ? m.firstName.trim() : '';
+        const last = m.lastName ? m.lastName.trim() : '';
+        let canonicalName = `${first} ${last}`.trim();
+        if (!canonicalName) canonicalName = m.displayName || m.id;
         
-        managersMap.set(primaryId, {
-          id: primaryId,
+        managersMap.set(m.id, {
+          id: m.id,
           name: canonicalName,
           firstName: first,
           lastName: last,
           espn_ids: [m.id],
-          lastSeenYear: season.year
+          lastSeenYear: season.year,
+          isActive: false
         });
+        originalToCanonicalMap.set(m.id, m.id);
       } else {
-        const existing = managersMap.get(primaryId);
+        const existing = managersMap.get(m.id);
         if (!existing.espn_ids.includes(m.id)) {
-          existing.espn_ids.push(m.id);
+            existing.espn_ids.push(m.id);
         }
         if (season.year > existing.lastSeenYear) {
           existing.lastSeenYear = season.year;
         }
       }
-      originalToCanonicalMap.set(m.id, primaryId);
     }
   }
 
-  // Determine active/retired based on presence in activeSeason
-  const activeMemberCanonicalIds = new Set();
-  for (const m of (activeSeason.data.members || [])) {
-      const mappedId = originalToCanonicalMap.get(m.id);
-      if (mappedId) activeMemberCanonicalIds.add(mappedId);
+  // Now apply uiMembersConfig
+  // First pass: apply aliases and active status
+  for (const config of uiMembersConfig) {
+      if (managersMap.has(config.id)) {
+          const target = managersMap.get(config.id);
+          if (config.alias) target.name = config.alias;
+          if (config.isActive !== undefined) target.isActive = config.isActive;
+      }
+  }
+
+  // Second pass: handle merges
+  for (const config of uiMembersConfig) {
+      if (config.mergedInto && config.mergedInto !== config.id) {
+          const primaryId = config.mergedInto;
+          // Redirect the original id to the primary id
+          originalToCanonicalMap.set(config.id, primaryId);
+          // Also redirect any other espn_ids that were mapped to this config.id just in case
+          for (const [orig, canon] of originalToCanonicalMap.entries()) {
+              if (canon === config.id) originalToCanonicalMap.set(orig, primaryId);
+          }
+          
+          if (managersMap.has(primaryId) && managersMap.has(config.id)) {
+              const target = managersMap.get(primaryId);
+              const source = managersMap.get(config.id);
+              
+              // Merge espn_ids without duplicates
+              for (const eid of source.espn_ids) {
+                  if (!target.espn_ids.includes(eid)) target.espn_ids.push(eid);
+              }
+              
+              if (source.lastSeenYear > target.lastSeenYear) {
+                  target.lastSeenYear = source.lastSeenYear;
+              }
+              if (source.isActive) target.isActive = true;
+              
+              managersMap.delete(config.id);
+          }
+      }
+  }
+
+  // Determine active/retired (fallback if uiMembersConfig wasn't provided)
+  if (uiMembersConfig.length === 0) {
+    const activeMemberCanonicalIds = new Set();
+    for (const m of (activeSeason.data.members || [])) {
+        const mappedId = originalToCanonicalMap.get(m.id);
+        if (mappedId) activeMemberCanonicalIds.add(mappedId);
+    }
+    for (const m of managersMap.values()) {
+        m.isActive = activeMemberCanonicalIds.has(m.id);
+    }
   }
 
   const members = Array.from(managersMap.values()).map(m => {
-      m.isActive = activeMemberCanonicalIds.has(m.id);
       m.status = m.isActive ? 'Active' : 'Retired';
       return m;
   });
