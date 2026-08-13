@@ -160,9 +160,46 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         } else {
             // ADMIN DASHBOARD CONTENT
+            
+            // Find join codes for the leagues the user is in
+            const adminLeagues = (session.joinedLeagues || []).map(leagueId => {
+                const code = Object.keys(JOIN_CODES).find(k => JOIN_CODES[k].leagueId === leagueId);
+                const info = code ? JOIN_CODES[code] : null;
+                return { leagueId, code, info };
+            }).filter(l => l.code && l.info);
+            
+            let inviteLinksHTML = '';
+            if (adminLeagues.length > 0) {
+                inviteLinksHTML = adminLeagues.map(l => {
+                    const joinLink = window.location.origin + '/?join=' + l.code;
+                    return `
+                        <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-line); border-radius: 4px;">
+                            <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--accent-gold);">${l.info.name}</div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">Join Code: <strong style="color: var(--text-main); font-family: monospace; font-size: 1rem; margin-left: 0.5rem;">${l.code}</strong></span>
+                                <button class="btn-copy-code" data-copy="${l.code}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Code</button>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">Join Link: <span style="color: var(--text-main); font-size: 0.8rem; margin-left: 0.5rem;">${joinLink}</span></span>
+                                <button class="btn-copy-link" data-copy="${joinLink}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Link</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                inviteLinksHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">No leagues available to invite.</p>';
+            }
+
             contentHTML = `
                 <div class="admin-dashboard-container">
                     
+                    <div style="margin-bottom: 1.5rem;">
+                        <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold);">League Invites</h4>
+                        ${inviteLinksHTML}
+                    </div>
+
                     <div style="margin-bottom: 1.5rem; background: var(--bg-card-alt, rgba(0,0,0,0.2)); padding: 1rem; border-radius: 6px; border: 1px solid var(--border-gold);">
                         <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold);">Transfer Admin Status</h4>
                         <div style="display: flex; gap: 0.5rem;">
@@ -251,6 +288,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
+
+            document.querySelectorAll('.btn-copy-code').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const val = e.target.getAttribute('data-copy');
+                    navigator.clipboard.writeText(val);
+                    const originalText = e.target.textContent;
+                    e.target.textContent = 'Copied!';
+                    setTimeout(() => e.target.textContent = originalText, 2000);
+                });
+            });
+
+            document.querySelectorAll('.btn-copy-link').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const val = e.target.getAttribute('data-copy');
+                    navigator.clipboard.writeText(val);
+                    const originalText = e.target.textContent;
+                    e.target.textContent = 'Copied!';
+                    setTimeout(() => e.target.textContent = originalText, 2000);
+                });
+            });
         }
     };
 
