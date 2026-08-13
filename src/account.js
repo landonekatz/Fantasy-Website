@@ -109,7 +109,10 @@
         }
         
         // Only show admin tab if we are on a specific league page and user is founder
-        const isLeagueAdmin = session.isFounder && currentLeagueId !== null;
+        let isLeagueAdmin = session.isFounder && currentLeagueId !== null;
+        if (!isLeagueAdmin && currentLeagueId !== null && window.appInstance && window.appInstance.leagueSettings) {
+            isLeagueAdmin = session.email === window.appInstance.leagueSettings.admin_email;
+        }
 
         const tabsHTML = isLeagueAdmin ? `
             <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-line); margin-bottom: 1.5rem;">
@@ -150,6 +153,7 @@
                         <h3 style="margin: 0; font-size: 1.2rem;">${session.name || session.email}</h3>
                         <div style="font-size: 0.9rem; color: var(--text-muted);">${session.email}</div>
                         ${session.isFounder ? '<div style="font-size: 0.8rem; color: var(--accent-gold); font-weight: bold; margin-top: 0.2rem; text-transform: uppercase;">Founder</div>' : ''}
+                        ${!session.isFounder && isLeagueAdmin ? '<div style="font-size: 0.8rem; color: var(--accent-gold); font-weight: bold; margin-top: 0.2rem; text-transform: uppercase;">League Admin</div>' : ''}
                     </div>
                 </div>
 

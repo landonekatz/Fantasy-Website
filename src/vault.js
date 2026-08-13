@@ -178,7 +178,7 @@ class FantasyApp {
                 return;
             }
             const creds = JSON.parse(pendingRaw);
-            const { leagueId, s2, swid } = creds;
+            const { leagueId, s2, swid, customName } = creds;
             const slug = window.location.pathname.substring(1).replace(/\/$/, "");
 
             try {
@@ -228,8 +228,21 @@ class FantasyApp {
                     throw new Error("No data found for this league.");
                 }
 
-                updateUI(85, "Generating Vault payload...");
-                const compiledPayload = compileVaultData(seasonsData, creds.members);
+                updateUI(85, "Fetching NFL Schedule & Generating Vault payload...");
+                let nflCsvData = null;
+                try {
+                    const nflRes = await fetch('/nfl_all_games_master.csv');
+                    if (nflRes.ok) {
+                        nflCsvData = await nflRes.text();
+                    }
+                } catch (e) {
+                    console.warn("Could not load NFL schedule data:", e);
+                }
+                const compiledPayload = compileVaultData(seasonsData, creds.members, customName, nflCsvData);
+                const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+                if (session && session.email) {
+                    compiledPayload.league_settings.admin_email = session.email;
+                }
 
                 updateUI(92, "Saving to Vault Database...");
                 const databaseRef = dbRef(database, `leagues/${slug}`);
@@ -331,6 +344,7 @@ class FantasyApp {
         const persona = window.AuthEngine.getPersona();
         const activeUser = session ? (session.name || session.email) : 'Guest Visitor';
         const isFounder = session && session.isFounder;
+        if (!isFounder) return;
 
         let personaHtml = '';
         if (isFounder) {
@@ -542,7 +556,10 @@ class FantasyApp {
         const firstYear = this.leagueSettings.firstYear || "2015";
         
         const titleEl = document.getElementById("league-title");
-        if (titleEl) titleEl.innerHTML = `${leagueName}<br>League HQ`;
+        if (titleEl) {
+            const hasLeagueSuffix = /league$/i.test(leagueName.trim());
+            titleEl.innerHTML = `${leagueName}<br>${hasLeagueSuffix ? 'HQ' : 'League HQ'}`;
+        }
         
         const idInfoEl = document.getElementById("league-id-info");
         if (idInfoEl) idInfoEl.textContent = `League ID: ${this.leagueSettings.id || "------"}`;
