@@ -34,31 +34,31 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = []) {
     204: ["Kicking", "FG Missed (0-39 yards)"],
     205: ["Kicking", "FG Missed (40-49 yards)"],
     206: ["Kicking", "FG Missed (50+ yards)"],
-    73: ["Team Defense / Special Teams", "Each Sack"],
-    74: ["Team Defense / Special Teams", "Each Interception"],
-    75: ["Team Defense / Special Teams", "Each Fumble Recovered"],
-    77: ["Team Defense / Special Teams", "Interception Return TD"],
-    80: ["Team Defense / Special Teams", "Fumble Return TD"],
-    82: ["Team Defense / Special Teams", "Kickoff Return TD"],
-    83: ["Team Defense / Special Teams", "Punt Return TD"],
-    86: ["Team Defense / Special Teams", "Blocked Punt, PAT or FG"],
-    89: ["Team Defense / Special Teams", "0 points allowed"],
-    90: ["Team Defense / Special Teams", "1-6 points allowed"],
-    91: ["Team Defense / Special Teams", "7-13 points allowed"],
-    92: ["Team Defense / Special Teams", "14-17 points allowed"],
-    93: ["Team Defense / Special Teams", "Blocked Punt or FG return for TD"],
-    95: ["Team Defense / Special Teams", "Each Safety"],
-    123: ["Team Defense / Special Teams", "28-34 points allowed"],
-    124: ["Team Defense / Special Teams", "35-45 points allowed"],
-    125: ["Team Defense / Special Teams", "46+ points allowed"],
-    128: ["Team Defense / Special Teams", "Less than 100 total yards allowed"],
-    129: ["Team Defense / Special Teams", "100-199 total yards allowed"],
-    130: ["Team Defense / Special Teams", "200-299 total yards allowed"],
-    132: ["Team Defense / Special Teams", "350-399 total yards allowed"],
-    133: ["Team Defense / Special Teams", "400-449 total yards allowed"],
-    134: ["Team Defense / Special Teams", "450-499 total yards allowed"],
-    135: ["Team Defense / Special Teams", "500-549 total yards allowed"],
-    136: ["Team Defense / Special Teams", "550+ total yards allowed"],
+    73: ["Team Defense and Special Teams", "Each Sack"],
+    74: ["Team Defense and Special Teams", "Each Interception"],
+    75: ["Team Defense and Special Teams", "Each Fumble Recovered"],
+    77: ["Team Defense and Special Teams", "Interception Return TD"],
+    80: ["Team Defense and Special Teams", "Fumble Return TD"],
+    82: ["Team Defense and Special Teams", "Kickoff Return TD"],
+    83: ["Team Defense and Special Teams", "Punt Return TD"],
+    86: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+    89: ["Team Defense and Special Teams", "0 points allowed"],
+    90: ["Team Defense and Special Teams", "1-6 points allowed"],
+    91: ["Team Defense and Special Teams", "7-13 points allowed"],
+    92: ["Team Defense and Special Teams", "14-17 points allowed"],
+    93: ["Team Defense and Special Teams", "Blocked Punt or FG return for TD"],
+    95: ["Team Defense and Special Teams", "Each Safety"],
+    123: ["Team Defense and Special Teams", "28-34 points allowed"],
+    124: ["Team Defense and Special Teams", "35-45 points allowed"],
+    125: ["Team Defense and Special Teams", "46+ points allowed"],
+    128: ["Team Defense and Special Teams", "Less than 100 total yards allowed"],
+    129: ["Team Defense and Special Teams", "100-199 total yards allowed"],
+    130: ["Team Defense and Special Teams", "200-299 total yards allowed"],
+    132: ["Team Defense and Special Teams", "350-399 total yards allowed"],
+    133: ["Team Defense and Special Teams", "400-449 total yards allowed"],
+    134: ["Team Defense and Special Teams", "450-499 total yards allowed"],
+    135: ["Team Defense and Special Teams", "500-549 total yards allowed"],
+    136: ["Team Defense and Special Teams", "550+ total yards allowed"],
     72: ["Miscellaneous", "Total Fumbles Lost"]
   };
 
@@ -547,7 +547,11 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = []) {
     if (pts === 0) continue;
     
     if (ESPN_STAT_MAP[sid]) {
-      const [category, name] = ESPN_STAT_MAP[sid];
+      let [category, name] = ESPN_STAT_MAP[sid];
+      
+      // Safety precaution: strip Firebase illegal characters from category
+      category = category.replace(/[.#$\[\]]/g, '').replace(/\//g, 'and').trim();
+
       let cleanName = name.replace(/\s*\([A-Z0-9+]{2,7}\)$/, "").trim();
       if (!league_settings.scoringRules[category]) {
         league_settings.scoringRules[category] = [];
