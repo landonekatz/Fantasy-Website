@@ -265,6 +265,19 @@
                 }
                 
                 if (m.isActive) {
+                  const duplicateActive = activeManagers.filter(am => {
+                    const amHandle = am.displayName || 'unknown';
+                    let amAlias = am.firstName || am.lastName || amHandle;
+                    if (am.firstName && am.lastName) {
+                        amAlias = `${am.firstName} ${am.lastName.charAt(0)}.`;
+                    }
+                    return amAlias === alias && am.id !== m.id;
+                  });
+
+                  const mergeBtnHtml = duplicateActive.length > 0 ? `
+                    <button type="button" class="btn-merge-active" data-index="${i}" style="background: var(--accent-gold); color: black; border: none; padding: 0.35rem 0.5rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold; margin-left: 0.5rem;">Merge Now</button>
+                  ` : '';
+
                   activeHtml.push(`
                     <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
                       <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -274,8 +287,9 @@
                           <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
                         </div>
                       </div>
-                      <div>
+                      <div style="display: flex; align-items: center;">
                         <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                        ${mergeBtnHtml}
                       </div>
                     </div>
                   `);
@@ -312,6 +326,15 @@
                   const idx = parseInt(e.target.getAttribute('data-index'));
                   data.members[idx].isActive = e.target.checked;
                   renderManagerList(); // Re-render the UI
+                });
+              });
+
+              // Attach event listeners to Merge Now buttons
+              document.querySelectorAll('.btn-merge-active').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                  const idx = parseInt(e.target.getAttribute('data-index'));
+                  data.members[idx].isActive = false; // Move to historical
+                  renderManagerList(); // Will auto-select the merge target
                 });
               });
             };
