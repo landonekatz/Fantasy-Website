@@ -47,6 +47,8 @@ class FantasyApp {
             playoffs: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 }
         };
     }
+}
+window.FantasyApp = FantasyApp;
 
     async init() {
         this.setupThemeToggle();

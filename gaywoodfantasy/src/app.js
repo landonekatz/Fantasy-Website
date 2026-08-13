@@ -116,6 +116,8 @@ class FantasyApp {
             playoffs: { year: 'all', retired: false, customStart: 2015, customEnd: 2025 }
         };
     }
+}
+window.FantasyApp = FantasyApp;
 
     async init() {
         this.setupThemeToggle();

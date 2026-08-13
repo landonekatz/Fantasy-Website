@@ -3,239 +3,193 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Fantasy Vault | Turnkey Historical Archives for Fantasy Football</title>
-  <meta name="description" content="Host and preserve your fantasy football league's all-time records, head-to-head rivalries, draft history, and trophies with turn-key API sync for ESPN and Yahoo Fantasy.">
+  <title>The Fantasy Vault — Historical Archives for Fantasy Football Leagues</title>
+  <meta name="description" content="Preserve your fantasy football league's history with matchup cards, active weekly record books, member newsletters, and custom league traditions.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="src/hub.css">
 </head>
 <body>
 
-  <!-- Navigation -->
+  <!-- Masthead Bar -->
+  <div class="masthead-bar">
+    THE FANTASY VAULT &bull; HISTORICAL RECORD BOOKS &amp; LEAGUE TRADITIONS &bull; EST. 2026
+  </div>
+
+  <!-- Header -->
   <header class="header">
     <div class="nav-container">
       <a href="/" class="brand-logo">
-        <span class="brand-icon">🏛️</span>
         <span class="brand-name">THE FANTASY VAULT</span>
       </a>
       <nav class="nav-links">
-        <a href="#hosted-leagues" class="nav-link">Hosted Leagues</a>
-        <a href="#features" class="nav-link">Platform Features</a>
+        <a href="#features" class="nav-link">Offerings</a>
+        <a href="#landon-note" class="nav-link">Founder's Note</a>
         <a href="#register" class="nav-link">Register League</a>
-        <a href="#register" class="btn-primary"><span>+</span> Host Your League</a>
+        <button id="btn-member-login" class="btn-member-login">Member Login / Join Code</button>
       </nav>
     </div>
   </header>
 
   <!-- Hero Section -->
   <section class="hero">
-    <div class="hero-badge">⚡ Turnkey Fantasy Football Archives</div>
-    <h1 class="hero-title">Your League’s History.<br>Preserved & Vaulted.</h1>
+    <div class="hero-tag">A Dedicated Home for Fantasy Football History</div>
+    <h1 class="hero-title">Your League’s History.<br>Preserved in One Place.</h1>
     <p class="hero-subtitle">
-      Automated record books, all-time head-to-head matchup matrices, draft profiles, and deep rivalries for competitive fantasy football leagues.
+      Automated weekly record books, matchup cards with player stats and projections, member newsletters, and custom traditions to keep your league engaged all season long.
     </p>
     <div class="hero-actions">
-      <a href="#hosted-leagues" class="btn-primary">Explore Hosted Leagues ➔</a>
-      <a href="#register" class="btn-secondary">Register New League</a>
-    </div>
-
-    <!-- Live Statistics Counter -->
-    <div class="stats-banner">
-      <div class="stat-item">
-        <div class="stat-number">20</div>
-        <div class="stat-label">Total Seasons Tracked</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number">33</div>
-        <div class="stat-label">Unique Managers</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number">1,500+</div>
-        <div class="stat-label">Matchups Recorded</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number">100%</div>
-        <div class="stat-label">Stat Accuracy</div>
-      </div>
+      <a href="#register" class="btn-primary">Register Your League URL</a>
+      <a href="#features" style="color: var(--ink-muted); text-decoration: none; align-self: center; font-size: 0.9rem; margin-left: 1rem;">View Offerings &rarr;</a>
     </div>
   </section>
 
-  <!-- Hosted Leagues Showcase -->
-  <section id="hosted-leagues" class="section">
-    <div class="section-header">
-      <h2 class="section-title">Active Vaulted Leagues</h2>
-      <p class="section-subtitle">Select a league below to explore its live record book, head-to-head rivalries, and historical stats.</p>
-    </div>
-
-    <div class="leagues-grid">
-      <!-- League Card 1: Dumbarton League -->
-      <article class="league-card">
+  <!-- Note from Landon -->
+  <section id="landon-note" class="founder-section">
+    <div class="founder-card">
+      <div class="founder-header">
+        <div class="founder-avatar">L</div>
         <div>
-          <span class="league-badge badge-yahoo">Yahoo Fantasy API</span>
-          <h3 class="league-title">The Dumbarton League</h3>
-          <p class="league-meta">Est. 2018 &bull; Vol. IX &bull; 12 Managers</p>
-          <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
-            The flagship league HQ featuring full head-to-head match history, weekly power ranking stories, custom record book, and the Rivalry Week dungeon view.
-          </p>
+          <h2 class="founder-title">A Note from Landon</h2>
+          <div class="founder-subtitle">Founder, The Fantasy Vault</div>
         </div>
-
-        <div>
-          <div class="league-stats-row">
-            <div class="mini-stat">
-              <div class="mini-stat-val">9</div>
-              <div class="mini-stat-lbl">Seasons</div>
-            </div>
-            <div class="mini-stat">
-              <div class="mini-stat-val">12</div>
-              <div class="mini-stat-lbl">Teams</div>
-            </div>
-            <div class="mini-stat">
-              <div class="mini-stat-val">2018–2026</div>
-              <div class="mini-stat-lbl">Span</div>
-            </div>
-          </div>
-          <a href="/dmsfantasy/" class="btn-primary league-link">Launch /dmsfantasy ➔</a>
-        </div>
-      </article>
-
-      <!-- League Card 2: Gaywood / Katz League -->
-      <article class="league-card">
-        <div>
-          <span class="league-badge badge-espn">ESPN Fantasy API</span>
-          <h3 class="league-title">Gaywood / Katz League</h3>
-          <p class="league-meta">Est. 2015 &bull; Vol. XI &bull; 21 Managers &bull; ID: 262404</p>
-          <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
-            An 11-year legacy archive tracking over 1,000 matchups, all-time draft pick histories, and single-game scoring records pulled directly from ESPN.
-          </p>
-        </div>
-
-        <div>
-          <div class="league-stats-row">
-            <div class="mini-stat">
-              <div class="mini-stat-val">11</div>
-              <div class="mini-stat-lbl">Seasons</div>
-            </div>
-            <div class="mini-stat">
-              <div class="mini-stat-val">21</div>
-              <div class="mini-stat-lbl">Managers</div>
-            </div>
-            <div class="mini-stat">
-              <div class="mini-stat-val">2015–2025</div>
-              <div class="mini-stat-lbl">Span</div>
-            </div>
-          </div>
-          <a href="/gaywoodfantasy/" class="btn-primary league-link">Launch /gaywoodfantasy ➔</a>
-        </div>
-      </article>
+      </div>
+      <p class="founder-text">
+        "Fantasy football is more than just a 17-week seasonal distraction — it’s a decade-long tradition of rivalries, questionable trades, and legendary moments. I built this platform for my own league to keep our history alive and bring real weight to every matchup. Now, we're opening up these exact tools and traditions so your league can build something timeless."
+      </p>
     </div>
   </section>
 
-  <!-- SaaS Features Section -->
+  <!-- Feature Offerings Section -->
   <section id="features" class="section">
-    <div class="section-header">
-      <h2 class="section-title">Built for Serious League Commissioners</h2>
-      <p class="section-subtitle">Everything you need to turn your league into an ongoing legacy.</p>
+    <div class="section-title-bar">
+      <h2 class="section-heading">Platform Offerings</h2>
+      <span class="section-label">Built for League Engagement</span>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem;">
-      <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-glass);">
-        <div style="font-size: 2rem; margin-bottom: 1rem;">⚔️</div>
-        <h4 style="font-family: var(--font-serif); font-size: 1.25rem; margin-bottom: 0.5rem;">All-Time Head-to-Head Matrix</h4>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">Select any two managers in your league's history to instantly view lifetime win-loss records, point differentials, and chronological matchup cards.</p>
+    <div class="features-list">
+      <!-- Feature 1 -->
+      <div class="feature-block">
+        <div class="feature-num">01</div>
+        <h3 class="feature-title">Detailed Matchup Cards</h3>
+        <p class="feature-desc">
+          Complete box scores featuring starter rosters, individual player stat lines, projections vs actual scoring, and NFL week game results for every matchup in your league's history.
+        </p>
       </div>
 
-      <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-glass);">
-        <div style="font-size: 2rem; margin-bottom: 1rem;">📜</div>
-        <h4 style="font-family: var(--font-serif); font-size: 1.25rem; margin-bottom: 0.5rem;">Automated Record Books</h4>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">Single-game high/low scoring records, longest win/loss streaks, blowout margins, and championship history compiled automatically.</p>
+      <!-- Feature 2 -->
+      <div class="feature-block">
+        <div class="feature-num">02</div>
+        <h3 class="feature-title">Active Weekly Record Books</h3>
+        <p class="feature-desc">
+          Single-game high and low scoring records, longest winning and losing streaks, playoff milestones, and championship history that automatically refresh as new scores come in.
+        </p>
       </div>
 
-      <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-glass);">
-        <div style="font-size: 2rem; margin-bottom: 1rem;">🔒</div>
-        <h4 style="font-family: var(--font-serif); font-size: 1.25rem; margin-bottom: 0.5rem;">Supabase Auth & Member Invites</h4>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">Keep private leagues secure. Commissioners issue email invite links for team owners to access private league hubs.</p>
+      <!-- Feature 3 -->
+      <div class="feature-block">
+        <div class="feature-num">03</div>
+        <h3 class="feature-title">Weekly League Newsletters</h3>
+        <p class="feature-desc">
+          Members can opt in to receive weekly league digests highlighting emerging matchup narratives, top manager performances, and talking points to keep banter alive in the group chat.
+        </p>
       </div>
 
-      <div style="background: var(--bg-card); padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-glass);">
-        <div style="font-size: 2rem; margin-bottom: 1rem;">🔄</div>
-        <h4 style="font-family: var(--font-serif); font-size: 1.25rem; margin-bottom: 0.5rem;">ESPN & Yahoo Live Sync</h4>
-        <p style="color: var(--text-muted); font-size: 0.95rem;">Connect your ESPN League ID or Yahoo OAuth app to seamlessly sync weekly box scores, rosters, and draft results.</p>
+      <!-- Feature 4 -->
+      <div class="feature-block">
+        <div class="feature-num">04</div>
+        <h3 class="feature-title">Fresh Traditions &amp; Engagement</h3>
+        <p class="feature-desc">
+          Introduce proven traditions to your league — including member-curated Power Rankings, dedicated Rivalry Weeks, all-time head-to-head records, and custom trophies. These are features we created for our own league and are excited to share with yours.
+        </p>
       </div>
     </div>
   </section>
 
-  <!-- Register League Demo Section -->
+  <!-- Register Section -->
   <section id="register" class="section">
-    <div class="register-container">
-      <div class="register-info">
-        <h3>Host Your League on The Fantasy Vault</h3>
-        <p>Give your league members the ultimate home for their stats. Pick your custom URL, link your ESPN or Yahoo league, and issue private invite links.</p>
-        
-        <ul class="register-features">
-          <li><span>✓</span> Custom League Slug (e.g., <code>thefantasyvault.com/yourleague</code>)</li>
-          <li><span>✓</span> League Admin Control Panel & Branding</li>
-          <li><span>✓</span> Secure Supabase Authorization & Member Invites</li>
-          <li><span>✓</span> Automated Data Pipeline for ESPN & Yahoo</li>
-        </ul>
-      </div>
-
-      <div class="register-card-box">
-        <form id="register-demo-form">
-          <div class="form-group">
-            <label for="input-league-name" class="form-label">League Name</label>
-            <input type="text" id="input-league-name" class="form-input" placeholder="e.g. Ironclad Dynasty League" required>
-            <div id="slug-preview-text" class="slug-preview">thefantasyvault.com/ironcladdynasty</div>
+    <div class="register-box">
+      <div class="register-grid">
+        <div>
+          <h2 class="register-heading">Register Your League</h2>
+          <p class="register-sub">
+            Claim a dedicated URL for your league. Link your platform, invite your managers, and let your record book populate automatically.
+          </p>
+          
+          <div class="pipeline-notice">
+            <strong>Constantly Updating Automatically</strong>
+            Your league statistics, matchup history, and record books update continuously as new week scores and box scores are published.
           </div>
+        </div>
 
-          <div class="form-group">
-            <label for="input-platform" class="form-label">Fantasy Platform</label>
-            <select id="input-platform" class="form-input" style="background: #121826;">
-              <option value="espn">ESPN Fantasy (Available Now)</option>
-              <option value="yahoo">Yahoo Fantasy (Pending API)</option>
-              <option value="sleeper">Sleeper (Coming Soon)</option>
-            </select>
-          </div>
+        <div>
+          <form id="register-demo-form">
+            <div class="form-group">
+              <label for="input-league-name" class="form-label">League Name</label>
+              <input type="text" id="input-league-name" class="form-input" placeholder="e.g. Ironclad Dynasty League" required>
+              <div id="url-preview-text" class="url-preview">thefantasyvault.com/[your-league-name]</div>
+            </div>
 
-          <div class="form-group">
-            <label for="input-privacy" class="form-label">Access Permissions</label>
-            <select id="input-privacy" class="form-input" style="background: #121826;">
-              <option value="private">🔒 Private (Member Invite Link Required)</option>
-              <option value="public">🌐 Public League Archive</option>
-            </select>
-          </div>
+            <div class="form-group">
+              <label for="input-platform" class="form-label">Fantasy Platform</label>
+              <select id="input-platform" class="form-input">
+                <option value="espn">ESPN Fantasy (Available Now)</option>
+                <option value="yahoo">Yahoo Fantasy (Pending API)</option>
+                <option value="sleeper">Sleeper (Coming Soon)</option>
+              </select>
+            </div>
 
-          <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
-            Create League Archive ➔
-          </button>
-        </form>
+            <div class="form-group">
+              <label for="input-access" class="form-label">League Access Mode</label>
+              <select id="input-access" class="form-input">
+                <option value="private">Private (Member Join Code / Invite Link Required)</option>
+                <option value="public">Public League Archive</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+              Register League URL &rarr;
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Interactive Modal Demo -->
+  <!-- Register Confirmation Modal -->
   <dialog id="register-modal" class="modal">
-    <div style="text-align: center;">
-      <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
-      <h3 style="font-family: var(--font-serif); font-size: 1.8rem; margin-bottom: 0.5rem;">League Reserved!</h3>
-      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;">
-        Your custom URL slug has been reserved:
-      </p>
-      <div style="background: rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border-gold); font-family: monospace; color: var(--primary-gold); margin-bottom: 1.5rem;" id="modal-generated-slug">
-        thefantasyvault.com/ironcladdynasty
-      </div>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
-        We'll connect your Vercel deployment and Supabase database during your initial commissioner setup.
-      </p>
-      <button id="close-modal-btn" class="btn-primary" style="width: 100%; justify-content: center;">
-        Done
-      </button>
+    <button id="close-register-modal" class="modal-close-x">&times;</button>
+    <h3 class="modal-title">League URL Reserved</h3>
+    <p class="modal-text">Your custom league URL has been generated:</p>
+    <div id="modal-generated-url" style="background: var(--bg-main); padding: 0.85rem; border-radius: 6px; border: 1px solid var(--border-gold); font-family: monospace; color: var(--accent-gold-bright); margin-bottom: 1.5rem; text-align: center;">
+      thefantasyvault.com/ironcladdynastyleague
     </div>
+    <p class="modal-text" style="font-size: 0.88rem;">
+      Your league administrator credentials and automatic data sync will activate upon initial setup.
+    </p>
+  </dialog>
+
+  <!-- Member Login / Join Modal -->
+  <dialog id="join-modal" class="modal">
+    <button id="close-join-modal" class="modal-close-x">&times;</button>
+    <h3 class="modal-title">Member Access</h3>
+    <p class="modal-text">Enter your League Join Code or private league URL to access your record book.</p>
+    
+    <form id="join-form">
+      <div class="form-group">
+        <label for="input-join-code" class="form-label">Join Code or League Name</label>
+        <input type="text" id="input-join-code" class="form-input" placeholder="e.g. DMS-2026 or dumbarton" required>
+      </div>
+      <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+        Access League Portal &rarr;
+      </button>
+    </form>
   </dialog>
 
   <!-- Footer -->
   <footer class="footer">
-    <p>The Fantasy Vault &copy; 2026 &bull; Turnkey Historical Archives & Record Books for Fantasy Football Leagues</p>
+    <p>The Fantasy Vault &copy; 2026 &bull; Historical Record Books &amp; Traditions for Fantasy Football Leagues</p>
   </footer>
 
   <script type="module" src="src/hub.js"></script>
