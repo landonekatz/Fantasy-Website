@@ -1,6 +1,5 @@
 // account.js - Logic for "My Account" modal on league pages
 
-document.addEventListener('DOMContentLoaded', () => {
     // Check if AuthEngine is available
     if (typeof window.AuthEngine === 'undefined') return;
 
@@ -352,4 +351,3 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!session) {
         if (btnMyAccount) btnMyAccount.textContent = 'Sign In';
     }
-});
