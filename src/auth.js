@@ -125,20 +125,36 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     // Sync to Firestore Users collection
     const userRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userRef);
+    let userDoc = await getDoc(userRef);
+    let userData = {};
+    
     if (!userDoc.exists()) {
-      await setDoc(userRef, {
+      userData = {
         email: user.email,
         name: user.displayName || user.email.split('@')[0],
         joinedLeagues: []
-      });
+      };
+      await setDoc(userRef, userData);
+    } else {
+      userData = userDoc.data();
+    }
+    
+    const isFounder = user.email === 'landonekatz@gmail.com';
+    let joinedLeagues = userData.joinedLeagues || [];
+    
+    // Give founder implicit access to all test leagues
+    if (isFounder) {
+      if (!joinedLeagues.includes('dmsfantasy')) joinedLeagues.push('dmsfantasy');
+      if (!joinedLeagues.includes('gaywoodfantasy')) joinedLeagues.push('gaywoodfantasy');
     }
     
     currentSession = {
       uid: user.uid,
       email: user.email,
-      name: user.displayName || user.email.split('@')[0],
-      isFounder: user.email === 'landonekatz@gmail.com'
+      name: userData.name || user.displayName || user.email.split('@')[0],
+      isFounder: isFounder,
+      joinedLeagues: joinedLeagues,
+      adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy'] : (userData.adminLeagues || [])
     };
     AuthEngine.setPersona(currentSession.isFounder ? 'founder' : 'member');
   } else {
