@@ -101,43 +101,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Filter Active Leagues in Finder Modal
-  if (leagueSearchInput && searchResultsList) {
-    const defaultHTML = searchResultsList.innerHTML;
+  // League Lookup Search Form
+  const leagueLookupForm = document.getElementById('league-lookup-form');
+  if (leagueLookupForm && leagueSearchInput) {
+    leagueLookupForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const query = leagueSearchInput.value.toLowerCase().trim();
+      if (!query) return;
 
-    leagueSearchInput.addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase().trim();
-      if (!query) {
-        searchResultsList.innerHTML = defaultHTML;
-        return;
-      }
+      const cleanQuery = query.replace(/[^a-z0-9]/g, '');
 
-      const items = searchResultsList.querySelectorAll('.league-search-result');
-      let count = 0;
-      items.forEach(item => {
-        const text = item.textContent.toLowerCase();
-        if (text.includes(query)) {
-          item.style.display = 'flex';
-          count++;
-        } else {
-          item.style.display = 'none';
-        }
-      });
-
-      if (count === 0) {
-        const noMatchMsg = document.getElementById('no-match-msg');
-        if (!noMatchMsg) {
-          const p = document.createElement('p');
-          p.id = 'no-match-msg';
-          p.style.color = 'var(--ink-muted)';
-          p.style.fontSize = '0.9rem';
-          p.style.marginTop = '0.5rem';
-          p.textContent = `No active league found for "${query}". Direct invite links grant immediate access to private league archives.`;
-          searchResultsList.appendChild(p);
-        }
+      if (cleanQuery.includes('dumbarton') || cleanQuery.includes('dms')) {
+        window.location.href = '/dmsfantasy/';
+      } else if (cleanQuery.includes('gaywood') || cleanQuery.includes('katz') || cleanQuery.includes('dad')) {
+        window.location.href = '/gaywoodfantasy/';
       } else {
-        const noMatchMsg = document.getElementById('no-match-msg');
-        if (noMatchMsg) noMatchMsg.remove();
+        searchResultsList.innerHTML = `
+          <div style="background: var(--bg-card-alt); border: 1px solid var(--border-line); border-radius: 6px; padding: 1rem; margin-top: 0.5rem;">
+            <p style="font-size: 0.9rem; color: var(--ink-primary); margin-bottom: 0.25rem;"><strong>Searching for "${query}"</strong></p>
+            <p style="font-size: 0.85rem; color: var(--ink-muted);">If this is a private league, use the direct invite link or Join Code provided by your League Admin to access your archive.</p>
+          </div>
+        `;
       }
     });
   }

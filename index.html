@@ -181,8 +181,8 @@
             <div class="form-group">
               <label for="input-access" class="form-label">League Access Permission</label>
               <select id="input-access" class="form-input">
-                <option value="private">Private Archive (Member Join Code / Invite Link Required)</option>
-                <option value="public">Public League Archive</option>
+                <option value="private">Private League (Invite link required)</option>
+                <option value="public">Public League (Anyone with URL can view)</option>
               </select>
             </div>
 
@@ -213,32 +213,27 @@
     <button id="close-find-modal" class="modal-close-x">&times;</button>
     <h3 class="modal-title">Find Your League Archive</h3>
     <p class="modal-text">
-      Search for your league below or select from our active directory. Once inside your league directory, log in or select your manager profile to access your private dashboard.
+      Enter your League Name, URL Slug, or Join Code below to access your archive. Once inside your league directory, log in or select your manager profile.
     </p>
     
-    <div class="form-group">
-      <input type="text" id="input-league-search" class="form-input" placeholder="Search by league name, manager, or code..." autofocus>
-    </div>
+    <form id="league-lookup-form">
+      <div class="form-group">
+        <label for="input-league-search" class="form-label">League Name, URL, or Join Code</label>
+        <input type="text" id="input-league-search" class="form-input" placeholder="e.g. Dumbarton, DMS-2026, or gaywoodfantasy" required autofocus>
+      </div>
 
-    <div id="search-results-list" style="margin-bottom: 1.5rem;">
-      <a href="/dmsfantasy/" class="league-search-result">
-        <div>
-          <strong style="display:block;">The Dumbarton League</strong>
-          <span style="font-size:0.8rem; color:var(--ink-muted);">Yahoo Fantasy &bull; Est. 2018 &bull; Vol. IX</span>
-        </div>
-        <span style="font-size:0.85rem; font-weight:600; color:var(--accent-gold);">Launch /dmsfantasy &rarr;</span>
-      </a>
+      <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-bottom: 1.25rem;">
+        Find League &rarr;
+      </button>
+    </form>
 
-      <a href="/gaywoodfantasy/" class="league-search-result">
-        <div>
-          <strong style="display:block;">Gaywood / Katz League ("Dad League")</strong>
-          <span style="font-size:0.8rem; color:var(--ink-muted);">ESPN Fantasy &bull; Est. 2015 &bull; Vol. XI</span>
-        </div>
-        <span style="font-size:0.85rem; font-weight:600; color:var(--accent-gold);">Launch /gaywoodfantasy &rarr;</span>
-      </a>
-    </div>
+    <div id="search-results-list" style="margin-bottom: 1rem;"></div>
 
-    <div style="border-top: 1px solid var(--border-line); pt-3; text-align: center; margin-top: 1rem; padding-top: 1rem;">
+    <p style="font-size: 0.82rem; color: var(--ink-muted); margin-bottom: 1rem; line-height: 1.5;">
+      Private leagues require a direct invite link or Join Code issued by your League Admin. Public archives can be accessed directly using their custom URL.
+    </p>
+
+    <div style="border-top: 1px solid var(--border-line); text-align: center; padding-top: 1rem;">
       <button id="btn-open-founder-modal" style="background:none; border:none; font-size: 0.82rem; color: var(--ink-muted); cursor: pointer; text-decoration: underline;">Founder &amp; Platform Admin Console &rarr;</button>
     </div>
   </dialog>
