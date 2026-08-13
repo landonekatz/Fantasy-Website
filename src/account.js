@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnMyAccount = document.getElementById('btn-my-account');
     const accountModal = document.getElementById('account-modal');
     
-    if (!btnMyAccount || !accountModal) return;
+    if (!accountModal) return;
     
     const closeAccountModalBtn = document.getElementById('close-account-modal');
     const accountModalContent = document.getElementById('account-modal-content');
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnTransfer.addEventListener('click', () => {
                     const email = document.getElementById('admin-transfer-email').value.trim();
                     if (email) {
-                        alert(\`Admin status transferred to \${email}. (Mock)\`);
+                        alert(`Admin status transferred to ${email}. (Mock)`);
                         document.getElementById('admin-transfer-email').value = '';
                     }
                 });

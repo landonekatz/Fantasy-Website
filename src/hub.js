@@ -27,8 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (session) {
       const persona = AuthEngine.getPersona();
       headerAuthContainer.innerHTML = `
-        <div class="user-badge-header">
-          <span style="white-space: nowrap; cursor: pointer; text-decoration: underline;" id="btn-header-navigate" title="Go to My League">${(session.name || session.email).split(' ')[0]}</span>
+        <div class="user-badge-header" style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="white-space: nowrap; font-weight: 600;" id="btn-header-navigate" title="Go to My Profile">${(session.name || session.email).split(' ')[0]}</span>
+          <button id="btn-header-leagues" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; background: rgba(0,0,0,0.2); color: var(--text-main); border: 1px solid var(--border-line);">My Leagues</button>
         </div>
         <button id="btn-header-logout" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Logout</button>
       `;
@@ -41,18 +42,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const btnNavigate = document.getElementById('btn-header-navigate');
+      const btnLeagues = document.getElementById('btn-header-leagues');
       const accountModalElement = document.getElementById('account-modal');
       
-      if (btnNavigate) {
-        btnNavigate.addEventListener('click', () => {
-          if (typeof window.renderAccountModal === 'function') {
-            window.renderAccountModal();
-          }
-          if (accountModalElement && typeof accountModalElement.showModal === 'function') {
-            accountModalElement.showModal();
-          }
-        });
-      }
+      const openAccountModal = () => {
+        if (typeof window.renderAccountModal === 'function') {
+          window.renderAccountModal('profile');
+        }
+        if (accountModalElement && typeof accountModalElement.showModal === 'function' && !accountModalElement.open) {
+          accountModalElement.showModal();
+        }
+      };
+
+      if (btnNavigate) btnNavigate.addEventListener('click', openAccountModal);
+      if (btnLeagues) btnLeagues.addEventListener('click', openAccountModal);
     } else {
       headerAuthContainer.innerHTML = `
         <button id="btn-header-signin" class="btn-header-signin">Sign In</button>
