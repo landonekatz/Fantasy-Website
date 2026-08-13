@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateUrlPreview = () => {
       const raw = leagueNameInput.value.trim();
       if (!raw) {
-        urlPreviewText.textContent = 'thefantasyvault.com/[your-league-name]';
+        urlPreviewText.textContent = 'thefantasyvault.com/ironcladdynastyleague';
         return;
       }
       const slug = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
