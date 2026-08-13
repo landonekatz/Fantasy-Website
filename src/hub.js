@@ -253,6 +253,21 @@ let currentLeagueCreds = null;
                 }
             });
 
+            // Auto-demote and auto-merge duplicate active managers
+            const normalizeString = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const activeSeen = new Map();
+            data.members.forEach(m => {
+                if (m.isActive) {
+                    const norm = normalizeString(m.alias);
+                    if (activeSeen.has(norm)) {
+                        m.isActive = false;
+                        m.mergedInto = activeSeen.get(norm);
+                    } else {
+                        activeSeen.set(norm, m.id);
+                    }
+                }
+            });
+
             const renderManagerList = () => {
               const activeHtml = [];
               const inactiveHtml = [];
