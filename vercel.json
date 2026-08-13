@@ -4,6 +4,8 @@
   "rewrites": [
     { "source": "/dmsfantasy/(.*)", "destination": "/dmsfantasy/index.html" },
     { "source": "/gaywoodfantasy/(.*)", "destination": "/gaywoodfantasy/index.html" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/([a-zA-Z0-9-]+)", "destination": "/vault.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

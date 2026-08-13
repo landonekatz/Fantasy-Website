@@ -1,3 +1,4 @@
+let currentLeagueCreds = null;
 // The Fantasy Vault — Editorial Light Hub Script & Auth Integration
 // Elements
   const leagueNameInput = document.getElementById('input-league-name');
@@ -207,6 +208,7 @@
       const swidInput = document.getElementById('modal-espn-swid');
       const s2 = s2Input ? s2Input.value.trim() : '';
       const swid = swidInput ? swidInput.value.trim() : '';
+      currentLeagueCreds = { leagueId, s2, swid };
 
       if (stepAuth && step1) {
         stepAuth.style.display = 'none';
@@ -417,6 +419,9 @@
   const btnRegisterEmail = document.getElementById('btn-register-email');
 
   const advanceToStep4 = (slug) => {
+    if (currentLeagueCreds) {
+      sessionStorage.setItem('pendingVaultBuild', JSON.stringify(currentLeagueCreds));
+    }
     // Immediately redirect to the new league page with the building flag
     window.location.href = '/' + slug + '?building=true';
   };

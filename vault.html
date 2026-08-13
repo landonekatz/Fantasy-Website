@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Fantasy Vault</title>
+<meta name="description" content="All-time records, head-to-head history, and stats. Powered by The Fantasy Vault.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/vault.css">
+</head>
+
+<body>
+
+<header>
+    <div class="masthead-top-bar">
+        <div style="display:flex; gap: 1rem;">
+            <div id="league-edition-info" class="edition-info">EST. 2024</div>
+            <div id="league-id-info" class="edition-info">League ID: ------</div>
+        </div>
+        <button id="btn-my-account" style="background: var(--accent-gold); color: #000; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">My Account</button>
+    </div>
+    <div class="masthead-main">
+        <h1 id="league-title">Fantasy Football<br>League HQ</h1>
+        <p id="league-subtitle">Your League Archive</p>
+    </div>
+    <nav id="top-nav">
+        <button id="btn-tab-home" class="top-nav-btn active">League Home</button>
+        <button id="btn-tab-h2h" class="top-nav-btn">Head-to-Head History</button>
+        <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
+    </nav>
+</header>
+
+<div class="container">
+
+    <!-- LEAGUE HOME PAGE VIEW -->
+    <div id="view-home" class="page-view active">
+        <div class="page-scroller-bar">
+            <span class="scroller-label">On This Page:</span>
+            <div class="scroller-links">
+                <a href="#welcome" class="scroller-pill">Welcome</a>
+                <a href="#commissioner-note" class="scroller-pill">Note from the Commissioner</a>
+            </div>
+        </div>
+
+        <!-- Welcome Card -->
+        <div class="card" id="welcome">
+            <h2>Welcome to the Archive</h2>
+            <p>
+                Since the beginning, this league has been the battleground for some of the fiercest fantasy football 
+                competition around. This archive tracks every matchup, every draft pick, and every record 
+                across all <span id="total-seasons">--</span> seasons.
+            </p>
+            <div id="welcome-stats" class="welcome-stats-grid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <div class="card" id="commissioner-note">
+            <h2>Note from the Commissioner</h2>
+            <p style="color:var(--text-muted);font-style:italic;">
+                (Commissioner notes will appear here.)
+            </p>
+        </div>
+    </div>
+    <!-- END LEAGUE HOME PAGE VIEW -->
+
+
+    <!-- ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
+    <div id="view-h2h" class="page-view">
+
+        <div id="h2h-controls-card">
+            <div class="h2h-select-row">
+                <div class="manager-select-box">
+                    <label for="h2h-manager-1">Manager 1</label>
+                    <select id="h2h-manager-1"></select>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="manager-select-box">
+                    <label for="h2h-manager-2">Manager 2</label>
+                    <select id="h2h-manager-2"></select>
+                </div>
+            </div>
+
+            <div class="h2h-filter-bar">
+                <button type="button" id="filter-btn-all" class="filter-btn active">All Years (2015–2025)</button>
+                <button type="button" id="filter-btn-custom" class="filter-btn">Custom Year Span</button>
+
+                <div id="custom-year-span-container" class="custom-year-span" style="display: none;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">From</span>
+                    <select id="custom-start-year"></select>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
+                    <select id="custom-end-year"></select>
+                </div>
+
+                <div class="h2h-playoff-toggle">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-playoffs" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="toggle-playoffs-label" class="toggle-label">Include Playoffs: ON</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="h2h-hero"></div>
+        <div id="h2h-matchups-section">
+            <div id="h2h-matchups-list"></div>
+        </div>
+        <div id="h2h-summary-card" style="display: none;"></div>
+
+    </div>
+    <!-- END HEAD-TO-HEAD VIEW -->
+
+
+    <!-- RECORD BOOK PAGE VIEW -->
+    <div id="view-records" class="page-view">
+        <div class="page-scroller-bar">
+            <span class="scroller-label">Record Sections:</span>
+            <div class="scroller-links">
+                <a href="#sec-overview" class="scroller-pill">Standings &amp; Titles</a>
+                <a href="#sec-singlegame" class="scroller-pill">Single Game</a>
+                <a href="#sec-singleseason" class="scroller-pill">Single Season</a>
+                <a href="#sec-streaks" class="scroller-pill">Streaks</a>
+                <a href="#sec-playoffs" class="scroller-pill">Playoffs</a>
+            </div>
+        </div>
+
+        <div id="records-hero" class="records-hero"></div>
+        <div id="sec-overview" class="records-section-block"></div>
+        <div id="sec-singlegame" class="records-section-block"></div>
+        <div id="sec-singleseason" class="records-section-block"></div>
+        <div id="sec-streaks" class="records-section-block"></div>
+        <div id="sec-playoffs" class="records-section-block"></div>
+    </div>
+    <!-- END RECORD BOOK VIEW -->
+
+</div>
+
+<!-- Boxscore Modal -->
+<dialog id="boxscore-modal" class="boxscore-modal">
+    <div id="boxscore-modal-content"></div>
+</dialog>
+
+<!-- Account Modal -->
+<dialog id="account-modal" class="boxscore-modal" style="max-width: 400px; padding: 1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-line); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+        <h3 style="margin:0; font-family: var(--font-heading, 'Newsreader', serif);">My Account</h3>
+        <button id="close-account-modal" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color: var(--text-main);">&times;</button>
+    </div>
+    <div id="account-modal-content"></div>
+</dialog>
+
+<!-- League Settings Modal -->
+<dialog id="settings-modal" class="boxscore-modal">
+    <div class="modal-header">
+        <div class="modal-title-area">
+            <h2>League Scoring Settings</h2>
+            <p id="settings-modal-year"></p>
+        </div>
+        <button class="modal-close-btn" onclick="document.getElementById('settings-modal').close()">✕</button>
+    </div>
+    <div id="settings-modal-content" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+        <!-- Populated by JS -->
+    </div>
+</dialog>
+
+<footer>
+    <span id="footer-text">The Fantasy Vault Archive</span> &copy; <span id="footer-year">2026</span> &bull; <a id="footer-espn-link" href="#" target="_blank" rel="noopener">View on ESPN</a>
+</footer>
+
+<script type="module" src="/src/auth.js"></script>
+<script type="module" src="/src/vault.js"></script>
+<script type="module" src="/src/vault_records.js"></script>
+</body>
+</html>

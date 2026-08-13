@@ -36,6 +36,12 @@ function serveMultiLeagueDataPlugin() {
           }
         }
 
+        // Fallback for dynamic league slugs (Vercel rewrite equivalent)
+        // If the URL has no extension and isn't root or a specific directory
+        if (!cleanUrl.includes('.') && cleanUrl !== '/' && cleanUrl !== '/dmsfantasy' && cleanUrl !== '/gaywoodfantasy') {
+          req.url = '/vault.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+        }
+
         next();
       });
     },
@@ -80,6 +86,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
+        vault: path.resolve(__dirname, 'vault.html'),
         dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html'),
         gaywoodfantasy: path.resolve(__dirname, 'gaywoodfantasy/index.html')
       }
