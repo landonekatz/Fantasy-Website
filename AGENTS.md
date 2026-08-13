@@ -1,6 +1,6 @@
 # Repository Guide & Multi-League Directory Map
 
-Welcome! This repository hosts **The Fantasy Ledger** multi-tenant platform and historical archives for hosted fantasy football leagues.
+Welcome! This repository hosts **The Fantasy Vault** multi-tenant platform and historical archives for hosted fantasy football leagues.
 
 ---
 
@@ -10,7 +10,7 @@ Welcome! This repository hosts **The Fantasy Ledger** multi-tenant platform and 
 Fantasy-Website/
 ├── .agents/rules/
 │   └── league_distinction.md     # Persistent rule for multi-league awareness
-├── index.html                     # The Fantasy Ledger Landing Hub (thefantasyledger.com)
+├── index.html                     # The Fantasy Vault Landing Hub (thefantasyvault.com)
 ├── src/                           # Landing Hub JS & CSS (hub.js, hub.css)
 ├── dmsfantasy/                    # THE DUMBARTON LEAGUE (/dmsfantasy)
 │   ├── index.html                 # Dumbarton web portal
@@ -21,7 +21,8 @@ Fantasy-Website/
 │   ├── src/                       # Dad League JS (app.js, records.js, styles.css)
 │   ├── data/                      # Dad League JSON datasets (ESPN platform)
 │   └── scraper/                   # Dad League ESPN API scraper
-├── netlify.toml                   # Netlify Free Tier deployment & redirect rules
+├── vercel.json                    # Vercel Hobby Free Tier deployment & rewrite rules
+├── netlify.toml                   # Netlify deployment fallback rules
 └── vite.config.js                 # Multi-page Vite build configuration
 ```
 
@@ -29,9 +30,9 @@ Fantasy-Website/
 
 ## 🏆 League Profiles
 
-### 1. The Fantasy Ledger Hub
+### 1. The Fantasy Vault Hub
 - **Location**: Root directory (`/`)
-- **Domain**: `thefantasyledger.com`
+- **Domain**: `thefantasyvault.com`
 - **Role**: Platform landing hub, SaaS onboarding demo, league switcher.
 
 ### 2. The Dumbarton Fantasy Football League HQ

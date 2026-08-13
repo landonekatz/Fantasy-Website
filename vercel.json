@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/dmsfantasy/(.*)", "destination": "/dmsfantasy/index.html" },
+    { "source": "/gaywoodfantasy/(.*)", "destination": "/gaywoodfantasy/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

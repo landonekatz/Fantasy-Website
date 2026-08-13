@@ -1,4 +1,4 @@
-// The Fantasy Ledger - Landing Hub Interactive Logic
+// The Fantasy Vault - Landing Hub Interactive Logic
 document.addEventListener('DOMContentLoaded', () => {
   const leagueNameInput = document.getElementById('input-league-name');
   const slugPreview = document.getElementById('slug-preview-text');
@@ -11,14 +11,14 @@ document.addEventListener('DOMContentLoaded', () => {
     leagueNameInput.addEventListener('input', (e) => {
       const name = e.target.value.trim();
       if (!name) {
-        slugPreview.textContent = 'thefantasyledger.com/[your-league-slug]';
+        slugPreview.textContent = 'thefantasyvault.com/[your-league-slug]';
         return;
       }
       const slug = name
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '')
         .slice(0, 30);
-      slugPreview.textContent = `thefantasyledger.com/${slug || 'yourleague'}`;
+      slugPreview.textContent = `thefantasyvault.com/${slug || 'yourleague'}`;
     });
   }
 
@@ -31,13 +31,13 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'newleague';
       
       if (generatedSlugSpan) {
-        generatedSlugSpan.textContent = `thefantasyledger.com/${slug}`;
+        generatedSlugSpan.textContent = `thefantasyvault.com/${slug}`;
       }
       
       if (typeof registerModal.showModal === 'function') {
         registerModal.showModal();
       } else {
-        alert(`League "${rawName}" registered! Your custom URL will be: thefantasyledger.com/${slug}`);
+        alert(`League "${rawName}" registered! Your custom URL will be: thefantasyvault.com/${slug}`);
       }
     });
   }
