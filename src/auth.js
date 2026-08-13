@@ -6,8 +6,8 @@
 
   // Registered League Join Codes (6-character uppercase alphanumeric)
   const JOIN_CODES = {
-    'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/' },
-    'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy/' }
+    'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/', managers: [{id: 'mgr_dms_1', name: 'Landon'}, {id: 'mgr_dms_2', name: 'Madoc'}, {id: 'mgr_dms_3', name: 'Jordan'}] },
+    'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy/', managers: [{id: 'mgr_katz_1', name: 'Landon'}, {id: 'mgr_katz_2', name: 'Doug'}, {id: 'mgr_katz_3', name: 'Mike'}] }
   };
 
   const AuthEngine = {
@@ -95,21 +95,32 @@
       return user;
     },
 
-    // 6-Character Join Code Processing
+    // 6-Character Join Code Processing (Validation only)
     processJoinCode(code) {
       const cleanCode = (code || '').trim().toUpperCase();
       if (JOIN_CODES[cleanCode]) {
-        const info = JOIN_CODES[cleanCode];
-        const session = this.getSession();
-        if (session) {
-          if (!session.joinedLeagues.includes(info.leagueId)) {
-            session.joinedLeagues.push(info.leagueId);
-            this.setSession(session);
-          }
-        }
-        return { success: true, league: info };
+        return { success: true, league: JOIN_CODES[cleanCode] };
       }
       return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
+    },
+
+    finalizeJoin(code, managerId) {
+      const cleanCode = (code || '').trim().toUpperCase();
+      const info = JOIN_CODES[cleanCode];
+      if (!info) return { success: false, message: "Invalid code" };
+      
+      const session = this.getSession();
+      if (!session) return { success: false, message: "Not signed in" };
+
+      if (!session.joinedLeagues.includes(info.leagueId)) {
+        session.joinedLeagues.push(info.leagueId);
+        if (!session.claims) session.claims = {};
+        session.claims[info.leagueId] = managerId;
+        this.setSession(session);
+      }
+      
+      this.claimManagerProfile(info.leagueId, managerId, session.name);
+      return { success: true, league: info };
     },
 
     // Manager Profile Claiming

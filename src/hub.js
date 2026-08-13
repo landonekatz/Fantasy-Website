@@ -91,12 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const res = AuthEngine.processJoinCode(code);
-      if (res.success) {
-        alert(`Joining ${res.league.name}... Directing to league archive.`);
-        window.location.href = res.league.path + `?join=${code}`;
+      if (typeof window.startManagerClaimFlow === 'function') {
+        window.startManagerClaimFlow(code, () => {
+          const res = AuthEngine.processJoinCode(code);
+          if (res.success) {
+            window.location.href = res.league.path + `?join=${code}`;
+          }
+        });
       } else {
-        alert(res.message);
+        const res = AuthEngine.processJoinCode(code);
+        if (res.success) {
+          alert(`Joining ${res.league.name}... Directing to league archive.`);
+          window.location.href = res.league.path + `?join=${code}`;
+        } else {
+          alert(res.message);
+        }
       }
     });
   }
@@ -212,13 +221,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.pendingJoinCode) {
       const code = window.pendingJoinCode;
       window.pendingJoinCode = null;
-      const res = AuthEngine.processJoinCode(code);
-      if (res.success) {
-        alert(`Joining ${res.league.name}... Directing to league archive.`);
-        window.location.href = res.league.path + `?join=${code}`;
+      if (typeof window.startManagerClaimFlow === 'function') {
+        window.startManagerClaimFlow(code, () => {
+          const res = AuthEngine.processJoinCode(code);
+          if (res.success) {
+            window.location.href = res.league.path + `?join=${code}`;
+          }
+        });
       } else {
-        alert(res.message);
-        if (defaultRedirect) window.location.href = defaultRedirect;
+        const res = AuthEngine.processJoinCode(code);
+        if (res.success) {
+          alert(`Joining ${res.league.name}... Directing to league archive.`);
+          window.location.href = res.league.path + `?join=${code}`;
+        } else {
+          alert(res.message);
+          if (defaultRedirect) window.location.href = defaultRedirect;
+        }
       }
     } else {
       if (defaultMessage) alert(defaultMessage);
