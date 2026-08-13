@@ -418,7 +418,25 @@ let currentLeagueCreds = null;
   const btnRegisterGoogle = document.getElementById('btn-register-google');
   const btnRegisterEmail = document.getElementById('btn-register-email');
 
-  const advanceToStep4 = (slug) => {
+  const advanceToStep4 = async (slug) => {
+    // Check if the league name already exists
+    try {
+        const checkRes = await fetch(`https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues/${slug}.json?shallow=true`);
+        const existsData = await checkRes.json();
+        if (existsData !== null) {
+            alert(`This league name already exists and you can't use it. Please choose a different name.`);
+            
+            // Go back to step auth
+            if (step1) step1.style.display = 'none';
+            if (step2) step2.style.display = 'none';
+            if (step3) step3.style.display = 'none';
+            if (stepAuth) stepAuth.style.display = 'block';
+            return;
+        }
+    } catch (e) {
+        console.error("Duplicate check failed:", e);
+    }
+
     if (currentLeagueCreds) {
       sessionStorage.setItem('pendingVaultBuild', JSON.stringify(currentLeagueCreds));
     }
