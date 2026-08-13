@@ -1,50 +1,152 @@
 // Fantasy Vault Data Compiler
 // Replicates the core functionality of the Python scraper/parser for client-side execution.
 
-export function compileVaultData(seasonsData) {
+export function compileVaultData(rawSeasonsData) {
+  if (!rawSeasonsData || rawSeasonsData.length === 0) return null;
+
+  const ESPN_STAT_MAP = {
+    3: ["Passing", "Passing Yards"],
+    4: ["Passing", "TD Pass"],
+    7: ["Passing", "Every 20 passing yards"],
+    17: ["Passing", "300-399 yard passing game"],
+    18: ["Passing", "400+ yard passing game"],
+    19: ["Passing", "2pt Passing Conversion"],
+    20: ["Passing", "Interceptions Thrown"],
+    24: ["Rushing", "Rushing Yards"],
+    25: ["Rushing", "TD Rush"],
+    26: ["Rushing", "2pt Rushing Conversion"],
+    28: ["Rushing", "Every 10 rushing yards"],
+    37: ["Rushing", "100-199 yard rushing game"],
+    38: ["Rushing", "200+ yard rushing game"],
+    42: ["Receiving", "Receiving Yards"],
+    43: ["Receiving", "TD Reception"],
+    44: ["Receiving", "2pt Receiving Conversion"],
+    48: ["Receiving", "Every 10 receiving yards"],
+    53: ["Receiving", "Each reception"],
+    56: ["Receiving", "100-199 yard receiving game"],
+    57: ["Receiving", "200+ yard receiving game"],
+    198: ["Kicking", "Each PAT Made"],
+    199: ["Kicking", "Extra Point Missed"],
+    200: ["Kicking", "FG Made (0-39 yards)"],
+    201: ["Kicking", "FG Made (40-49 yards)"],
+    202: ["Kicking", "FG Made (50-59 yards)"],
+    203: ["Kicking", "FG Made (60+ yards)"],
+    204: ["Kicking", "FG Missed (0-39 yards)"],
+    205: ["Kicking", "FG Missed (40-49 yards)"],
+    206: ["Kicking", "FG Missed (50+ yards)"],
+    73: ["Team Defense / Special Teams", "Each Sack"],
+    74: ["Team Defense / Special Teams", "Each Interception"],
+    75: ["Team Defense / Special Teams", "Each Fumble Recovered"],
+    77: ["Team Defense / Special Teams", "Interception Return TD"],
+    80: ["Team Defense / Special Teams", "Fumble Return TD"],
+    82: ["Team Defense / Special Teams", "Kickoff Return TD"],
+    83: ["Team Defense / Special Teams", "Punt Return TD"],
+    86: ["Team Defense / Special Teams", "Blocked Punt, PAT or FG"],
+    89: ["Team Defense / Special Teams", "0 points allowed"],
+    90: ["Team Defense / Special Teams", "1-6 points allowed"],
+    91: ["Team Defense / Special Teams", "7-13 points allowed"],
+    92: ["Team Defense / Special Teams", "14-17 points allowed"],
+    93: ["Team Defense / Special Teams", "Blocked Punt or FG return for TD"],
+    95: ["Team Defense / Special Teams", "Each Safety"],
+    123: ["Team Defense / Special Teams", "28-34 points allowed"],
+    124: ["Team Defense / Special Teams", "35-45 points allowed"],
+    125: ["Team Defense / Special Teams", "46+ points allowed"],
+    128: ["Team Defense / Special Teams", "Less than 100 total yards allowed"],
+    129: ["Team Defense / Special Teams", "100-199 total yards allowed"],
+    130: ["Team Defense / Special Teams", "200-299 total yards allowed"],
+    132: ["Team Defense / Special Teams", "350-399 total yards allowed"],
+    133: ["Team Defense / Special Teams", "400-449 total yards allowed"],
+    134: ["Team Defense / Special Teams", "450-499 total yards allowed"],
+    135: ["Team Defense / Special Teams", "500-549 total yards allowed"],
+    136: ["Team Defense / Special Teams", "550+ total yards allowed"],
+    72: ["Miscellaneous", "Total Fumbles Lost"]
+  };
+
+  const playerIdToName = new Map();
+
+  // 0. Filter out unplayed seasons (where no games have been played)
+  let seasonsData = rawSeasonsData.filter(season => {
+    const schedule = season.data.schedule || [];
+    // If there's at least one finished game, keep the season
+    return schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
+  });
+
+  if (seasonsData.length === 0) {
+    // If all seasons are unplayed (or empty), just fallback so it doesn't crash
+    seasonsData = rawSeasonsData;
+  }
+
   // 1. Sort seasons descending
   seasonsData.sort((a, b) => b.year - a.year);
 
   const activeSeason = seasonsData[0];
   const activeYear = activeSeason.year;
-  const activeMemberIds = new Set((activeSeason.data.members || []).map(m => m.id));
-
-  // 2. Build Managers
+  
+  // Create a mapping of canonical names to primary ID
+  const canonicalNameMap = new Map(); // "First Last" -> manager_id
+  const originalToCanonicalMap = new Map(); // m.id -> manager_id
   const managersMap = new Map();
+
   for (const season of seasonsData) {
     for (const m of (season.data.members || [])) {
-      if (!managersMap.has(m.id)) {
-        managersMap.set(m.id, {
-          id: m.id,
-          name: m.displayName || `${m.firstName || ''} ${m.lastName || ''}`.trim(),
-          firstName: m.firstName || '',
-          lastName: m.lastName || '',
-          isActive: activeMemberIds.has(m.id),
+      const first = m.firstName ? m.firstName.trim() : '';
+      const last = m.lastName ? m.lastName.trim() : '';
+      let canonicalName = `${first} ${last}`.trim();
+      if (!canonicalName) canonicalName = m.displayName || m.id;
+      
+      let primaryId = canonicalNameMap.get(canonicalName);
+      if (!primaryId) {
+        primaryId = m.id; // use the first seen ID as the primary ID
+        canonicalNameMap.set(canonicalName, primaryId);
+        
+        managersMap.set(primaryId, {
+          id: primaryId,
+          name: canonicalName,
+          firstName: first,
+          lastName: last,
+          espn_ids: [m.id],
           lastSeenYear: season.year
         });
       } else {
-        const existing = managersMap.get(m.id);
+        const existing = managersMap.get(primaryId);
+        if (!existing.espn_ids.includes(m.id)) {
+          existing.espn_ids.push(m.id);
+        }
         if (season.year > existing.lastSeenYear) {
           existing.lastSeenYear = season.year;
         }
       }
+      originalToCanonicalMap.set(m.id, primaryId);
     }
   }
 
-  const members = Array.from(managersMap.values());
+  // Determine active/retired based on presence in activeSeason
+  const activeMemberCanonicalIds = new Set();
+  for (const m of (activeSeason.data.members || [])) {
+      const mappedId = originalToCanonicalMap.get(m.id);
+      if (mappedId) activeMemberCanonicalIds.add(mappedId);
+  }
+
+  const members = Array.from(managersMap.values()).map(m => {
+      m.isActive = activeMemberCanonicalIds.has(m.id);
+      m.status = m.isActive ? 'Active' : 'Retired';
+      return m;
+  });
 
   // 3. Build Teams Map per season
   const teamMap = {}; // { year: { teamId: { ... } } }
   for (const season of seasonsData) {
     teamMap[season.year] = {};
     for (const t of (season.data.teams || [])) {
-      const ownerId = t.primaryOwner;
-      const ownerInfo = managersMap.get(ownerId);
+      const originalOwnerId = t.primaryOwner;
+      const canonicalOwnerId = originalToCanonicalMap.get(originalOwnerId) || originalOwnerId;
+      const ownerInfo = managersMap.get(canonicalOwnerId);
+      
       teamMap[season.year][t.id] = {
         id: t.id,
         name: t.name || `${t.location || ''} ${t.nickname || ''}`.trim(),
         abbrev: t.abbrev,
-        ownerId: ownerId,
+        ownerId: canonicalOwnerId,
         ownerName: ownerInfo ? ownerInfo.name : 'Unknown',
         playoffSeed: t.playoffSeed || 99,
         finalRank: t.rankCalculatedFinal || t.rankFinal || 99,
@@ -86,6 +188,7 @@ export function compileVaultData(seasonsData) {
   // 5. Build Matchups & Weekly Team Scores
   const matchups = [];
   const weekly_team_scores = [];
+  const weekly_player_stats = [];
   const teamWins = {};
   const teamLosses = {};
   const teamPF = {};
@@ -190,6 +293,40 @@ export function compileVaultData(seasonsData) {
         away_score: a_score,
         winner
       });
+
+      const extractPlayerStats = (sideData, tid, tinfo, oppId, oppName) => {
+        if (!sideData.rosterForCurrentScoringPeriod || !sideData.rosterForCurrentScoringPeriod.entries) return;
+        for (const entry of sideData.rosterForCurrentScoringPeriod.entries) {
+           const pp = entry.playerPoolEntry;
+           if (!pp || !pp.player) continue;
+           weekly_player_stats.push({
+              year,
+              week,
+              team_id: tid,
+              team_name: tinfo.name || "",
+              manager_id: tinfo.ownerId,
+              manager_name: tinfo.ownerName || "",
+              opponent_team_id: oppId,
+              opponent_team_name: oppName || "",
+              player_id: pp.player.id,
+              player_name: pp.player.fullName,
+              position: pp.player.defaultPositionId,
+              
+              // Add to global player map
+              ...(playerIdToName.set(pp.player.id, pp.player.fullName) && {}),
+              lineup_slot: entry.lineupSlotId,
+              projected_score: Math.round((pp.appliedStatTotal || 0) * 100) / 100,
+              score: Math.round((pp.appliedStatTotal || 0) * 100) / 100, // actual score parsing requires deep dive, using total for now
+              stat_line: pp.player.stats ? (pp.player.stats[0]?.stats || {}) : {},
+              is_playoff: isPlayoff,
+              is_consolation: isConsolation,
+              game_type: gameType
+           });
+        }
+      };
+
+      extractPlayerStats(home, h_id, h_info, a_id, a_info.name);
+      extractPlayerStats(away, a_id, a_info, h_id, h_info.name);
 
       const addScores = (sideData, tid, tinfo) => {
         const pbsp = sideData.pointsByScoringPeriod;
@@ -298,7 +435,7 @@ export function compileVaultData(seasonsData) {
         manager_id: tinfo.ownerId,
         manager_name: tinfo.ownerName || "",
         player_id: pick.playerId,
-        player_name: `Player ID ${pick.playerId}`,
+        player_name: playerIdToName.get(pick.playerId) || `Player ID ${pick.playerId}`,
         is_keeper: pick.keeper || false,
         bid_amount: pick.bidAmount || 0
       });
@@ -316,13 +453,67 @@ export function compileVaultData(seasonsData) {
   }
   deduped_weekly.sort((a, b) => a.week - b.week || a.team_id - b.team_id);
 
+  // 8. Transactions
+  const transactions = [];
+  for (const season of seasonsData) {
+    const year = season.year;
+    for (const t of (season.data.transactions || [])) {
+      if (t.status !== 'EXECUTED') continue;
+      let processedItems = [];
+      if (t.items) {
+        for (const item of t.items) {
+          processedItems.push({
+            player_id: item.playerId,
+            player_name: playerIdToName.get(item.playerId) || `Player ID ${item.playerId}`,
+            type: item.type, // ADD, DROP, LINEUP
+            from_team: item.fromTeamId,
+            to_team: item.toTeamId
+          });
+        }
+      }
+      // Filter out boring ROSTER moves to keep it clean, unless you want them
+      if (t.type === 'ROSTER') continue;
+      
+      transactions.push({
+         year,
+         date: t.executionDate || t.proposedDate,
+         action_type: t.type, // FREEAGENT, WAIVER, TRADE
+         items: processedItems
+      });
+    }
+  }
+
   const league_settings = {
     name: activeSeason.data.settings?.name || "Fantasy League",
     id: activeSeason.data.id || "",
     firstYear: seasonsData[seasonsData.length - 1].year,
     lastYear: activeYear,
-    totalSeasons: seasonsData.length
+    totalSeasons: seasonsData.length,
+    scoringRules: {}
   };
+
+  const scoringItems = activeSeason.data.settings?.scoringSettings?.scoringItems || [];
+  for (const item of scoringItems) {
+    const sid = item.statId;
+    let pts = item.points || 0.0;
+    const overrides = item.pointsOverrides || {};
+    
+    // ESPN often overrides D/ST (16) and K (17)
+    if (overrides["16"] !== undefined) pts = overrides["16"];
+    else if (overrides["17"] !== undefined) pts = overrides["17"];
+    else if (overrides["0"] !== undefined) pts = overrides["0"];
+    
+    if (pts === 0) continue;
+    
+    if (ESPN_STAT_MAP[sid]) {
+      const [category, name] = ESPN_STAT_MAP[sid];
+      let cleanName = name.replace(/\s*\([A-Z0-9+]{2,7}\)$/, "").trim();
+      if (!league_settings.scoringRules[category]) {
+        league_settings.scoringRules[category] = [];
+      }
+      league_settings.scoringRules[category].push({ name: cleanName, points: pts, stat_id: sid });
+    }
+  }
 
   // Return exactly the payload that `vault.js` expects
   return {
@@ -332,7 +523,8 @@ export function compileVaultData(seasonsData) {
     matchups: matchups,
     draft_results: draft_results,
     weekly_team_scores: deduped_weekly,
-    weekly_player_stats: [], // Skipped due to API limits
+    weekly_player_stats: weekly_player_stats,
+    transactions: transactions,
     league_settings: league_settings
   };
 }

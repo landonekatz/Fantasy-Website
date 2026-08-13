@@ -56,23 +56,38 @@ export default async function handler(req, res) {
     );
 
     // Aggregate all unique managers across all time
-    const allMembersMap = new Map();
+    const allMembersMap = new Map(); // Canonical Name -> manager
+    const canonicalNameMap = new Map(); // Canonical Name -> primary ID
     
     for (const seasonObj of successfulSeasons) {
       if (seasonObj.data.members) {
         for (const m of seasonObj.data.members) {
-          if (!allMembersMap.has(m.id)) {
-            allMembersMap.set(m.id, {
-              id: m.id,
+          const first = m.firstName ? m.firstName.trim() : '';
+          const last = m.lastName ? m.lastName.trim() : '';
+          let canonicalName = `${first} ${last}`.trim();
+          if (!canonicalName) canonicalName = m.displayName || m.id;
+
+          let primaryId = canonicalNameMap.get(canonicalName);
+          if (!primaryId) {
+            primaryId = m.id;
+            canonicalNameMap.set(canonicalName, primaryId);
+            allMembersMap.set(primaryId, {
+              id: primaryId,
               displayName: m.displayName || 'Unknown',
-              firstName: m.firstName || '',
-              lastName: m.lastName || '',
+              firstName: first,
+              lastName: last,
               isActive: activeMemberIds.has(m.id),
-              lastSeenYear: seasonObj.year
+              lastSeenYear: seasonObj.year,
+              espn_ids: [m.id]
             });
           } else {
-            // Update lastSeenYear if this season is more recent
-            const existing = allMembersMap.get(m.id);
+            const existing = allMembersMap.get(primaryId);
+            if (!existing.espn_ids.includes(m.id)) {
+                existing.espn_ids.push(m.id);
+            }
+            if (activeMemberIds.has(m.id)) {
+                existing.isActive = true;
+            }
             if (seasonObj.year > existing.lastSeenYear) {
               existing.lastSeenYear = seasonObj.year;
             }

@@ -238,6 +238,26 @@ class FantasyApp {
                 sessionStorage.removeItem('pendingVaultBuild');
 
                 updateUI(100, "Complete!");
+                
+                const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+                if (session && session.email) {
+                    try {
+                        const joinCode = slug.substring(0, 3).toUpperCase() + "24"; 
+                        await fetch('/api/email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                email: session.email, 
+                                slug: slug,
+                                joinCode: joinCode,
+                                origin: window.location.origin
+                            })
+                        });
+                    } catch (e) {
+                        console.error("Failed to send welcome email", e);
+                    }
+                }
+
                 setTimeout(() => {
                     overlay.style.opacity = '0';
                     overlay.style.transition = 'opacity 0.5s ease';
@@ -312,13 +332,9 @@ class FantasyApp {
         const activeUser = session ? (session.name || session.email) : 'Guest Visitor';
         const isFounder = session && session.isFounder;
 
-        bar.innerHTML = `
-            <div class="founder-bar-left">
-                <span>🏛️ The Fantasy Vault Archive</span>
-                <span style="opacity:0.7;">&bull; Gaywood / Katz HQ (Join Code: KATZ15)</span>
-            </div>
-            <div class="founder-bar-right">
-                <span>User: <strong>${activeUser}</strong> ${isFounder ? '<span style="color:#d4af37;">(Founder)</span>' : ''}</span>
+        let personaHtml = '';
+        if (isFounder) {
+            personaHtml = `
                 <label style="margin-left:0.5rem;">Persona:</label>
                 <select id="select-persona-mode" class="persona-select">
                     <option value="founder" ${persona === 'founder' ? 'selected' : ''}>👑 Founder View (Landon)</option>
@@ -326,6 +342,18 @@ class FantasyApp {
                     <option value="member" ${persona === 'member' ? 'selected' : ''}>👥 Verified Member (Team Owner)</option>
                     <option value="public" ${persona === 'public' ? 'selected' : ''}>👁️ Public Visitor</option>
                 </select>
+            `;
+        }
+
+        const leagueName = this.bundleData && this.bundleData.league_settings ? this.bundleData.league_settings.name : "The Fantasy Vault Archive";
+        
+        bar.innerHTML = `
+            <div class="founder-bar-left">
+                <span>🏛️ ${leagueName}</span>
+            </div>
+            <div class="founder-bar-right">
+                <span>User: <strong>${activeUser}</strong> ${isFounder ? '<span style="color:#d4af37;">(Founder)</span>' : ''}</span>
+                ${personaHtml}
                 <a href="/" style="color:#c5a059; text-decoration:none; margin-left:0.5rem; font-weight:600;">Hub &rarr;</a>
             </div>
         `;

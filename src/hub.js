@@ -445,8 +445,6 @@ let currentLeagueCreds = null;
         const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
         const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
         
-        // Trigger email
-        await triggerWelcomeEmail(user.email, slug);
         advanceToStep4(slug);
       } catch (err) {
         alert("Google Sign-In failed: " + err.message);
@@ -464,8 +462,6 @@ let currentLeagueCreds = null;
           const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
           const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
           
-          // Trigger email
-          await triggerWelcomeEmail(email.value, slug);
           advanceToStep4(slug);
         } catch (err) {
           alert("Sign In failed: " + err.message);

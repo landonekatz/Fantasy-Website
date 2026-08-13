@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   let espnUrl = '';
   const views = checkOnly === 'true' 
     ? '?view=mStatus' 
-    : '?view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings&view=mDraftDetail';
+    : '?view=mTeam&view=mRoster&view=mMatchup&view=mSettings&view=mStandings&view=mDraftDetail&view=mMatchupScore&view=mTransactions2';
 
   if (isCurrent) {
     espnUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}${views}`;
