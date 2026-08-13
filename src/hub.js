@@ -183,43 +183,88 @@
   }
 
   if (btnAuthContinue) {
-    btnAuthContinue.addEventListener('click', () => {
+    btnAuthContinue.addEventListener('click', async () => {
+      if (inputPlatform && inputPlatform.value !== 'espn') {
+        const plat = inputPlatform.value.charAt(0).toUpperCase() + inputPlatform.value.slice(1);
+        alert(`${plat} integration is coming soon!`);
+        return;
+      }
+
+      const leagueIdInput = document.getElementById('input-espn-id');
+      const leagueId = leagueIdInput ? leagueIdInput.value.trim() : '';
+      
+      if (!leagueId) {
+        alert("Please enter a valid ESPN League ID.");
+        return;
+      }
+
+      const s2Input = document.getElementById('modal-espn-s2');
+      const swidInput = document.getElementById('modal-espn-swid');
+      const s2 = s2Input ? s2Input.value.trim() : '';
+      const swid = swidInput ? swidInput.value.trim() : '';
+
       if (stepAuth && step1) {
         stepAuth.style.display = 'none';
         step1.style.display = 'block';
       }
 
-      // Simulate loading API / import (Step 1 -> Step 2)
-      setTimeout(() => {
+      try {
+        const url = `/api/espn?leagueId=${encodeURIComponent(leagueId)}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+          let errMsg = `HTTP ${res.status}`;
+          try {
+            const errData = await res.json();
+            if (errData.error) errMsg = errData.error;
+          } catch(e) {}
+          throw new Error(errMsg);
+        }
+
+        const data = await res.json();
+        
         if (step1 && step2) {
           step1.style.display = 'none';
           step2.style.display = 'block';
           
           if (managerConfigList) {
-            const mockManagers = [
-              { team: "Team Smith", handle: "smith_ff_pro", alias: "Smith" },
-              { team: "Katz Dominators", handle: "landonekatz", alias: "Landon" },
-              { team: "Watson Winners", handle: "mwatson88", alias: "Madoc" },
-              { team: "Jordan's Juggernauts", handle: "jordan_jugg", alias: "Jordan" }
-            ];
-            
-            managerConfigList.innerHTML = mockManagers.map((m, i) => `
+            if (!data.teams || data.teams.length === 0) {
+              managerConfigList.innerHTML = '<div style="padding: 1rem; color: #ff6b6b; text-align: center;">No teams found in this league. Please check your League ID.</div>';
+              return;
+            }
+
+            managerConfigList.innerHTML = data.teams.map((t, i) => {
+              const owner = data.members ? data.members.find(m => m.id === t.primaryOwner) : null;
+              const handle = owner ? (owner.displayName || 'unknown') : 'unknown';
+              let alias = owner ? (owner.firstName || owner.lastName || handle) : 'Alias';
+              if (owner && owner.firstName && owner.lastName) {
+                  alias = `${owner.firstName} ${owner.lastName.charAt(0)}.`;
+              }
+              
+              return `
               <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                   <input type="checkbox" id="mgr-chk-${i}" checked>
                   <div>
-                    <div style="font-weight: 600; font-size: 0.9rem;">${m.team}</div>
-                    <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${m.handle}</div>
+                    <div style="font-weight: 600; font-size: 0.9rem;">${t.name || 'Unknown Team'}</div>
+                    <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
                   </div>
                 </div>
                 <div>
-                  <input type="text" value="${m.alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                  <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                 </div>
               </div>
-            `).join('');
+              `;
+            }).join('');
           }
         }
-      }, 1500);
+      } catch (err) {
+        alert("Failed to fetch league data: " + err.message);
+        if (step1 && stepAuth) {
+          step1.style.display = 'none';
+          stepAuth.style.display = 'block';
+        }
+      }
     });
   }
 
