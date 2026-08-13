@@ -132,6 +132,7 @@
   const step1 = document.getElementById('register-step-1');
   const step2 = document.getElementById('register-step-2');
   const step3 = document.getElementById('register-step-3');
+  const step4 = document.getElementById('register-step-4');
   const managerConfigList = document.getElementById('manager-config-list');
   const btnConfirmManagers = document.getElementById('btn-confirm-managers');
   const btnFinishRegister = document.getElementById('btn-finish-register');
@@ -232,25 +233,27 @@
           step2.style.display = 'block';
           
           if (managerConfigList) {
-            if (!data.teams || data.teams.length === 0) {
-              managerConfigList.innerHTML = '<div style="padding: 1rem; color: #ff6b6b; text-align: center;">No teams found in this league. Please check your League ID.</div>';
+            if (!data.members || data.members.length === 0) {
+              managerConfigList.innerHTML = '<div style="padding: 1rem; color: #ff6b6b; text-align: center;">No managers found in this league. Please check your League ID.</div>';
               return;
             }
 
-            managerConfigList.innerHTML = data.teams.map((t, i) => {
-              const owner = data.members ? data.members.find(m => m.id === t.primaryOwner) : null;
-              const handle = owner ? (owner.displayName || 'unknown') : 'unknown';
-              let alias = owner ? (owner.firstName || owner.lastName || handle) : 'Alias';
-              if (owner && owner.firstName && owner.lastName) {
-                  alias = `${owner.firstName} ${owner.lastName.charAt(0)}.`;
+            const activeHtml = [];
+            const inactiveHtml = [];
+
+            data.members.forEach((m, i) => {
+              const handle = m.displayName || 'unknown';
+              let alias = m.firstName || m.lastName || handle;
+              if (m.firstName && m.lastName) {
+                  alias = `${m.firstName} ${m.lastName.charAt(0)}.`;
               }
               
-              return `
-              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
+              const itemHtml = `
+              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: ${m.isActive ? '1' : '0.6'};">
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
-                  <input type="checkbox" id="mgr-chk-${i}" checked>
+                  <input type="checkbox" id="mgr-chk-${i}" ${m.isActive ? 'checked' : ''}>
                   <div>
-                    <div style="font-weight: 600; font-size: 0.9rem;">${t.name || 'Unknown Team'}</div>
+                    <div style="font-weight: 600; font-size: 0.9rem;">${m.isActive ? 'Active' : `Last Seen: ${m.lastSeenYear}`}</div>
                     <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
                   </div>
                 </div>
@@ -259,7 +262,16 @@
                 </div>
               </div>
               `;
-            }).join('');
+
+              if (m.isActive) activeHtml.push(itemHtml);
+              else inactiveHtml.push(itemHtml);
+            });
+
+            managerConfigList.innerHTML = `
+              <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${data.activeSeason})</div>
+              ${activeHtml.join('')}
+              ${inactiveHtml.length > 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem;">Historical Managers (Inactive)</div>${inactiveHtml.join('')}` : ''}
+            `;
           }
         }
       } catch (err) {
@@ -281,9 +293,41 @@
     });
   }
 
+  const btnRegisterGoogle = document.getElementById('btn-register-google');
+  const btnRegisterEmail = document.getElementById('btn-register-email');
+
+  const advanceToStep4 = () => {
+    if (step3 && step4) {
+      step3.style.display = 'none';
+      step4.style.display = 'block';
+    }
+  };
+
+  if (btnRegisterGoogle) {
+    btnRegisterGoogle.addEventListener('click', () => {
+      AuthEngine.loginWithGoogle('admin@gmail.com');
+      advanceToStep4();
+    });
+  }
+
+  if (btnRegisterEmail) {
+    btnRegisterEmail.addEventListener('click', () => {
+      const email = document.getElementById('register-email');
+      if (email && email.value) {
+        AuthEngine.loginWithEmail(email.value, 'password');
+        advanceToStep4();
+      } else {
+        alert("Please enter an email");
+      }
+    });
+  }
+
   if (btnFinishRegister) {
     btnFinishRegister.addEventListener('click', () => {
       if (registerModal) registerModal.close();
+      const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
+      const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
+      window.location.href = '/' + slug;
     });
   }
 
