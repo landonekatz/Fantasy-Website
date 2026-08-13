@@ -244,6 +244,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       
       if (!teamInfo || !teamInfo.ownerId) continue;
       
+      const moves = t.transactionCounter ? ((t.transactionCounter.acquisitions || 0) + (t.transactionCounter.trades || 0)) : 0;
+      
       standings.push({
         year: season.year,
         team_id: t.id,
@@ -256,7 +258,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         points_for: Math.round((overall.pointsFor || 0) * 100) / 100,
         points_against: Math.round((overall.pointsAgainst || 0) * 100) / 100,
         final_rank: teamInfo.finalRank,
-        playoff_seed: teamInfo.playoffSeed
+        playoff_seed: teamInfo.playoffSeed,
+        transactions: moves
       });
     }
   }
@@ -373,8 +376,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       });
 
       const extractPlayerStats = (sideData, tid, tinfo, oppId, oppName) => {
-        if (!sideData.rosterForCurrentScoringPeriod || !sideData.rosterForCurrentScoringPeriod.entries) return;
-        for (const entry of sideData.rosterForCurrentScoringPeriod.entries) {
+        const roster = sideData.rosterForCurrentScoringPeriod || sideData.rosterForMatchupPeriod;
+        if (!roster || !roster.entries) return;
+        for (const entry of roster.entries) {
            const pp = entry.playerPoolEntry;
            if (!pp || !pp.player) continue;
            let actualScore = pp.appliedStatTotal || 0;
@@ -382,10 +386,10 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
            let statLine = {};
 
            if (pp.player.stats) {
-               const actual = pp.player.stats.find(s => s.statSourceId === 0 && s.statSplitTypeId === 1);
-               const proj = pp.player.stats.find(s => s.statSourceId === 1 && s.statSplitTypeId === 1);
+               const actual = pp.player.stats.find(s => s.statSourceId === 0 && (s.scoringPeriodId === week || s.statSplitTypeId === 1));
+               const proj = pp.player.stats.find(s => s.statSourceId === 1 && (s.scoringPeriodId === week || s.statSplitTypeId === 1));
                if (actual) {
-                   actualScore = actual.appliedTotal || actualScore;
+                   actualScore = actual.appliedTotal !== undefined ? actual.appliedTotal : actualScore;
                    statLine = actual.stats || statLine;
                }
                if (proj) {
@@ -395,6 +399,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
 
            const nflTeam = NFL_TEAMS[pp.player.proTeamId] || '';
            const nflResult = nflTeam ? getNflGameResult(year, week, nflTeam) : '';
+           const POS_MAP = { 1: 'QB', 2: 'RB', 3: 'WR', 4: 'TE', 5: 'K', 16: 'D/ST' };
+           const posStr = POS_MAP[pp.player.defaultPositionId] || 'FLEX';
+           const isStarter = entry.lineupSlotId !== 20 && entry.lineupSlotId !== 21 && entry.lineupSlotId !== 24;
 
            weekly_player_stats.push({
               year,
@@ -407,9 +414,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               opponent_team_name: oppName || "",
               player_id: pp.player.id,
               player_name: pp.player.fullName,
-              position: pp.player.defaultPositionId,
+              position: posStr,
               lineup_slot_id: entry.lineupSlotId,
-              is_starter: entry.lineupSlotId !== 20 && entry.lineupSlotId !== 21 && entry.lineupSlotId !== 24,
+              is_starter: isStarter,
               projected_points: Math.round(projScore * 100) / 100,
               fantasy_points: Math.round(actualScore * 100) / 100,
               stat_line: statLine,
@@ -590,31 +597,46 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     scoringRules: {}
   };
 
-  const scoringItems = activeSeason.data.settings?.scoringSettings?.scoringItems || [];
-  for (const item of scoringItems) {
-    const sid = item.statId;
-    let pts = item.points || 0.0;
-    const overrides = item.pointsOverrides || {};
-    
-    // ESPN often overrides D/ST (16) and K (17)
-    if (overrides["16"] !== undefined) pts = overrides["16"];
-    else if (overrides["17"] !== undefined) pts = overrides["17"];
-    else if (overrides["0"] !== undefined) pts = overrides["0"];
-    
-    if (pts === 0) continue;
-    
-    if (ESPN_STAT_MAP[sid]) {
-      let [category, name] = ESPN_STAT_MAP[sid];
-      
-      // Safety precaution: strip Firebase illegal characters from category
-      category = category.replace(/[.#$\[\]]/g, '').replace(/\//g, 'and').trim();
+  const scoring_settings = {};
 
-      let cleanName = name.replace(/\s*\([A-Z0-9+]{2,7}\)$/, "").trim();
-      if (!league_settings.scoringRules[category]) {
-        league_settings.scoringRules[category] = [];
+  for (const season of seasonsData) {
+    const yr = season.year;
+    const scoringItems = season.data.settings?.scoringSettings?.scoringItems || [];
+    const yearRules = {};
+
+    for (const item of scoringItems) {
+      const sid = item.statId;
+      let pts = item.points || 0.0;
+      const overrides = item.pointsOverrides || {};
+      
+      // ESPN overrides D/ST (16) and K (17)
+      if (overrides["16"] !== undefined) pts = overrides["16"];
+      else if (overrides["17"] !== undefined) pts = overrides["17"];
+      else if (overrides["0"] !== undefined) pts = overrides["0"];
+      
+      if (pts === 0) continue;
+      
+      if (ESPN_STAT_MAP[sid]) {
+        let [category, name] = ESPN_STAT_MAP[sid];
+        category = category.replace(/[.#$\[\]]/g, '').replace(/\//g, ' and ').trim();
+        let cleanName = name.replace(/\s*\([A-Z0-9+]{2,7}\)$/, "").trim();
+        if (!yearRules[category]) {
+          yearRules[category] = [];
+        }
+        yearRules[category].push({ name: cleanName, points: pts, stat_id: sid });
       }
-      league_settings.scoringRules[category].push({ name: cleanName, points: pts, stat_id: sid });
     }
+
+    if (Object.keys(yearRules).length > 0) {
+      scoring_settings[yr] = yearRules;
+    }
+  }
+
+  // Also populate default league_settings.scoringRules from active/latest season
+  if (scoring_settings[activeYear]) {
+    league_settings.scoringRules = scoring_settings[activeYear];
+  } else if (Object.keys(scoring_settings).length > 0) {
+    league_settings.scoringRules = Object.values(scoring_settings)[0];
   }
 
   // Return exactly the payload that `vault.js` expects
@@ -627,6 +649,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     weekly_team_scores: deduped_weekly,
     weekly_player_stats: weekly_player_stats,
     transactions: transactions,
-    league_settings: league_settings
+    league_settings: league_settings,
+    scoring_settings: scoring_settings
   };
 }

@@ -97,6 +97,9 @@
             return;
         }
 
+        const app = window.app || window.appInstance;
+        const currentAdminEmail = app?.leagueSettings?.admin_email || window.FANTASY_DATA?.league_settings?.admin_email;
+
         let currentLeagueId = null;
         if (typeof JOIN_CODES !== 'undefined') {
             for (const key in JOIN_CODES) {
@@ -107,12 +110,14 @@
                 }
             }
         }
-        
-        // Only show admin tab if we are on a specific league page and user is founder
-        let isLeagueAdmin = session.isFounder && currentLeagueId !== null;
-        if (!isLeagueAdmin && currentLeagueId !== null && window.appInstance && window.appInstance.leagueSettings) {
-            isLeagueAdmin = session.email === window.appInstance.leagueSettings.admin_email;
+        if (!currentLeagueId) {
+            const rawSlug = window.location.pathname.substring(1).replace(/\/$/, '');
+            if (rawSlug) currentLeagueId = rawSlug;
         }
+        
+        // Determine if user is league admin or founder
+        const isCurrentAdmin = Boolean(currentAdminEmail && session.email && session.email.toLowerCase() === currentAdminEmail.toLowerCase());
+        const isLeagueAdmin = Boolean(session.isFounder || isCurrentAdmin);
 
         const tabsHTML = isLeagueAdmin ? `
             <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border-line); margin-bottom: 1.5rem;">
@@ -127,8 +132,8 @@
             let leaguesListHTML = '';
             if (session.joinedLeagues && session.joinedLeagues.length > 0) {
                 leaguesListHTML = session.joinedLeagues.map(leagueId => {
-                    const info = Object.values(JOIN_CODES).find(l => l.leagueId === leagueId);
-                    const name = info ? info.name : leagueId;
+                    const info = typeof JOIN_CODES !== 'undefined' ? Object.values(JOIN_CODES).find(l => l.leagueId === leagueId) : null;
+                    const name = info ? info.name : (app?.leagueSettings?.name || leagueId);
                     const path = info ? info.path : `/${leagueId}/`;
                     
                     let claimText = '';
@@ -151,9 +156,8 @@
                     </div>
                     <div>
                         <h3 style="margin: 0; font-size: 1.2rem;">${session.name || session.email}</h3>
-                        <div style="font-size: 0.9rem; color: var(--text-muted);">${session.email}</div>
-                        ${session.isFounder ? '<div style="font-size: 0.8rem; color: var(--accent-gold); font-weight: bold; margin-top: 0.2rem; text-transform: uppercase;">Founder</div>' : ''}
-                        ${!session.isFounder && isLeagueAdmin ? '<div style="font-size: 0.8rem; color: var(--accent-gold); font-weight: bold; margin-top: 0.2rem; text-transform: uppercase;">League Admin</div>' : ''}
+                        ${session.isFounder ? '<span style="display:inline-block; background:rgba(212,175,55,0.15); border:1px solid var(--accent-gold); color:var(--accent-gold); font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:12px; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">Founder</span>' : ''}
+                        ${!session.isFounder && isLeagueAdmin ? '<span style="display:inline-block; background:rgba(212,175,55,0.15); border:1px solid var(--accent-gold); color:var(--accent-gold); font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:12px; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px;">League Admin</span>' : ''}
                     </div>
                 </div>
 
@@ -178,31 +182,28 @@
             `;
         } else if (activeTab === 'admin' && isLeagueAdmin) {
             // ADMIN DASHBOARD CONTENT
-            
-            const code = Object.keys(JOIN_CODES).find(k => JOIN_CODES[k].leagueId === currentLeagueId);
-            const info = code ? JOIN_CODES[code] : null;
-            
-            let inviteLinksHTML = '';
-            if (code && info) {
-                const joinLink = window.location.origin + '/?join=' + code;
-                inviteLinksHTML = `
-                    <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-line); border-radius: 4px;">
-                        <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--accent-gold);">${info.name}</div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: var(--text-muted);">Join Code: <strong style="color: var(--text-main); font-family: monospace; font-size: 1rem; margin-left: 0.5rem;">${code}</strong></span>
-                            <button class="btn-copy-code" data-copy="${code}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Code</button>
-                        </div>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">Join Link: <span style="color: var(--text-main); font-size: 0.8rem; margin-left: 0.5rem;">${joinLink}</span></span>
-                            <button class="btn-copy-link" data-copy="${joinLink}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Link</button>
-                        </div>
+            const code = typeof JOIN_CODES !== 'undefined' ? Object.keys(JOIN_CODES).find(k => JOIN_CODES[k].leagueId === currentLeagueId) : null;
+            const info = (code && typeof JOIN_CODES !== 'undefined') ? JOIN_CODES[code] : null;
+
+            const activeLeagueName = (info && info.name) || app?.leagueSettings?.name || window.FANTASY_DATA?.league_settings?.name || "League";
+            const activeCode = code || (currentLeagueId ? currentLeagueId.substring(0, 3).toUpperCase() + "24" : "VAULT24");
+            const joinLink = window.location.origin + '/?join=' + activeCode;
+
+            const inviteLinksHTML = `
+                <div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-line); border-radius: 4px;">
+                    <div style="font-weight: bold; margin-bottom: 0.5rem; color: var(--accent-gold);">${activeLeagueName}</div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Join Code: <strong style="color: var(--text-main); font-family: monospace; font-size: 1rem; margin-left: 0.5rem;">${activeCode}</strong></span>
+                        <button class="btn-copy-code" data-copy="${activeCode}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Code</button>
                     </div>
-                `;
-            } else {
-                inviteLinksHTML = '<p style="color: var(--text-muted); font-size: 0.85rem;">Error loading league invite details.</p>';
-            }
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.85rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;">Join Link: <span style="color: var(--text-main); font-size: 0.8rem; margin-left: 0.5rem;">${joinLink}</span></span>
+                        <button class="btn-copy-link" data-copy="${joinLink}" style="background: none; border: 1px solid var(--border-line); color: var(--text-muted); cursor: pointer; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 3px;">Copy Link</button>
+                    </div>
+                </div>
+            `;
 
             contentHTML = `
                 <div class="admin-dashboard-container">

@@ -387,9 +387,11 @@ class FantasyApp {
         if (modal && content && yearTitle) {
             yearTitle.textContent = `${season} Season`;
             
-            const settings = this.leagueSettings[season];
+            const settings = (this.scoringSettings && (this.scoringSettings[season] || this.scoringSettings[String(season)])) ||
+                             (this.leagueSettings && (this.leagueSettings[season] || this.leagueSettings.scoringRules));
+
             if (!settings || Object.keys(settings).length === 0) {
-                content.innerHTML = '<p>No scoring settings available for this season.</p>';
+                content.innerHTML = '<p style="padding: 1rem; color: var(--text-muted);">No scoring settings available for this season.</p>';
             } else {
                 let html = '';
                 Object.keys(settings).forEach(category => {
@@ -547,6 +549,7 @@ class FantasyApp {
         this.powerRankingsHistory = powerRankingsData || [];
         this.draftResults = draftData || [];
         this.leagueSettings = settingsData || {};
+        this.scoringSettings = bundleData.scoring_settings || bundleData.scoring_rules || {};
 
         // Update DOM with League Metadata
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
@@ -984,7 +987,7 @@ class FantasyApp {
 
             const clickHandler = g.year < 2018
                 ? `onclick="alert('ESPN has removed public access to player boxscore data prior to 2018.')"`
-                : `onclick="app.openBoxscoreModal(${g.year}, ${g.week}, '${g.home_manager_id}', '${g.away_manager_id}')"`;
+                : `onclick="window.app.openBoxscoreModal(${g.year}, ${g.week}, '${g.home_manager_id}', '${g.away_manager_id}')"`;
 
             cardsHtml += `
                 <div class="${cardClass}" ${clickHandler}>
@@ -1104,15 +1107,30 @@ class FantasyApp {
         const isLeftWin  = m.winner === 'HOME' || (m.winner_team_id && Number(m.winner_team_id) === Number(m.team_1_id)) || leftScore > rightScore;
         const isRightWin = m.winner === 'AWAY' || (m.winner_team_id && Number(m.winner_team_id) === Number(m.team_2_id)) || rightScore > leftScore;
 
-        const rawGamePlayers = this.playerStats.filter(p => p.year === sNum && p.week === wNum && (p.team_id === m.home_team_id || p.team_id === m.away_team_id));
+        const rawGamePlayers = this.playerStats.filter(p => {
+            const yr = Number(p.year || p.season);
+            const wk = Number(p.week);
+            if (yr !== sNum || wk !== wNum) return false;
+            const pTeam = Number(p.team_id);
+            const hTeam = Number(m.home_team_id !== undefined ? m.home_team_id : m.team_1_id);
+            const aTeam = Number(m.away_team_id !== undefined ? m.away_team_id : m.team_2_id);
+            if (pTeam === hTeam || pTeam === aTeam) return true;
+            if (p.manager_id && (p.manager_id === m.home_manager_id || p.manager_id === m.away_manager_id || p.manager_id === m.team_1_manager_id || p.manager_id === m.team_2_manager_id)) return true;
+            return false;
+        });
         const seenKeys = new Set();
         const gamePlayers = [];
         for (const p of rawGamePlayers) {
             const k = `${p.team_id}_${p.player_id || p.player_name}_${p.is_starter ? 'S' : 'B'}`;
             if (!seenKeys.has(k)) { seenKeys.add(k); gamePlayers.push(p); }
         }
-        const leftPlayers  = gamePlayers.filter(p => p.team_id === m.home_team_id);
-        const rightPlayers = gamePlayers.filter(p => p.team_id === m.away_team_id);
+        const leftTeamId = Number(m.home_team_id !== undefined ? m.home_team_id : m.team_1_id);
+        const rightTeamId = Number(m.away_team_id !== undefined ? m.away_team_id : m.team_2_id);
+        const leftMgrId = m.home_manager_id || m.team_1_manager_id;
+        const rightMgrId = m.away_manager_id || m.team_2_manager_id;
+
+        const leftPlayers  = gamePlayers.filter(p => Number(p.team_id) === leftTeamId || (leftMgrId && p.manager_id === leftMgrId));
+        const rightPlayers = gamePlayers.filter(p => Number(p.team_id) === rightTeamId || (rightMgrId && p.manager_id === rightMgrId));
 
         const renderRosterTable = (players, teamName, score, isWinner) => {
             const starters = players.filter(p => p.is_starter);
@@ -1187,7 +1205,7 @@ class FantasyApp {
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="app.openSettingsModal(${season})" title="View League Scoring Settings">? Scoring</button>
+                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="window.app.openSettingsModal(${season})" title="View League Scoring Settings">? Scoring</button>
                     <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>
                 </div>
             </div>
