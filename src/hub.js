@@ -243,7 +243,9 @@
               const inactiveHtml = [];
               const activeManagers = data.members.filter(m => m.isActive);
               
-              const getActiveOptions = (inactiveManagerAlias) => {
+              const normalizeString = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              
+              const getActiveOptions = (inactiveManagerAlias, inactiveManagerHandle) => {
                 let options = '<option value="">Keep Separate</option>';
                 activeManagers.forEach(active => {
                   const activeHandle = active.displayName || 'unknown';
@@ -251,7 +253,12 @@
                   if (active.firstName && active.lastName) {
                       activeAlias = `${active.firstName} ${active.lastName.charAt(0)}.`;
                   }
-                  const isMatch = (inactiveManagerAlias === activeAlias || activeHandle === (inactiveManagerAlias.displayName || ''));
+                  
+                  const isMatch = (
+                    normalizeString(inactiveManagerAlias) === normalizeString(activeAlias) || 
+                    (inactiveManagerHandle && inactiveManagerHandle !== 'unknown' && inactiveManagerHandle === activeHandle)
+                  );
+                  
                   options += `<option value="${active.id}" ${isMatch ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
                 });
                 return options;
@@ -271,7 +278,11 @@
                     if (am.firstName && am.lastName) {
                         amAlias = `${am.firstName} ${am.lastName.charAt(0)}.`;
                     }
-                    return amAlias === alias && am.id !== m.id;
+                    
+                    const isAliasMatch = normalizeString(amAlias) === normalizeString(alias);
+                    const isHandleMatch = amHandle !== 'unknown' && amHandle === handle;
+                    
+                    return (isAliasMatch || isHandleMatch) && am.id !== m.id;
                   });
 
                   const mergeBtnHtml = duplicateActive.length > 0 ? `
@@ -305,7 +316,7 @@
                       </div>
                       <div style="display: flex; gap: 0.5rem;">
                         <select class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
-                          ${getActiveOptions(alias)}
+                          ${getActiveOptions(alias, handle)}
                         </select>
                         <input type="text" value="${alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                       </div>
@@ -315,7 +326,7 @@
               });
 
               managerConfigList.innerHTML = `
-                <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${activeManagers.length})</div>
+                <div style="font-size: 0.85rem; color: var(--accent-gold); font-weight: 600; margin-bottom: 0.25rem;">Active Managers (${data.activeSeason} Season)</div>
                 ${activeHtml.join('')}
                 ${inactiveHtml.length > 0 ? `<div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem;">Historical Managers (Inactive)</div>${inactiveHtml.join('')}` : ''}
               `;
