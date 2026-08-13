@@ -14,13 +14,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { email, slug } = req.body;
+  const { email, slug, joinCode, origin } = req.body;
 
-  if (!email || !slug) {
-    return res.status(400).json({ error: 'Missing email or slug parameters' });
+  if (!email || !slug || !joinCode || !origin) {
+    return res.status(400).json({ error: 'Missing email, slug, joinCode, or origin parameters' });
   }
 
-  const leagueUrl = `https://thefantasyvault.com/${slug}`;
+  const inviteLink = `${origin}/${slug}?join=${joinCode}`;
 
   try {
     const info = await transporter.sendMail({
@@ -28,18 +28,15 @@ export default async function handler(req, res) {
       to: email,
       subject: 'Welcome to The Fantasy Vault!',
       html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your League is Ready!</h2>
-          <p>The system has finished building the historical archives for your fantasy football league.</p>
-          
-          <div style="background: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0 0 10px 0;"><strong>Your League URL:</strong></p>
-            <a href="${leagueUrl}" style="color: #0284c7; text-decoration: none; font-weight: bold; font-size: 18px;">${leagueUrl}</a>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #111; color: #fff; padding: 20px; border-radius: 8px;">
+          <h2 style="color: #ffd700; text-align: center;">Welcome to The Fantasy Vault</h2>
+          <p>Your league archive has been successfully generated.</p>
+          <div style="background-color: #222; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Invite Link:</strong> <a href="${inviteLink}" style="color: #ffd700; font-weight: bold;">${inviteLink}</a></p>
+            <p style="margin: 10px 0 0 0;"><strong>Member Join Code:</strong> <span style="color: #ffd700; font-size: 1.2em; font-weight: bold;">${joinCode}</span></p>
           </div>
-          
-          <p>Share this link with your league mates so they can claim their manager profiles and view the record books!</p>
-          <br/>
-          <p>Cheers,<br/>The Fantasy Vault Team</p>
+          <p>Share this link and code with your league mates so they can claim their profiles and access the private vault!</p>
+          <p style="color: #888; font-size: 0.8em; text-align: center; margin-top: 30px;">The Fantasy Vault</p>
         </div>
       `,
     });
