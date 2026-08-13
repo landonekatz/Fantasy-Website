@@ -49,12 +49,56 @@ class FantasyApp {
     }
 
     async init() {
+        this.setupFounderControlBar();
         this.setupThemeToggle();
         await this.loadData();
         this.initPowerRankings();
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
+    }
+
+    setupFounderControlBar() {
+        if (typeof window.AuthEngine === 'undefined') return;
+        
+        let bar = document.getElementById('founder-control-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'founder-control-bar';
+            bar.className = 'founder-control-bar';
+            document.body.prepend(bar);
+        }
+
+        const session = window.AuthEngine.getSession();
+        const persona = window.AuthEngine.getPersona();
+        const activeUser = session ? (session.name || session.email) : 'Guest Visitor';
+        const isFounder = session && session.isFounder;
+
+        bar.innerHTML = `
+            <div class="founder-bar-left">
+                <span>🏛️ The Fantasy Vault Archive</span>
+                <span style="opacity:0.7;">&bull; Dumbarton HQ (Join Code: DMS202)</span>
+            </div>
+            <div class="founder-bar-right">
+                <span>User: <strong>${activeUser}</strong> ${isFounder ? '<span style="color:#d4af37;">(Founder)</span>' : ''}</span>
+                <label style="margin-left:0.5rem;">Persona:</label>
+                <select id="select-persona-mode" class="persona-select">
+                    <option value="founder" ${persona === 'founder' ? 'selected' : ''}>👑 Founder View (Landon)</option>
+                    <option value="admin" ${persona === 'admin' ? 'selected' : ''}>⚙️ League Admin (Commissioner)</option>
+                    <option value="member" ${persona === 'member' ? 'selected' : ''}>👥 Verified Member (Team Owner)</option>
+                    <option value="public" ${persona === 'public' ? 'selected' : ''}>👁️ Public Visitor</option>
+                </select>
+                <a href="/" style="color:#c5a059; text-decoration:none; margin-left:0.5rem; font-weight:600;">Hub &rarr;</a>
+            </div>
+        `;
+
+        const select = document.getElementById('select-persona-mode');
+        if (select) {
+            select.addEventListener('change', (e) => {
+                window.AuthEngine.setPersona(e.target.value);
+                window.location.reload();
+            });
+        }
     }
 
     setupThemeToggle() {

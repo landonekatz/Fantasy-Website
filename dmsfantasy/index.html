@@ -15,9 +15,12 @@
 <header>
     <div class="masthead-top-bar">
         <div class="edition-info">VOL. IX • EST. 2018</div>
-        <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
-            <span id="theme-toggle-label">Theme: Light</span>
-        </button>
+        <div style="display:flex; gap: 1rem; align-items:center;">
+            <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+                <span id="theme-toggle-label">Theme: Light</span>
+            </button>
+            <button id="btn-my-account" style="background: var(--accent-gold); color: #000; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">My Account</button>
+        </div>
     </div>
     <div class="masthead-main">
         <h1>The Dumbarton Fantasy Football<br>League HQ</h1>
@@ -294,12 +297,23 @@
     <div id="boxscore-modal-content"></div>
 </dialog>
 
+<!-- Account Modal -->
+<dialog id="account-modal" class="boxscore-modal" style="max-width: 400px; padding: 1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-line); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+        <h3 style="margin:0; font-family: var(--font-heading, 'Cinzel', serif);">My Account</h3>
+        <button id="close-account-modal" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color: var(--text-main);">&times;</button>
+    </div>
+    <div id="account-modal-content"></div>
+</dialog>
+
 <footer>
     Dumbarton Fantasy Football League HQ © 2026
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="data/data_bundle.js?v=20260811"></script>
+<script src="../src/auth.js"></script>
+<script src="../src/account.js"></script>
 <script type="module" src="src/app.js"></script>
 <script type="module" src="src/records.js"></script>
 <script type="module" src="src/rivalry.js"></script>

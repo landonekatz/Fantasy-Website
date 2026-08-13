@@ -15,8 +15,11 @@
 
 <header>
     <div class="masthead-top-bar">
-        <div class="edition-info">VOL. XI &bull; EST. 2015</div>
-        <div class="edition-info">League ID: 262404</div>
+        <div style="display:flex; gap: 1rem;">
+            <div class="edition-info">VOL. XI &bull; EST. 2015</div>
+            <div class="edition-info">League ID: 262404</div>
+        </div>
+        <button id="btn-my-account" style="background: var(--accent-gold); color: #000; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">My Account</button>
     </div>
     <div class="masthead-main">
         <h1>Gaywood Fantasy Football<br>League HQ</h1>
@@ -164,6 +167,15 @@
     <div id="boxscore-modal-content"></div>
 </dialog>
 
+<!-- Account Modal -->
+<dialog id="account-modal" class="boxscore-modal" style="max-width: 400px; padding: 1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border-line); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+        <h3 style="margin:0; font-family: var(--font-heading, 'Newsreader', serif);">My Account</h3>
+        <button id="close-account-modal" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color: var(--text-main);">&times;</button>
+    </div>
+    <div id="account-modal-content"></div>
+</dialog>
+
 <!-- League Settings Modal -->
 <dialog id="settings-modal" class="boxscore-modal">
     <div class="modal-header">
@@ -182,6 +194,8 @@
     The Gaywood Fantasy Football League Archive &copy; 2025 &bull; Est. 2015 &bull; <a href="https://fantasy.espn.com/football/league?leagueId=262404" target="_blank" rel="noopener">View on ESPN</a>
 </footer>
 
+<script src="../src/auth.js"></script>
+<script src="../src/account.js"></script>
 <script type="module" src="src/app.js"></script>
 <script type="module" src="src/records.js"></script>
 </body>

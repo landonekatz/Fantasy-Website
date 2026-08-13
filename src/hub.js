@@ -1,4 +1,4 @@
-// The Fantasy Vault — Editorial Light Hub Script
+// The Fantasy Vault — Editorial Light Hub Script & Auth Integration
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const leagueNameInput = document.getElementById('input-league-name');
@@ -8,16 +8,98 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeRegisterModalBtn = document.getElementById('close-register-modal');
   const modalGeneratedUrl = document.getElementById('modal-generated-url');
 
-  const btnFindLeague = document.getElementById('btn-find-league');
-  const findModal = document.getElementById('find-modal');
-  const closeFindModalBtn = document.getElementById('close-find-modal');
-  const leagueSearchInput = document.getElementById('input-league-search');
-  const searchResultsList = document.getElementById('search-results-list');
+  const headerJoinCodeForm = document.getElementById('header-join-code-form');
+  const inputHeaderCode = document.getElementById('input-header-code');
 
-  const btnOpenFounderModal = document.getElementById('btn-open-founder-modal');
-  const founderModal = document.getElementById('founder-modal');
-  const closeFounderModalBtn = document.getElementById('close-founder-modal');
-  const founderLoginForm = document.getElementById('founder-login-form');
+  const btnHeaderSignin = document.getElementById('btn-header-signin');
+  const authModal = document.getElementById('auth-modal');
+  const closeAuthModalBtn = document.getElementById('close-auth-modal');
+  const btnGoogleSSO = document.getElementById('btn-google-sso');
+  const emailAuthForm = document.getElementById('email-auth-form');
+  const btnForgotPassword = document.getElementById('btn-forgot-password');
+  const headerAuthContainer = document.getElementById('header-auth-container');
+
+  // Live UI Session Renderer
+  function renderHeaderAuthUI() {
+    if (!headerAuthContainer || typeof AuthEngine === 'undefined') return;
+    const session = AuthEngine.getSession();
+
+    if (session) {
+      const persona = AuthEngine.getPersona();
+      headerAuthContainer.innerHTML = `
+        <div class="user-badge-header">
+          <span style="white-space: nowrap; cursor: pointer; text-decoration: underline;" id="btn-header-navigate" title="Go to My League">${(session.name || session.email).split(' ')[0]}</span>
+        </div>
+        <button id="btn-header-logout" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Logout</button>
+      `;
+
+      const btnLogout = document.getElementById('btn-header-logout');
+      if (btnLogout) {
+        btnLogout.addEventListener('click', () => {
+          AuthEngine.logout();
+        });
+      }
+
+      const btnNavigate = document.getElementById('btn-header-navigate');
+      const accountModalElement = document.getElementById('account-modal');
+      
+      if (btnNavigate) {
+        btnNavigate.addEventListener('click', () => {
+          if (typeof window.renderAccountModal === 'function') {
+            window.renderAccountModal();
+          }
+          if (accountModalElement && typeof accountModalElement.showModal === 'function') {
+            accountModalElement.showModal();
+          }
+        });
+      }
+    } else {
+      headerAuthContainer.innerHTML = `
+        <button id="btn-header-signin" class="btn-header-signin">Sign In</button>
+      `;
+      const btnSignin = document.getElementById('btn-header-signin');
+      if (btnSignin) {
+        btnSignin.addEventListener('click', () => {
+          if (authModal && typeof authModal.showModal === 'function') {
+            authModal.showModal();
+          }
+        });
+      }
+    }
+  }
+
+  // Listen for Session changes
+  window.addEventListener('vault_auth_changed', () => {
+    renderHeaderAuthUI();
+  });
+  renderHeaderAuthUI();
+
+  // Header 6-Character Join Code Processing
+  if (headerJoinCodeForm && inputHeaderCode) {
+    headerJoinCodeForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = inputHeaderCode.value.trim().toUpperCase();
+      if (!code) return;
+
+      const session = AuthEngine.getSession();
+      if (!session) {
+        // User is not signed in; prompt them to sign in first
+        window.pendingJoinCode = code;
+        if (authModal && typeof authModal.showModal === 'function') {
+          authModal.showModal();
+        }
+        return;
+      }
+
+      const res = AuthEngine.processJoinCode(code);
+      if (res.success) {
+        alert(`Joining ${res.league.name}... Directing to league archive.`);
+        window.location.href = res.league.path + `?join=${code}`;
+      } else {
+        alert(res.message);
+      }
+    });
+  }
 
   // Live URL Preview matching input exactly
   if (leagueNameInput && urlPreviewText) {
@@ -34,7 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
     leagueNameInput.addEventListener('input', updateUrlPreview);
   }
 
-  // Register Form Submit
+  // Register Form Submit - Multi-Step Logic
+  const step1 = document.getElementById('register-step-1');
+  const step2 = document.getElementById('register-step-2');
+  const step3 = document.getElementById('register-step-3');
+  const managerConfigList = document.getElementById('manager-config-list');
+  const btnConfirmManagers = document.getElementById('btn-confirm-managers');
+  const btnFinishRegister = document.getElementById('btn-finish-register');
+
   if (registerForm && registerModal) {
     registerForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -45,9 +134,63 @@ document.addEventListener('DOMContentLoaded', () => {
         modalGeneratedUrl.textContent = `thefantasyvault.com/${slug}`;
       }
 
+      // Reset to Step 1
+      if (step1 && step2 && step3) {
+        step1.style.display = 'block';
+        step2.style.display = 'none';
+        step3.style.display = 'none';
+      }
+
       if (typeof registerModal.showModal === 'function') {
         registerModal.showModal();
       }
+
+      // Simulate loading API / import (Step 1 -> Step 2)
+      setTimeout(() => {
+        if (step1 && step2) {
+          step1.style.display = 'none';
+          step2.style.display = 'block';
+          
+          if (managerConfigList) {
+            const mockManagers = [
+              { team: "Team Smith", handle: "smith_ff_pro", alias: "Smith" },
+              { team: "Katz Dominators", handle: "landonekatz", alias: "Landon" },
+              { team: "Watson Winners", handle: "mwatson88", alias: "Madoc" },
+              { team: "Jordan's Juggernauts", handle: "jordan_jugg", alias: "Jordan" }
+            ];
+            
+            managerConfigList.innerHTML = mockManagers.map((m, i) => `
+              <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <input type="checkbox" id="mgr-chk-${i}" checked>
+                  <div>
+                    <div style="font-weight: 600; font-size: 0.9rem;">${m.team}</div>
+                    <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${m.handle}</div>
+                  </div>
+                </div>
+                <div>
+                  <input type="text" value="${m.alias}" class="form-input" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
+                </div>
+              </div>
+            `).join('');
+          }
+        }
+      }, 1500);
+    });
+  }
+
+  if (btnConfirmManagers) {
+    btnConfirmManagers.addEventListener('click', () => {
+      if (step2 && step3) {
+        step2.style.display = 'none';
+        step3.style.display = 'block';
+      }
+    });
+  }
+
+  if (btnFinishRegister) {
+    btnFinishRegister.addEventListener('click', () => {
+      if (registerModal) registerModal.close();
     });
   }
 
@@ -57,72 +200,78 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Find Your League Modal Handler
-  if (btnFindLeague && findModal) {
-    btnFindLeague.addEventListener('click', () => {
-      if (typeof findModal.showModal === 'function') {
-        findModal.showModal();
-      }
+  // Auth Modal Handlers
+  if (closeAuthModalBtn && authModal) {
+    closeAuthModalBtn.addEventListener('click', () => {
+      authModal.close();
     });
   }
 
-  if (closeFindModalBtn && findModal) {
-    closeFindModalBtn.addEventListener('click', () => {
-      findModal.close();
-    });
-  }
-
-  // Founder Console Modal Handler
-  if (btnOpenFounderModal && founderModal) {
-    btnOpenFounderModal.addEventListener('click', () => {
-      if (findModal && typeof findModal.close === 'function') {
-        findModal.close();
-      }
-      if (typeof founderModal.showModal === 'function') {
-        founderModal.showModal();
-      }
-    });
-  }
-
-  if (closeFounderModalBtn && founderModal) {
-    closeFounderModalBtn.addEventListener('click', () => {
-      founderModal.close();
-    });
-  }
-
-  if (founderLoginForm) {
-    founderLoginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const pass = document.getElementById('input-founder-pass').value;
-      if (pass) {
-        alert('Welcome back, Landon! Platform Admin Console authenticated.');
-        window.location.href = '/dmsfantasy/';
-      }
-    });
-  }
-
-  // League Lookup Search Form
-  const leagueLookupForm = document.getElementById('league-lookup-form');
-  if (leagueLookupForm && leagueSearchInput) {
-    leagueLookupForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const query = leagueSearchInput.value.toLowerCase().trim();
-      if (!query) return;
-
-      const cleanQuery = query.replace(/[^a-z0-9]/g, '');
-
-      if (cleanQuery.includes('dumbarton') || cleanQuery.includes('dms')) {
-        window.location.href = '/dmsfantasy/';
-      } else if (cleanQuery.includes('gaywood') || cleanQuery.includes('katz') || cleanQuery.includes('dad')) {
-        window.location.href = '/gaywoodfantasy/';
+  // Post-Login Redirect Handler
+  function handlePostLogin(defaultMessage, defaultRedirect) {
+    if (window.pendingJoinCode) {
+      const code = window.pendingJoinCode;
+      window.pendingJoinCode = null;
+      const res = AuthEngine.processJoinCode(code);
+      if (res.success) {
+        alert(`Joining ${res.league.name}... Directing to league archive.`);
+        window.location.href = res.league.path + `?join=${code}`;
       } else {
-        searchResultsList.innerHTML = `
-          <div style="background: var(--bg-card-alt); border: 1px solid var(--border-line); border-radius: 6px; padding: 1rem; margin-top: 0.5rem;">
-            <p style="font-size: 0.9rem; color: var(--ink-primary); margin-bottom: 0.25rem;"><strong>Searching for "${query}"</strong></p>
-            <p style="font-size: 0.85rem; color: var(--ink-muted);">If this is a private league, use the direct invite link or Join Code provided by your League Admin to access your archive.</p>
-          </div>
-        `;
+        alert(res.message);
+        if (defaultRedirect) window.location.href = defaultRedirect;
       }
+    } else {
+      if (defaultMessage) alert(defaultMessage);
+      if (defaultRedirect) window.location.href = defaultRedirect;
+    }
+  }
+
+  // League Type Toggle Logic
+  const inputLeagueType = document.getElementById('input-league-type');
+  const groupPlatform = document.getElementById('group-platform');
+  const groupPlatformsMultiple = document.getElementById('group-platforms-multiple');
+
+  if (inputLeagueType && groupPlatform && groupPlatformsMultiple) {
+    inputLeagueType.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'multiple-diff') {
+        groupPlatform.style.display = 'none';
+        groupPlatformsMultiple.style.display = 'block';
+      } else {
+        groupPlatform.style.display = 'block';
+        groupPlatformsMultiple.style.display = 'none';
+      }
+    });
+  }
+
+  // Google SSO 1-Click
+  if (btnGoogleSSO) {
+    btnGoogleSSO.addEventListener('click', (e) => {
+      e.preventDefault();
+      AuthEngine.loginWithGoogle('manager@gmail.com');
+      if (authModal) authModal.close();
+      handlePostLogin('Signed in via Google SSO as manager@gmail.com.');
+    });
+  }
+
+  // Email & Password Auth Form
+  if (emailAuthForm) {
+    emailAuthForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('input-auth-email').value.trim();
+      const pass = document.getElementById('input-auth-pass').value;
+
+      AuthEngine.loginWithEmail(email, pass);
+      if (authModal) authModal.close();
+      handlePostLogin(`Signed in as ${email}. Session active.`);
+    });
+  }
+
+  if (btnForgotPassword) {
+    btnForgotPassword.addEventListener('click', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('input-auth-email').value.trim() || 'your email';
+      alert(`Password recovery link has been dispatched to ${email}. Check your inbox to reset your password.`);
     });
   }
 });
