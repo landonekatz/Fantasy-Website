@@ -141,11 +141,9 @@
   const inputPlatform = document.getElementById('input-platform');
   const authPlatformName = document.getElementById('auth-platform-name');
 
-  if (modalInputAccess && modalEspnPrivate && inputPlatform) {
+  if (modalInputAccess) {
     modalInputAccess.addEventListener('change', () => {
-      const isEspn = inputPlatform.value === 'espn';
-      const isPrivateOrUnsure = modalInputAccess.value === 'private' || modalInputAccess.value === 'unknown';
-      modalEspnPrivate.style.display = (isEspn && isPrivateOrUnsure) ? 'block' : 'none';
+      if (typeof updateEspnFields === 'function') updateEspnFields();
     });
   }
 
@@ -187,6 +185,12 @@
       if (inputPlatform && inputPlatform.value !== 'espn') {
         const plat = inputPlatform.value.charAt(0).toUpperCase() + inputPlatform.value.slice(1);
         alert(`${plat} integration is coming soon!`);
+        return;
+      }
+
+      const modalInputAccess = document.getElementById('modal-input-access');
+      if (modalInputAccess && modalInputAccess.value === '') {
+        alert("Please select whether your league is public or private.");
         return;
       }
 
@@ -333,8 +337,19 @@
 
   function updateEspnFields() {
     if (!inputPlatform || !groupEspnLeagueId) return;
-    const isEspn = inputPlatform.value === 'espn' && inputLeagueType.value !== 'multiple-diff';
-    groupEspnLeagueId.style.display = isEspn ? 'block' : 'none';
+    const isEspn = inputPlatform.value === 'espn' && (!inputLeagueType || inputLeagueType.value !== 'multiple-diff');
+    
+    // Only show League ID input if they have selected a privacy option
+    const modalInputAccess = document.getElementById('modal-input-access');
+    const privacySelected = modalInputAccess ? (modalInputAccess.value !== '') : true;
+    groupEspnLeagueId.style.display = (isEspn && privacySelected) ? 'block' : 'none';
+
+    // Show s2/swid if private or unknown
+    const modalEspnPrivate = document.getElementById('modal-espn-private');
+    if (modalEspnPrivate && modalInputAccess) {
+      const isPrivateOrUnsure = modalInputAccess.value === 'private' || modalInputAccess.value === 'unknown';
+      modalEspnPrivate.style.display = (isEspn && privacySelected && isPrivateOrUnsure) ? 'block' : 'none';
+    }
   }
 
   if (inputPlatform) {

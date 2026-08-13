@@ -226,8 +226,17 @@
     <!-- Step Auth: Privacy / Platform Cookies -->
     <div id="register-step-auth" style="display: none; padding: 1.5rem 0;">
       <h3 class="modal-title">League Authentication</h3>
-      <p class="modal-text" style="margin-bottom: 1rem;">Is your <span id="auth-platform-name" style="font-weight: 600; text-transform: capitalize;">ESPN</span> league public or private?</p>
+      <p class="modal-text" style="margin-bottom: 1rem;">Is your <span id="auth-platform-name" style="font-weight: 600; text-transform: uppercase;">ESPN</span> league public or private?</p>
       
+      <div class="form-group">
+        <select id="modal-input-access" class="form-input">
+          <option value="" disabled selected>Select League Privacy...</option>
+          <option value="public">Public (Anyone with link can view)</option>
+          <option value="private">Private (Requires invite/authentication)</option>
+          <option value="unknown">I'm not sure</option>
+        </select>
+      </div>
+
       <!-- ESPN Specific Fields -->
       <div class="form-group" id="group-espn-league-id" style="display: none; padding: 1rem; background: var(--bg-card-alt); border-radius: 6px; border: 1px solid var(--border-line); margin-bottom: 1rem;">
         <label for="input-espn-id" class="form-label" style="font-size: 0.95rem; color: var(--accent-gold);">ESPN League ID</label>
@@ -235,14 +244,6 @@
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">
           This is the string of numbers found in your league's browser URL (e.g. <code>leagueId=12345678</code>).
         </div>
-      </div>
-
-      <div class="form-group">
-        <select id="modal-input-access" class="form-input">
-          <option value="public">Public (Anyone with link can view)</option>
-          <option value="private">Private (Requires invite/authentication)</option>
-          <option value="unknown">I'm not sure</option>
-        </select>
       </div>
 
       <div id="modal-espn-private" style="display: none; margin-bottom: 1rem; padding: 1rem; background: rgba(251, 188, 5, 0.05); border-radius: 6px; border: 1px solid var(--border-gold);">
