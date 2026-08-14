@@ -1,7 +1,8 @@
 // The Fantasy Vault — Client-Side Auth Engine & Join Code System
-import { auth, db } from './firebase.js';
+import { auth, db, database } from './firebase.js';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { ref as dbRef, set as rtdbSet } from "firebase/database";
 
 const PERSONA_KEY = 'vault_active_persona';
 
@@ -73,18 +74,38 @@ const AuthEngine = {
     }
   },
 
-  // 6-Character Join Code Processing (Validation only)
+  // 6-Character Join Code Processing (Validation & Lookup)
   processJoinCode(code) {
     const cleanCode = (code || '').trim().toUpperCase();
     if (JOIN_CODES[cleanCode]) {
       return { success: true, league: JOIN_CODES[cleanCode] };
     }
+
+    // Check dynamic active app instance if present
+    if (window.app && window.app.leagueSlug) {
+      const appCode = (window.app.leagueSettings?.join_code || window.app.leagueSlug.substring(0, 3).toUpperCase() + '24').toUpperCase();
+      if (cleanCode === appCode || cleanCode === window.app.leagueSlug.toUpperCase()) {
+        const info = {
+          leagueId: window.app.leagueSlug,
+          name: window.app.leagueSettings?.name || 'Fantasy Football League',
+          path: `/${window.app.leagueSlug}/`,
+          managers: window.app.members || []
+        };
+        JOIN_CODES[cleanCode] = info;
+        return { success: true, league: info };
+      }
+    }
+
     return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
   },
 
   async finalizeJoin(code, managerId) {
     const cleanCode = (code || '').trim().toUpperCase();
-    const info = JOIN_CODES[cleanCode];
+    let info = JOIN_CODES[cleanCode];
+    if (!info) {
+      const check = this.processJoinCode(code);
+      if (check.success) info = check.league;
+    }
     if (!info) return { success: false, message: "Invalid code" };
     
     const session = this.getSession();
@@ -95,7 +116,11 @@ const AuthEngine = {
       await updateDoc(userRef, {
         joinedLeagues: arrayUnion(info.leagueId)
       });
+      if (!session.joinedLeagues) session.joinedLeagues = [];
+      if (!session.joinedLeagues.includes(info.leagueId)) session.joinedLeagues.push(info.leagueId);
+
       await this.claimManagerProfile(info.leagueId, managerId, session.email);
+      window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
       return { success: true, league: info };
     } catch (e) {
       console.error("Finalize join error", e);
@@ -107,13 +132,25 @@ const AuthEngine = {
     const session = this.getSession();
     if (!session) return;
     try {
-      const claimRef = doc(db, 'leagues', leagueId, 'claims', managerId);
-      await setDoc(claimRef, {
+      const claimData = {
         userId: session.uid,
         email: session.email,
-        name: managerName,
+        name: managerName || session.name || session.email.split('@')[0],
         claimedAt: new Date().toISOString()
-      });
+      };
+
+      // 1. Write to Firestore
+      const claimRef = doc(db, 'leagues', leagueId, 'claims', managerId);
+      await setDoc(claimRef, claimData);
+
+      // 2. Write to Firebase RTDB for instantaneous reactive sync
+      if (database) {
+        const rtdbClaimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
+        await rtdbSet(rtdbClaimRef, claimData);
+      }
+
+      if (!session.claims) session.claims = {};
+      session.claims[leagueId] = managerId;
     } catch (e) {
       console.error("Claim error", e);
     }

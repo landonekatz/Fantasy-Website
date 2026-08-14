@@ -1,6 +1,6 @@
 import { compileVaultData } from './compiler.js';
 import { database } from './firebase.js';
-import { ref as dbRef, set, get, child } from 'firebase/database';
+import { ref as dbRef, set, get, child, update } from 'firebase/database';
 function getPlayoffRoundName(season, week) {
     const yr = Number(season);
     const wk = Number(week);
@@ -296,14 +296,7 @@ class FantasyApp {
             window.history.replaceState({}, '', window.location.pathname);
         }
 
-        // 1. Invite Link Intercept
-        const joinCode = urlParams.get('join');
-        if (joinCode) {
-            window.location.href = `/?join=${joinCode}`;
-            return;
-        }
-
-        // 2. Private League Guard
+        // Private League Guard
         if (typeof window.AuthEngine !== 'undefined') {
             const persona = window.AuthEngine.getPersona();
             if (persona === 'public') {
@@ -325,6 +318,23 @@ class FantasyApp {
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
+        this.updateAdminTabVisibility();
+        window.addEventListener('vault_auth_changed', () => {
+            this.updateAdminTabVisibility();
+            if (this.activeTab === 'admin') {
+                this.renderAdminDashboard();
+            }
+        });
+
+        // Check for join code in URL params (e.g. ?join=CODE)
+        const joinCodeParam = urlParams.get('join');
+        if (joinCodeParam) {
+            setTimeout(() => {
+                if (typeof window.startManagerClaimFlow === 'function') {
+                    window.startManagerClaimFlow(joinCodeParam);
+                }
+            }, 600);
+        }
     }
 
     setupFounderControlBar() {
@@ -551,6 +561,43 @@ class FantasyApp {
         this.leagueSettings = settingsData || {};
         this.scoringSettings = bundleData.scoring_settings || bundleData.scoring_rules || {};
 
+        // Load claims & registration state from Firebase RTDB
+        this.claims = {};
+        if (this.leagueSlug) {
+            try {
+                const claimsSnap = await get(dbRef(database, `leagues/${this.leagueSlug}/claims`));
+                if (claimsSnap.exists()) {
+                    this.claims = claimsSnap.val() || {};
+                }
+            } catch (e) {
+                console.warn('Could not load claims from RTDB', e);
+            }
+
+            // Real-time listener for claims
+            try {
+                const claimsRef = dbRef(database, `leagues/${this.leagueSlug}/claims`);
+                onValue(claimsRef, (snapshot) => {
+                    this.claims = snapshot.exists() ? (snapshot.val() || {}) : {};
+                    if (this.activeTab === 'admin') {
+                        this.renderAdminDashboard();
+                    }
+                });
+            } catch (e) {
+                console.warn('Claims listener error', e);
+            }
+        }
+
+        // Register dynamic join code for AuthEngine
+        if (typeof window.JOIN_CODES !== 'undefined' && this.leagueSlug) {
+            const dynamicCode = (this.leagueSettings.join_code || this.leagueSlug.substring(0, 3).toUpperCase() + '24').toUpperCase();
+            window.JOIN_CODES[dynamicCode] = {
+                leagueId: this.leagueSlug,
+                name: this.leagueSettings.name || "Fantasy Football League",
+                path: `/${this.leagueSlug}/`,
+                managers: this.members || this.managers || []
+            };
+        }
+
         // Update DOM with League Metadata
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
         const totalSeasons = this.leagueSettings.totalSeasons || this.seasonsList?.length || "--";
@@ -561,6 +608,10 @@ class FantasyApp {
             const hasLeagueSuffix = /league$/i.test(leagueName.trim());
             titleEl.innerHTML = `${leagueName}<br>${hasLeagueSuffix ? 'HQ' : 'League HQ'}`;
         }
+
+        const tagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "Your League Archive";
+        const subtitleEl = document.getElementById("league-subtitle");
+        if (subtitleEl) subtitleEl.textContent = tagline;
         
         const idInfoEl = document.getElementById("league-id-info");
         if (idInfoEl) idInfoEl.textContent = `League ID: ${this.leagueSettings.id || "------"}`;
@@ -660,14 +711,16 @@ class FantasyApp {
         const btnHome = document.getElementById('btn-tab-home');
         const btnH2h = document.getElementById('btn-tab-h2h');
         const btnRecords = document.getElementById('btn-tab-records');
+        const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
+        const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnH2h, btnRecords, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewH2h, viewRecords, viewAdmin].forEach(view => view && view.classList.remove('active'));
 
             const themeLabel = document.getElementById('theme-toggle-label');
             if (themeLabel) {
@@ -685,14 +738,20 @@ class FantasyApp {
                 btnRecords && btnRecords.classList.add('active');
                 viewRecords && viewRecords.classList.add('active');
                 this.renderRecordBook();
+            } else if (tab === 'admin') {
+                btnAdmin && btnAdmin.classList.add('active');
+                viewAdmin && viewAdmin.classList.add('active');
+                this.renderAdminDashboard();
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
+        this.switchTab = switchTab;
 
         if (btnHome) btnHome.addEventListener('click', () => switchTab('home'));
         if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
+        if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
 
         // Setup smooth scrolling for "On This Page" subnav pills on League Home
         const scrollerLinks = document.querySelectorAll('.scroller-pill');
@@ -1138,7 +1197,13 @@ class FantasyApp {
             let html = `<div class="roster-card"><div class="roster-card-header"><div class="roster-team-title">${teamName} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div><div class="roster-team-score">${score.toFixed(2)}</div></div><div class="roster-section-title"><span>Starters</span></div>`;
 
             if (players.length === 0) {
-                html += `<div style="padding:28px;text-align:center;color:var(--text-muted);"><em>Detailed player box score not archived for this matchup.</em></div>`;
+                html += `
+                    <div style="padding: 36px 16px; text-align: center; color: var(--text-muted);">
+                        <div style="font-size: 1.8rem; margin-bottom: 8px;">⏳</div>
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px; font-size: 0.95rem;">Box score is populating, please check back in a moment.</div>
+                        <div style="font-size: 0.82rem;">Player statlines and rosters are synchronizing with the platform archive.</div>
+                    </div>
+                `;
             } else {
                 const SLOTS = [
                     { id: 0, label: 'QB' },
@@ -1217,6 +1282,529 @@ class FantasyApp {
 
         if (typeof modal.showModal === 'function') modal.showModal();
         else modal.style.display = 'block';
+    }
+
+    updateAdminTabVisibility() {
+        const btnAdmin = document.getElementById('btn-tab-admin');
+        if (!btnAdmin) return;
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const adminEmail = this.leagueSettings?.admin_email || window.FANTASY_DATA?.league_settings?.admin_email;
+        const isFounder = window.AuthEngine && window.AuthEngine.isFounder();
+        const isLeagueAdmin = Boolean(isFounder || (session && adminEmail && session.email && session.email.toLowerCase() === adminEmail.toLowerCase()));
+
+        if (isLeagueAdmin) {
+            btnAdmin.style.display = 'inline-flex';
+        } else {
+            btnAdmin.style.display = 'none';
+            if (this.activeTab === 'admin') {
+                this.switchTab('home');
+            }
+        }
+    }
+
+    renderAdminDashboard() {
+        const container = document.getElementById('view-admin');
+        if (!container) return;
+
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "Your League Archive";
+        const leagueName = this.leagueSettings.name || "Fantasy Football League";
+
+        // Join code & shareable links
+        const joinCode = (this.leagueSettings.join_code || (this.leagueSlug ? this.leagueSlug.substring(0, 3).toUpperCase() + '24' : 'VAULT24')).toUpperCase();
+        const joinLink = window.location.origin + '/' + this.leagueSlug + '/?join=' + joinCode;
+        const leagueUrl = window.location.origin + '/' + this.leagueSlug + '/';
+
+        // Generate manager list for renaming, claims, and merging
+        const sortedMembers = [...(this.members || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        
+        // Build table rows for registered members, display name editing, and invites
+        const managerRows = sortedMembers.map(m => {
+            const memberMatchups = this.matchups.filter(x => x.home_manager_id === m.id || x.away_manager_id === m.id || x.team_1_manager_id === m.id || x.team_2_manager_id === m.id);
+            const yearsActive = [...new Set(memberMatchups.map(x => x.year || x.season))].sort();
+            const yearsStr = yearsActive.length > 0 ? `${yearsActive[0]}–${yearsActive[yearsActive.length - 1]} (${yearsActive.length} yr${yearsActive.length > 1 ? 's' : ''})` : 'Active';
+            
+            const claim = this.claims ? this.claims[m.id] : null;
+            const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
+            const isClaimed = Boolean(claim);
+
+            const emailSubject = encodeURIComponent(`Claim your ${leagueName} profile on The Fantasy Vault`);
+            const emailBody = encodeURIComponent(
+                `Hey ${m.name},\n\n` +
+                `You're invited to claim your manager profile and explore our complete all-time league archive on The Fantasy Vault!\n\n` +
+                `🔗 Direct Claim Link: ${joinLink}\n` +
+                `🎟️ League Join Code: ${joinCode}\n\n` +
+                `See all of your historical matchups, stats, head-to-head records, and league trophies in one place.`
+            );
+            const mailtoHref = `mailto:${claim?.email || ''}?subject=${emailSubject}&body=${emailBody}`;
+
+            return `
+                <tr data-manager-id="${m.id}">
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" style="min-width: 120px; max-width: 180px; padding: 6px 10px; font-size: 0.88rem; font-weight: 600;">
+                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" style="padding: 6px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap;">Save</button>
+                        </div>
+                    </td>
+                    <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">${m.id}</td>
+                    <td style="font-size: 0.82rem; color: var(--text-secondary);">${yearsStr}</td>
+                    <td>
+                        ${isClaimed ? `
+                            <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
+                                ✓ ${claimEmail}
+                            </span>
+                        ` : `
+                            <span class="badge-unregistered">Unregistered</span>
+                        `}
+                    </td>
+                    <td>
+                        <div class="admin-actions-cell">
+                            <a href="${mailtoHref}" class="btn-email-invite" title="Open email draft to send invite to ${m.name}">
+                                ✉️ Email Invite
+                            </a>
+                            <button class="btn-copy-action btn-sm" data-copy="${joinLink}" title="Copy direct invite link">
+                                📋 Copy Link
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Build options for merge selector
+        const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.name} (ID: ${m.id})</option>`).join('');
+
+        container.innerHTML = `
+            <div class="admin-dashboard-wrapper">
+                <!-- Masthead / Title -->
+                <div class="admin-dashboard-hero">
+                    <div class="admin-badge-gold">👑 League Admin Control Panel</div>
+                    <h1>${leagueName} Administration</h1>
+                    <p class="admin-hero-sub">Manage your league's public identity, custom taglines, manager roster names, historical merges, and member access.</p>
+                </div>
+
+                <!-- 1. TAGLINE CUSTOMIZATION -->
+                <div class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon">🏷️</div>
+                        <div>
+                            <h2>League Tagline & Subtitle</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize the official league motto displayed directly beneath your league title on the homepage header.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-landon-note">
+                        <div class="landon-avatar">👑</div>
+                        <div class="landon-note-content">
+                            <div class="landon-note-title">A Note from Landon</div>
+                            <p class="landon-note-text">"This is one of the first points of customization for your league! Feel free to choose from one of the preset league taglines below, enter your own custom motto, or make it a league tradition by letting your reigning league champion set the tagline for the season."</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.25rem;">
+                        <label style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--text-secondary);">Choose a Preset Tagline:</label>
+                        <div class="tagline-presets-grid">
+                            <button type="button" class="btn-tagline-preset" data-preset="Your League Archive">"Your League Archive"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="The All-Time Archive & Historical Record">"The All-Time Archive &amp; Historical Record"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Where Legends Collide & Records Fall">"Where Legends Collide &amp; Records Fall"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Precision Fantasy Football Analytics">"Precision Fantasy Football Analytics"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Every Matchup. Every Champion. Eternal Record.">"Every Matchup. Every Champion. Eternal Record."</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="A Tradition Unlike Any Other">"A Tradition Unlike Any Other"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Where Bad Trades Live Forever">"Where Bad Trades Live Forever"</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.5rem;">
+                        <label for="admin-tagline-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--text-secondary);">Custom Tagline / Subtitle:</label>
+                        <div class="tagline-input-row">
+                            <input type="text" id="admin-tagline-input" class="admin-input" value="${currentTagline}" placeholder="Enter your league's custom motto or tagline...">
+                            <button id="btn-save-tagline" class="btn-primary" style="padding: 10px 20px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Tagline</button>
+                        </div>
+                        <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- 2. REGISTERED MEMBERS & MANAGER ROSTER -->
+                <div class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon">👥</div>
+                        <div>
+                            <h2>League Members & Registration Roster</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, view registered email accounts, and send invite links for members to claim their historical profiles.</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.25rem;">
+                        <div class="admin-table-scroll">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Manager Display Name</th>
+                                        <th>Manager ID</th>
+                                        <th>Active Seasons</th>
+                                        <th>Account / Registered Email</th>
+                                        <th>Invite &amp; Claim Links</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${managerRows}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="manager-rename-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
+
+                    <!-- Merge Historical Managers Sub-block -->
+                    <div class="admin-merge-box" style="margin-top: 2rem;">
+                        <h3 style="font-size: 1.05rem; font-weight: 700; margin-top: 0; margin-bottom: 0.5rem; color: #991B1B; display: flex; align-items: center; gap: 8px;">
+                            <span>🔗 Merge Historical Manager Profiles</span>
+                        </h3>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
+                            If an owner played under different accounts, aliases, or team profiles in past seasons, select their old profile to absorb it into their primary active profile. All matchup histories, championships, and statistics will be transferred.
+                        </p>
+
+                        <div class="admin-merge-controls">
+                            <div class="merge-select-group">
+                                <label for="merge-source-mgr">Source Profile <span style="font-weight:normal; opacity:0.8;">(Old alias to absorb &amp; delete)</span>:</label>
+                                <select id="merge-source-mgr" class="admin-select">
+                                    <option value="">-- Select Source Profile --</option>
+                                    ${managerOptions}
+                                </select>
+                            </div>
+                            <div class="merge-arrow">➔</div>
+                            <div class="merge-select-group">
+                                <label for="merge-target-mgr">Target Profile <span style="font-weight:normal; opacity:0.8;">(Active profile to keep &amp; inherit records)</span>:</label>
+                                <select id="merge-target-mgr" class="admin-select">
+                                    <option value="">-- Select Target Profile --</option>
+                                    ${managerOptions}
+                                </select>
+                            </div>
+                            <button id="btn-run-merge" class="btn btn-danger" style="padding: 10px 18px; font-weight: 700; height: 42px; border-radius: 4px; white-space: nowrap; cursor: pointer;">Merge Profiles</button>
+                        </div>
+                        <div id="manager-merge-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
+                </div>
+
+                <!-- 3. LEAGUE INVITES & ACCESS -->
+                <div class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon">🎟️</div>
+                        <div>
+                            <h2>League Invites & Access Control</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Share join codes and direct links with your league members to grant them access to this vault.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-invite-grid" style="margin-top: 1.25rem;">
+                        <div class="admin-invite-box">
+                            <span class="invite-label">Official Join Code:</span>
+                            <div class="invite-value-row">
+                                <code class="invite-code-pill">${joinCode}</code>
+                                <button class="btn-copy-action btn-sm" data-copy="${joinCode}">Copy Code</button>
+                            </div>
+                        </div>
+                        <div class="admin-invite-box">
+                            <span class="invite-label">Direct Invite Link:</span>
+                            <div class="invite-value-row">
+                                <span class="invite-link-text">${joinLink}</span>
+                                <button class="btn-copy-action btn-sm" data-copy="${joinLink}">Copy Link</button>
+                            </div>
+                        </div>
+                        <div class="admin-invite-box">
+                            <span class="invite-label">Public League URL:</span>
+                            <div class="invite-value-row">
+                                <span class="invite-link-text">${leagueUrl}</span>
+                                <button class="btn-copy-action btn-sm" data-copy="${leagueUrl}">Copy URL</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Wire up Tagline preset buttons
+        const presetBtns = container.querySelectorAll('.btn-tagline-preset');
+        const taglineInput = container.querySelector('#admin-tagline-input');
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.getAttribute('data-preset');
+                if (taglineInput && text) {
+                    taglineInput.value = text;
+                    taglineInput.focus();
+                }
+            });
+        });
+
+        // Wire up Save Tagline button
+        const btnSaveTagline = container.querySelector('#btn-save-tagline');
+        if (btnSaveTagline && taglineInput) {
+            btnSaveTagline.addEventListener('click', async () => {
+                const newTagline = taglineInput.value.trim();
+                if (!newTagline) return;
+                await this.saveLeagueTagline(newTagline);
+            });
+        }
+
+        // Wire up Manager Rename buttons
+        const renameBtns = container.querySelectorAll('.btn-save-manager-name');
+        renameBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const mgrId = btn.getAttribute('data-manager-id');
+                const row = container.querySelector(`tr[data-manager-id="${mgrId}"]`);
+                const input = row ? row.querySelector('.mgr-rename-input') : null;
+                if (!input) return;
+                const newName = input.value.trim();
+                if (!newName) {
+                    alert("Manager display name cannot be empty.");
+                    return;
+                }
+                await this.updateManagerName(mgrId, newName);
+            });
+        });
+
+        // Wire up Merge Managers button
+        const btnMerge = container.querySelector('#btn-run-merge');
+        const selSource = container.querySelector('#merge-source-mgr');
+        const selTarget = container.querySelector('#merge-target-mgr');
+        if (btnMerge && selSource && selTarget) {
+            btnMerge.addEventListener('click', async () => {
+                const sourceId = selSource.value;
+                const targetId = selTarget.value;
+                if (!sourceId || !targetId) {
+                    alert("Please select both a Source Manager and a Target Manager.");
+                    return;
+                }
+                if (sourceId === targetId) {
+                    alert("Source and Target Manager cannot be the same person.");
+                    return;
+                }
+                const sourceMember = this.members.find(m => m.id === sourceId);
+                const targetMember = this.members.find(m => m.id === targetId);
+                const sourceName = sourceMember ? sourceMember.name : sourceId;
+                const targetName = targetMember ? targetMember.name : targetId;
+
+                const confirmed = window.confirm(
+                    `Are you sure you want to merge "${sourceName}" into "${targetName}"?\n\n` +
+                    `All historical matchup results, statistics, and records for "${sourceName}" will be permanently transferred to "${targetName}".\n\n` +
+                    `This action cannot be undone.`
+                );
+                if (confirmed) {
+                    await this.mergeHistoricalManagers(sourceId, targetId);
+                }
+            });
+        }
+
+        // Wire up Copy buttons
+        const copyBtns = container.querySelectorAll('.btn-copy-action');
+        copyBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const textToCopy = btn.getAttribute('data-copy');
+                if (textToCopy) {
+                    try {
+                        await navigator.clipboard.writeText(textToCopy);
+                        const originalText = btn.textContent;
+                        btn.textContent = '✓ Copied!';
+                        setTimeout(() => { btn.textContent = originalText; }, 2000);
+                    } catch (e) {
+                        console.error('Clipboard copy failed', e);
+                    }
+                }
+            });
+        });
+    }
+
+    async saveLeagueTagline(newTagline) {
+        const feedbackEl = document.getElementById('tagline-save-feedback');
+        const btn = document.getElementById('btn-save-tagline');
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+        try {
+            this.leagueSettings.tagline = newTagline;
+            this.leagueSettings.subtitle = newTagline;
+
+            // Live update header subtitle
+            const subtitleEl = document.getElementById('league-subtitle');
+            if (subtitleEl) subtitleEl.textContent = newTagline;
+
+            // Save to Firebase RTDB
+            if (this.leagueSlug) {
+                const settingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings`);
+                await update(settingsRef, {
+                    tagline: newTagline,
+                    subtitle: newTagline
+                });
+            }
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ Tagline updated successfully to "<em>${newTagline}</em>"!`;
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+            }
+        } catch (e) {
+            console.error('Failed to save tagline', e);
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'Error saving tagline. Please try again.';
+            }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Tagline'; }
+        }
+    }
+
+    async updateManagerName(managerId, newName) {
+        const feedbackEl = document.getElementById('manager-rename-feedback');
+        try {
+            // 1. Update in-memory members
+            const memberIdx = this.members.findIndex(m => m.id === managerId);
+            if (memberIdx !== -1) {
+                this.members[memberIdx].name = newName;
+            }
+
+            // 2. Update in-memory managers
+            const mgr = this.managers.find(m => m.id === managerId);
+            if (mgr) {
+                mgr.name = newName;
+                mgr.manager_name = newName;
+            }
+
+            // 3. Update matchups
+            this.matchups.forEach(m => {
+                if (m.home_manager_id === managerId || m.team_1_manager_id === managerId) {
+                    m.home_manager_name = newName;
+                    m.team_1_manager_name = newName;
+                }
+                if (m.away_manager_id === managerId || m.team_2_manager_id === managerId) {
+                    m.away_manager_name = newName;
+                    m.team_2_manager_name = newName;
+                }
+            });
+
+            // 4. Update player stats
+            this.playerStats.forEach(p => {
+                if (p.manager_id === managerId) {
+                    p.manager_name = newName;
+                }
+            });
+
+            // 5. Update standings
+            this.standings.forEach(s => {
+                if (s.manager_id === managerId) {
+                    s.manager_name = newName;
+                }
+            });
+
+            // 6. Update Firebase RTDB
+            if (this.leagueSlug) {
+                if (memberIdx !== -1) {
+                    const memberRef = dbRef(database, `leagues/${this.leagueSlug}/members/${memberIdx}`);
+                    await update(memberRef, { name: newName });
+                }
+                const allMembersRef = dbRef(database, `leagues/${this.leagueSlug}/members`);
+                await set(allMembersRef, this.members);
+            }
+
+            // 7. Refresh UI components
+            this.setupH2HControls();
+            if (this.activeTab === 'admin') {
+                this.renderAdminDashboard();
+            }
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ Manager name updated to "<strong>${newName}</strong>"!`;
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+            }
+        } catch (e) {
+            console.error('Failed to update manager name', e);
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'Error updating manager name. Please try again.';
+            }
+        }
+    }
+
+    async mergeHistoricalManagers(sourceId, targetId) {
+        const feedbackEl = document.getElementById('manager-merge-feedback');
+        const btn = document.getElementById('btn-run-merge');
+        if (btn) { btn.disabled = true; btn.textContent = 'Merging...'; }
+
+        try {
+            const targetMember = this.members.find(m => m.id === targetId);
+            const targetName = targetMember ? targetMember.name : targetId;
+
+            // 1. Reassign matchups
+            this.matchups.forEach(m => {
+                if (m.home_manager_id === sourceId || m.team_1_manager_id === sourceId) {
+                    m.home_manager_id = targetId;
+                    m.team_1_manager_id = targetId;
+                    m.home_manager_name = targetName;
+                    m.team_1_manager_name = targetName;
+                }
+                if (m.away_manager_id === sourceId || m.team_2_manager_id === sourceId) {
+                    m.away_manager_id = targetId;
+                    m.team_2_manager_id = targetId;
+                    m.away_manager_name = targetName;
+                    m.team_2_manager_name = targetName;
+                }
+            });
+
+            // 2. Reassign player stats
+            this.playerStats.forEach(p => {
+                if (p.manager_id === sourceId) {
+                    p.manager_id = targetId;
+                    p.manager_name = targetName;
+                }
+            });
+
+            // 3. Reassign standings
+            this.standings.forEach(s => {
+                if (s.manager_id === sourceId) {
+                    s.manager_id = targetId;
+                    s.manager_name = targetName;
+                }
+            });
+
+            // 4. Remove source from members
+            this.members = this.members.filter(m => m.id !== sourceId);
+            this.managers = this.managers.filter(m => m.id !== sourceId);
+
+            // 5. Save updated datasets to Firebase RTDB
+            if (this.leagueSlug) {
+                const membersRef = dbRef(database, `leagues/${this.leagueSlug}/members`);
+                const matchupsRef = dbRef(database, `leagues/${this.leagueSlug}/matchups`);
+                const standingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_standings`);
+                const playerStatsRef = dbRef(database, `leagues/${this.leagueSlug}/weekly_player_stats`);
+
+                await set(membersRef, this.members);
+                await set(matchupsRef, this.matchups);
+                await set(standingsRef, this.standings);
+                await set(playerStatsRef, this.playerStats);
+            }
+
+            // 6. Refresh UI components
+            this.setupH2HControls();
+            this.renderAdminDashboard();
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ Successfully merged manager profiles into <strong>${targetName}</strong>!`;
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+            }
+        } catch (e) {
+            console.error('Failed to merge managers', e);
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'Error during merge. Please try again.';
+            }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Merge Profiles'; }
+        }
     }
 }
 

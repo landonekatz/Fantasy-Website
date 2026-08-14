@@ -154,8 +154,8 @@ Object.assign(TargetApp.prototype, {
 
         el.innerHTML = `
             <div class="records-hero-title">
-                <span id="records-hero-league-name">The League Record Book</span>
-                <h1>Eternal Glory</h1>
+                <span id="records-hero-league-name">All-Time Archive</span>
+                <h1>League Record Book</h1>
             </div>
             <div class="records-hero-stats">
                 <div class="hero-stat-badge">

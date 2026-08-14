@@ -21,33 +21,103 @@
         }
 
         const league = res.league;
-        const managers = league.managers || [];
+        const session = AuthEngine.getSession();
 
-        if (managers.length === 0) {
-            // Fallback if no managers defined
-            const finalRes = AuthEngine.finalizeJoin(code, 'unknown');
-            if (finalRes.success) {
-                alert(`Successfully joined ${league.name}!`);
-                if (onSuccess) onSuccess();
+        if (!session) {
+            // User is not signed in yet — present login directly inside modal
+            accountModalContent.innerHTML = `
+                <div style="text-align: center; padding: 6px 0;">
+                    <div style="font-size: 2.2rem; margin-bottom: 8px;">🎟️</div>
+                    <h3 class="modal-title" style="margin-bottom: 6px; font-size: 1.3rem;">Join ${league.name}</h3>
+                    <p class="modal-text" style="margin-bottom: 1.25rem; font-size: 0.9rem; color: var(--text-secondary);">Sign in or create your free Fantasy Vault account to claim your historical manager profile.</p>
+                    
+                    <button id="btn-claim-google" class="btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; margin-bottom: 1rem; cursor: pointer; border: 1px solid var(--border-line); background: var(--bg-card); font-weight: 600;">
+                        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                        Continue with Google
+                    </button>
+
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.8rem;">
+                        <hr style="flex: 1; border: none; border-top: 1px solid var(--border-line);">
+                        <span>OR EMAIL</span>
+                        <hr style="flex: 1; border: none; border-top: 1px solid var(--border-line);">
+                    </div>
+
+                    <form id="claim-email-form">
+                        <input type="email" id="claim-input-email" class="admin-input" placeholder="Your Email Address" required style="width: 100%; margin-bottom: 0.75rem; box-sizing: border-box;">
+                        <input type="password" id="claim-input-password" class="admin-input" placeholder="Password" required style="width: 100%; margin-bottom: 1rem; box-sizing: border-box;">
+                        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Sign In &amp; Claim Profile &rarr;</button>
+                    </form>
+                </div>
+            `;
+
+            if (typeof accountModal.showModal === 'function' && !accountModal.open) {
+                accountModal.showModal();
             }
+
+            document.getElementById('btn-claim-google')?.addEventListener('click', async () => {
+                try {
+                    await AuthEngine.loginWithGoogle();
+                    window.startManagerClaimFlow(code, onSuccess);
+                } catch (e) {
+                    console.error("Google sign in failed", e);
+                    alert("Google sign in failed. Please try again.");
+                }
+            });
+
+            document.getElementById('claim-email-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const em = document.getElementById('claim-input-email').value.trim();
+                const pw = document.getElementById('claim-input-password').value;
+                try {
+                    await AuthEngine.loginWithEmail(em, pw);
+                    window.startManagerClaimFlow(code, onSuccess);
+                } catch (err) {
+                    console.error("Email sign in failed", err);
+                    alert(err.message || "Sign in failed.");
+                }
+            });
+
             return;
         }
 
-        const managersHtml = managers.map(m => `
-            <label style="display:flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--border-line); margin-bottom: 0.5rem; border-radius: 4px; cursor: pointer; transition: background 0.2s;">
-                <input type="radio" name="manager_id" value="${m.id}" required> ${m.name}
+        const app = window.app || window.appInstance;
+        const managers = league.managers || (app?.members) || [];
+        const claims = app?.claims || {};
+
+        if (managers.length === 0) {
+            // Fallback if no managers defined
+            AuthEngine.finalizeJoin(code, 'unknown').then(finalRes => {
+                if (finalRes.success) {
+                    alert(`Successfully joined ${league.name}!`);
+                    if (onSuccess) onSuccess();
+                }
+            });
+            return;
+        }
+
+        const managersHtml = managers.map(m => {
+            const claim = claims[m.id];
+            const isSelf = claim && claim.userId === session.uid;
+            return `
+            <label style="display:flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.85rem; border: 1px solid var(--border-line); margin-bottom: 0.5rem; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                <span style="display: flex; align-items: center; gap: 10px;">
+                    <input type="radio" name="manager_id" value="${m.id}" required ${isSelf ? 'checked' : ''}> 
+                    <strong style="color: var(--text-primary); font-size: 0.95rem;">${m.name}</strong>
+                </span>
+                ${claim ? (isSelf ? '<span style="color: #15803d; font-size: 0.75rem; font-weight: 700;">✓ Linked to You</span>' : `<span style="color: var(--text-muted); font-size: 0.75rem;">(Claimed)</span>`) : '<span style="color: #b45309; font-size: 0.75rem; font-weight: 600; background: #fef3c7; padding: 2px 6px; border-radius: 4px;">Available</span>'}
             </label>
-        `).join('');
+            `;
+        }).join('');
 
         accountModalContent.innerHTML = `
-            <h3 class="modal-title">Claim Your Profile</h3>
-            <p class="modal-text">Select which manager you are in <strong>${league.name}</strong> to link your profile to their historical records.</p>
+            <h3 class="modal-title">Claim Your Manager Profile</h3>
+            <p class="modal-text" style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Select which manager you are in <strong>${league.name}</strong> to link your account to their historical records.</p>
             <form id="claim-form">
-                <div style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; padding-right: 0.5rem;">
+                <div style="max-height: 260px; overflow-y: auto; margin-bottom: 1.5rem; padding-right: 0.5rem;">
                     ${managersHtml}
                 </div>
-                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Link Profile & Join &rarr;</button>
-                <button type="button" id="btn-cancel-claim" style="width: 100%; background: none; border: none; color: var(--text-muted); margin-top: 0.5rem; cursor: pointer;">Cancel</button>
+                <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 10px;">Link Profile &amp; Join League &rarr;</button>
+                <button type="button" id="btn-cancel-claim" style="width: 100%; background: none; border: none; color: var(--text-muted); margin-top: 0.75rem; cursor: pointer; font-size: 0.88rem;">Cancel</button>
             </form>
         `;
 
@@ -55,12 +125,12 @@
             accountModal.showModal();
         }
 
-        document.getElementById('claim-form').addEventListener('submit', (e) => {
+        document.getElementById('claim-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const selected = document.querySelector('input[name="manager_id"]:checked');
             if (!selected) return;
 
-            const finalRes = AuthEngine.finalizeJoin(code, selected.value);
+            const finalRes = await AuthEngine.finalizeJoin(code, selected.value);
             if (finalRes.success) {
                 alert(`Successfully joined ${league.name}!`);
                 if (onSuccess) {
@@ -129,21 +199,29 @@
         let contentHTML = '';
 
         if (activeTab === 'profile' || !isLeagueAdmin) {
+            const activeSlug = app?.leagueSlug || window.location.pathname.replace(/^\/|\/$/g, '') || '';
+            let joinedList = Array.isArray(session.joinedLeagues) ? [...session.joinedLeagues] : [];
+            if (activeSlug && activeSlug !== 'vault' && activeSlug !== 'index.html' && !joinedList.includes(activeSlug)) {
+                joinedList.push(activeSlug);
+                session.joinedLeagues = joinedList;
+            }
+
             let leaguesListHTML = '';
-            if (session.joinedLeagues && session.joinedLeagues.length > 0) {
-                leaguesListHTML = session.joinedLeagues.map(leagueId => {
+            if (joinedList.length > 0) {
+                leaguesListHTML = joinedList.map(leagueId => {
                     const info = typeof JOIN_CODES !== 'undefined' ? Object.values(JOIN_CODES).find(l => l.leagueId === leagueId) : null;
-                    const name = info ? info.name : (app?.leagueSettings?.name || leagueId);
+                    let name = info ? info.name : (app?.leagueSettings?.name || (leagueId === 'fbofantasy' ? 'FBO Fantasy League' : leagueId));
                     const path = info ? info.path : `/${leagueId}/`;
                     
                     let claimText = '';
                     if (session.claims && session.claims[leagueId]) {
                         const claimId = session.claims[leagueId];
-                        const mgr = info && info.managers ? info.managers.find(m => m.id === claimId) : null;
+                        const mgr = (info && info.managers ? info.managers.find(m => m.id === claimId) : null) ||
+                                    (app?.members ? app.members.find(m => m.id === claimId) : null);
                         if (mgr) claimText = ` <span style="color: var(--text-muted); font-size: 0.8rem;">(as ${mgr.name})</span>`;
                     }
                     
-                    return `<li style="margin-bottom: 0.5rem;"><a href="${path}" style="color: var(--accent-gold); text-decoration: none; font-weight: 600;">${name}</a>${claimText}</li>`;
+                    return `<li style="margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;"><a href="${path}" style="color: var(--accent-gold); text-decoration: none; font-weight: 600;">${name}</a>${claimText}</li>`;
                 }).join('');
             } else {
                 leaguesListHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No leagues joined yet.</p>';
@@ -207,6 +285,9 @@
 
             contentHTML = `
                 <div class="admin-dashboard-container">
+                    <div style="margin-bottom: 1.25rem; text-align: center;">
+                        <button onclick="document.getElementById('account-modal').close(); if(window.app && window.app.switchTab) window.app.switchTab('admin');" style="width: 100%; padding: 0.6rem; font-weight: 700; font-size: 0.9rem; background: var(--accent-gold); color: #000; border: none; border-radius: 4px; cursor: pointer;">🏛️ Open Full Admin Dashboard Tab</button>
+                    </div>
                     
                     <div style="margin-bottom: 1.5rem;">
                         <h4 style="margin-top: 0; margin-bottom: 0.75rem; font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold);">League Invites</h4>
