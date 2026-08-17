@@ -5,46 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Fantasy Vault</title>
   
-  <script>
-    // Simple Static Router: 
-    // If the URL is not exactly '/' or a known path, assume it's a generated league slug.
-    // We will show a "Pending Setup" overlay since this static site doesn't have dynamically generated folders yet.
-    document.addEventListener('DOMContentLoaded', () => {
-      const path = window.location.pathname.replace(/\/$/, "");
-      if (path && path !== '' && path !== '/' && path !== '/dmsfantasy' && path !== '/gaywoodfantasy') {
-        document.body.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#121212; color:#fff; font-family:Inter, sans-serif; text-align:center;">
-            <div style="color:var(--accent-gold); font-size: 3rem; margin-bottom:1rem;">Vault Generating...</div>
-            <h2 style="margin-bottom:0.5rem; font-weight:600;">Building League: <code>${path.replace('/', '')}</code></h2>
-            <p style="color:rgba(255,255,255,0.7); max-width:500px; margin-bottom: 2rem; line-height:1.5;">
-              Your league hub is currently pending initial setup and data synchronization. 
-              We are securely importing your historical records and building your personalized vault.
-            </p>
-            
-            <div style="width: 100%; max-width: 400px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 2rem; position: relative;">
-              <div style="position: absolute; top: 0; left: 0; height: 100%; width: 40%; background: var(--accent-gold); border-radius: 4px; animation: loadingBar 2s infinite ease-in-out;"></div>
-            </div>
 
-            <div style="background: rgba(251, 188, 5, 0.1); border: 1px solid var(--accent-gold); padding: 1.5rem; border-radius: 6px; margin-bottom: 2rem; max-width: 500px;">
-              <h4 style="color: var(--accent-gold); margin-top: 0; margin-bottom: 0.75rem;">Hold tight!</h4>
-              <p style="color: rgba(255,255,255,0.85); font-size: 0.9rem; margin: 0; line-height: 1.5;">
-                Wait here for the loading bar to finish, or you can safely close this page. We'll send you an email when the site is ready, along with your official invite link and member join codes.
-              </p>
-            </div>
-            <a href="/" style="color:var(--accent-gold); text-decoration:none; border:1px solid var(--accent-gold); padding:0.5rem 1rem; border-radius:4px;">&larr; Return to Landing Hub</a>
-          </div>
-          <style>
-            @keyframes loadingBar {
-              0% { width: 0%; left: 0%; }
-              50% { width: 30%; left: 70%; }
-              100% { width: 0%; left: 100%; }
-            }
-          </style>
-          </div>
-        `;
-      }
-    });
-  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -70,7 +31,7 @@
         
         <!-- Join via League Code Form -->
         <form id="header-join-code-form" class="join-code-form">
-          <input type="text" id="input-header-code" class="join-code-input" placeholder="CODE" maxlength="6" title="Enter 6-character Join Code (e.g. DMS202)" required>
+          <input type="text" id="input-header-code" class="join-code-input" placeholder="CODE" maxlength="6" title="Enter 6-character Join Code (e.g. ABC123)" required>
           <button type="submit" class="btn-code-submit">Join &rarr;</button>
         </form>
 
@@ -122,7 +83,7 @@
         <div class="feature-eyebrow">STEP 01</div>
         <h3 class="feature-title">Connect Your League</h3>
         <p class="feature-desc">
-          Enter your ESPN League ID or connect Yahoo Fantasy. The Fantasy Vault imports your complete history — past seasons, week-by-week scores, rosters, draft picks, and managers.
+          Enter your ESPN League ID or connect Yahoo Fantasy. The Fantasy Vault imports your complete history, as past seasons, week-by-week scores, rosters, draft picks, and managers.
         </p>
       </div>
 
@@ -130,7 +91,7 @@
         <div class="feature-eyebrow">STEP 02</div>
         <h3 class="feature-title">Instant Historical Archive</h3>
         <p class="feature-desc">
-          Your league instantly gets a dedicated URL (e.g. <code>thefantasyvault.com/yourleague</code>) featuring all-time head-to-head records, single-game scoring records, and championship standings.
+          Your league instantly gets a dedicated URL (<code>thefantasyvault.com/yourleague</code>) featuring all-time head-to-head records, single-game scoring records, and championship standings.
         </p>
       </div>
 
@@ -191,7 +152,7 @@
           <div class="feature-eyebrow">04 &bull; Custom Culture &amp; Banter</div>
           <h3 class="feature-title">League Traditions &amp; Rivalries</h3>
           <p class="feature-desc">
-            Introduce fresh traditions to your league — including member-curated Power Rankings, dedicated Rivalry Weeks, all-time head-to-head matchup matrices, and custom trophies built from our own league experience.
+            Introduce fresh traditions to your league, as including member-curated Power Rankings, dedicated Rivalry Weeks, all-time head-to-head matchup matrices, and custom trophies built from our own league experience.
           </p>
         </div>
       </div>
@@ -249,10 +210,8 @@
               </div>
             </div>
 
-
-
             <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
-              Connect League &rarr;
+              Launch League Archive &rarr;
             </button>
           </form>
         </div>
@@ -281,9 +240,9 @@
       <!-- ESPN Specific Fields -->
       <div class="form-group" id="group-espn-league-id" style="display: none; padding: 1rem; background: var(--bg-card-alt); border-radius: 6px; border: 1px solid var(--border-line); margin-bottom: 1rem;">
         <label for="input-espn-id" class="form-label" style="font-size: 0.95rem; color: var(--accent-gold);">ESPN League ID</label>
-        <input type="text" id="input-espn-id" class="form-input" placeholder="e.g. 12345678">
+        <input type="text" id="input-espn-id" class="form-input" placeholder="12345678">
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.4;">
-          This is the string of numbers found in your league's browser URL (e.g. <code>leagueId=12345678</code>).
+          This is the number sequence found in your league's browser URL (<code>leagueId=12345678</code>).
         </div>
       </div>
 
@@ -298,7 +257,7 @@
         </div>
         <div style="margin-bottom: 1rem;">
           <label for="modal-espn-swid" class="form-label" style="font-size: 0.8rem;">ESPN SWID</label>
-          <input type="text" id="modal-espn-swid" class="form-input" placeholder="e.g. {1234-5678-ABCD}">
+          <input type="text" id="modal-espn-swid" class="form-input" placeholder="{1234-5678-ABCD}">
         </div>
         <details style="font-size: 0.8rem; color: var(--text-muted);">
           <summary style="cursor: pointer; color: var(--accent-gold);">How to find these cookies</summary>
@@ -424,7 +383,7 @@
     <div id="join-code-section">
       <p style="font-size: 0.85rem; color: var(--ink-muted); margin-bottom: 1rem; text-align: center;">Enter the 6-character code from your commish to claim your manager profile.</p>
       <div style="display: flex; gap: 0.5rem;">
-        <input type="text" id="input-join-code" class="form-input" placeholder="e.g. DMS202" style="text-transform: uppercase; letter-spacing: 2px; text-align: center; font-weight: bold;">
+        <input type="text" id="input-join-code" class="form-input" placeholder="ABC123" style="text-transform: uppercase; letter-spacing: 2px; text-align: center; font-weight: bold;">
         <button id="btn-verify-join-code" class="btn-secondary">Verify</button>
       </div>
       <div id="join-profile-select-wrapper" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-line);">

@@ -1,5 +1,5 @@
 /**
- * Rivalry Week — Hell / Dungeon Theme (Official Site Implementation)
+ * Rivalry Week, as Hell / Dungeon Theme (Official Site Implementation)
  * Est. 2027 • Dedicated Thanksgiving Week Rivalries
  */
 
@@ -102,7 +102,7 @@ TargetApp.prototype.renderRivalryWeek = function() {
                     <p>Only my wars with him: he is a lion</p>
                     <p>That I am proud to hunt.</p>
                 </blockquote>
-                <div class="dungeon-quote-credit">— William Shakespeare, <em>Coriolanus</em></div>
+                <div class="dungeon-quote-credit">, as William Shakespeare, <em>Coriolanus</em></div>
                 <p class="dungeon-subtitle">
                     Starting in the 2026-2027 season, every manager is bound to an eternal rival. Contested annually during the week of Thanksgiving, where rivalry records are carved in stone forever.
                 </p>
@@ -207,7 +207,7 @@ TargetApp.prototype.renderRivalryWeek = function() {
                 html += `
                     <div class="dungeon-matchup-row" onclick="window.app && window.app.openBoxscoreModal(${m.season}, ${m.week}, ${m.team_1_id}, ${m.team_2_id})">
                         <div class="dungeon-matchup-year">${m.season} Week ${m.week}</div>
-                        <div class="dungeon-matchup-score">${m.team_1_name} ${s1.toFixed(2)} — ${s2.toFixed(2)} ${m.team_2_name}</div>
+                        <div class="dungeon-matchup-score">${m.team_1_name} ${s1.toFixed(2)} vs ${s2.toFixed(2)} ${m.team_2_name}</div>
                     </div>
                 `;
             });

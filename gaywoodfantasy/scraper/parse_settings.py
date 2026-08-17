@@ -38,37 +38,50 @@ ESPN_STAT_MAP = {
     57: ("Receiving", "200+ yard receiving game"),
 
     # Kicking
-    198: ("Kicking", "Each PAT Made"),
-    199: ("Kicking", "Extra Point Missed"),
-    200: ("Kicking", "FG Made (0-39 yards)"),
-    201: ("Kicking", "FG Made (40-49 yards)"),
-    202: ("Kicking", "FG Made (50-59 yards)"),
-    203: ("Kicking", "FG Made (60+ yards)"),
+    86: ("Kicking", "Each PAT Made"),
+    88: ("Kicking", "Extra Point Missed"),
+    80: ("Kicking", "FG Made (0-39 yards)"),
+    74: ("Kicking", "FG Made (50+ yards)"),
+    77: ("Kicking", "FG Made (40-49 yards)"),
+    198: ("Kicking", "FG Made (50-59 yards)"),
+    201: ("Kicking", "FG Made (60+ yards)"),
+    202: ("Kicking", "FG Made (40-49 yards)"),
+    203: ("Kicking", "FG Made (50+ yards)"),
+    82: ("Kicking", "FG Missed (0-39 yards)"),
+    79: ("Kicking", "FG Missed (40-49 yards)"),
+    83: ("Kicking", "FG Missed (50+ yards)"),
     204: ("Kicking", "FG Missed (0-39 yards)"),
     205: ("Kicking", "FG Missed (40-49 yards)"),
     206: ("Kicking", "FG Missed (50+ yards)"),
 
     # Team Defense / Special Teams
-    73: ("Team Defense / Special Teams", "Each Sack"),
-    74: ("Team Defense / Special Teams", "Each Interception"),
-    75: ("Team Defense / Special Teams", "Each Fumble Recovered"),
-    77: ("Team Defense / Special Teams", "Interception Return TD"),
-    80: ("Team Defense / Special Teams", "Fumble Return TD"),
-    82: ("Team Defense / Special Teams", "Kickoff Return TD"),
-    83: ("Team Defense / Special Teams", "Punt Return TD"),
-    86: ("Team Defense / Special Teams", "Blocked Punt, PAT or FG"),
+    99: ("Team Defense / Special Teams", "Each Sack"),
+    95: ("Team Defense / Special Teams", "Each Interception"),
+    96: ("Team Defense / Special Teams", "Each Fumble Recovered"),
+    97: ("Team Defense / Special Teams", "Each Safety"),
+    98: ("Team Defense / Special Teams", "Blocked Punt, PAT or FG"),
+    93: ("Team Defense / Special Teams", "Blocked Punt or FG return for TD"),
+    101: ("Team Defense / Special Teams", "Interception Return TD"),
+    104: ("Team Defense / Special Teams", "Fumble Return TD"),
+    102: ("Team Defense / Special Teams", "Kickoff Return TD"),
+    103: ("Team Defense / Special Teams", "Punt Return TD"),
+
+    # Defense Points Allowed (PA)
     89: ("Team Defense / Special Teams", "0 points allowed"),
     90: ("Team Defense / Special Teams", "1-6 points allowed"),
     91: ("Team Defense / Special Teams", "7-13 points allowed"),
     92: ("Team Defense / Special Teams", "14-17 points allowed"),
-    93: ("Team Defense / Special Teams", "Blocked Punt or FG return for TD"),
-    95: ("Team Defense / Special Teams", "Each Safety"),
+    121: ("Team Defense / Special Teams", "18-21 points allowed"),
+    122: ("Team Defense / Special Teams", "22-27 points allowed"),
     123: ("Team Defense / Special Teams", "28-34 points allowed"),
     124: ("Team Defense / Special Teams", "35-45 points allowed"),
     125: ("Team Defense / Special Teams", "46+ points allowed"),
+
+    # Defense Yards Allowed (YA)
     128: ("Team Defense / Special Teams", "Less than 100 total yards allowed"),
     129: ("Team Defense / Special Teams", "100-199 total yards allowed"),
     130: ("Team Defense / Special Teams", "200-299 total yards allowed"),
+    131: ("Team Defense / Special Teams", "300-349 total yards allowed"),
     132: ("Team Defense / Special Teams", "350-399 total yards allowed"),
     133: ("Team Defense / Special Teams", "400-449 total yards allowed"),
     134: ("Team Defense / Special Teams", "450-499 total yards allowed"),
@@ -94,24 +107,28 @@ def parse_espn_api_payload(data):
     
     for item in scoring_items:
         sid = item.get("statId")
-        pts = item.get("points", 0.0)
-        overrides = item.get("pointsOverrides") or {}
-        
-        # Check positional slot overrides (e.g., '16' for D/ST)
-        if "16" in overrides:
-            pts = overrides["16"]
-        elif "17" in overrides:
-            pts = overrides["17"]
-        elif "0" in overrides:
-            pts = overrides["0"]
-            
-        if pts == 0:
-            continue
-            
         if sid in ESPN_STAT_MAP:
             cat, name = ESPN_STAT_MAP[sid]
+            pts = item.get("points", 0.0)
+            overrides = item.get("pointsOverrides") or {}
+            
+            # Map overrides strictly according to the specific category
+            if cat.startswith("Team Defense") and "16" in overrides:
+                pts = overrides["16"]
+            elif cat == "Kicking" and "17" in overrides:
+                pts = overrides["17"]
+            elif cat == "Passing" and "0" in overrides:
+                pts = overrides["0"]
+            elif cat == "Rushing" and "2" in overrides:
+                pts = overrides["2"]
+            elif cat == "Receiving" and "4" in overrides:
+                pts = overrides["4"]
+                
+            if pts == 0:
+                continue
+                
             name = clean_name(name)
-            if pts.is_integer():
+            if isinstance(pts, float) and pts.is_integer():
                 pts = int(pts)
             year_rules[cat].append({"name": name, "points": pts, "stat_id": sid})
             
@@ -198,13 +215,12 @@ def parse_all_settings():
             except Exception:
                 api_rules = {}
                 
-        # If Excel ground truth is available for this era, merge/use it
-        if year >= 2019 and excel_rules_2025:
+        if api_rules:
+            settings_data[str(year)] = api_rules
+        elif year >= 2019 and excel_rules_2025:
             settings_data[str(year)] = excel_rules_2025
         elif year <= 2018 and excel_rules_2018:
             settings_data[str(year)] = excel_rules_2018
-        else:
-            settings_data[str(year)] = api_rules
 
     with open(OUT_FILE, "w") as f:
         json.dump(settings_data, f, indent=2)

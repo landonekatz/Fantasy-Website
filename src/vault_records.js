@@ -154,7 +154,6 @@ Object.assign(TargetApp.prototype, {
 
         el.innerHTML = `
             <div class="records-hero-title">
-                <span id="records-hero-league-name">All-Time Archive</span>
                 <h1>League Record Book</h1>
             </div>
             <div class="records-hero-stats">
@@ -448,7 +447,7 @@ Object.assign(TargetApp.prototype, {
                 <div class="title-item">
                     <div class="title-item-manager">
                         <span>${c.manager_name}</span>
-                        ${isReigning ? '<span class="trophy-badge" title="Reigning League Champion">🏆</span>' : ''}
+                        ${isReigning ? '<span class="trophy-badge" title="Reigning League Champion" style="margin-left:4px;">🏆</span>' : ''}
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div class="title-item-seasons">${seasonsFormatted}</div>
@@ -504,7 +503,7 @@ Object.assign(TargetApp.prototype, {
                 <div class="title-item">
                     <div class="title-item-manager">
                         <span>${t.manager_name}</span>
-                        ${isReigningLoser ? '<span class="toilet-badge" title="Most Recent Outright Loser">🚽</span>' : ''}
+                        ${isReigningLoser ? '<span class="loser-badge" title="Most Recent Outright Loser" style="margin-left:4px;">🚽</span>' : ''}
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div class="title-item-seasons">${seasonsFormatted}</div>
@@ -562,7 +561,7 @@ Object.assign(TargetApp.prototype, {
             <div class="records-title-grid">
                 <div class="records-title-card championship-card">
                     <div class="title-card-header">
-                        <h3>Total Championships</h3>
+                        <h3>🏆 Total Championships</h3>
                     </div>
                     <div class="records-title-list">
                         ${champHTML || '<div style="color:var(--text-muted); text-align:center;">No championships found</div>'}
@@ -571,7 +570,7 @@ Object.assign(TargetApp.prototype, {
 
                 <div class="records-title-card toilet-card">
                     <div class="title-card-header">
-                        <h3>Total Outright Losses</h3>
+                        <h3>🚽 Total Outright Losses</h3>
                     </div>
                     <div class="records-title-list">
                         ${toiletHTML || '<div style="color:var(--text-muted); text-align:center;">No outright losses found</div>'}

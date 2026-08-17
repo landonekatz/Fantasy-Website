@@ -17,3 +17,23 @@ When working on this repository, you MUST maintain the structural separation bet
    - Scope: Gaywood-specific record books, ESPN scraper, and data (`gaywoodfantasy/data/`).
 
 Always respect these boundaries. Do NOT mix dataset files or cross-contaminate app logic between `/dmsfantasy` and `/gaywoodfantasy`.
+
+---
+
+## 📜 Em-Dash Policy
+Anytime you want to use an em-dash (`—`), use `, as` (comma as) instead. Never use em-dashes across platform code, UI copy, and documentation.
+
+---
+
+## 📜 Cross-Platform Parity Rule
+All platform features, fixes, scoring logic, draft calculations, and design polish must be applied consistently across ALL hosted portals: The Fantasy Vault Engine (`/` & `vault.html`), Dumbarton League (`/dmsfantasy`), and Gaywood / Katz League (`/gaywoodfantasy`). Never leave existing leagues on outdated logic.
+
+---
+
+## 📜 Standardized NFL Stats & Positional Scoring Policy
+Standardized NFL data from Sleeper API (`src/nfl_stats.js`) must be used for official regular season games played (`gp`), missed games / injury badges, and format-specific positional finishes across all leagues.
+Format-specific finishes must match each league's scoring system:
+- DMS League: Explicitly Half-PPR (`0.5`) for all years (2018–2026).
+- Gaywood / Katz: Half-PPR (`0.5`).
+- Standard / PPR dynamic vaults: Match detected league format (`pos_rank_ppr` for 1.0 PPR, `pos_rank_half_ppr` for 0.5 Half-PPR, `pos_rank_std` for Standard).
+

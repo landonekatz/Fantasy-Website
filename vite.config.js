@@ -36,9 +36,22 @@ function serveMultiLeagueDataPlugin() {
           }
         }
 
-        // Fallback for dynamic league slugs (Vercel rewrite equivalent)
+        const urlNoQuery = req.url.split('?')[0];
+        const normalized = urlNoQuery.replace(/\/$/, '');
+
+        // Handle standalone league portals
+        if (normalized === '/dmsfantasy' || urlNoQuery === '/dmsfantasy/index.html') {
+          req.url = '/dmsfantasy/index.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+          return next();
+        }
+        if (normalized === '/gaywoodfantasy' || urlNoQuery === '/gaywoodfantasy/index.html') {
+          req.url = '/gaywoodfantasy/index.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+          return next();
+        }
+
+        // Fallback for dynamic league slugs (e.g. /fbofantasy, /my-league)
         // If the URL has no extension and isn't root or a specific directory
-        if (!cleanUrl.includes('.') && cleanUrl !== '/' && cleanUrl !== '/dmsfantasy' && cleanUrl !== '/gaywoodfantasy') {
+        if (!urlNoQuery.includes('.') && normalized !== '' && normalized !== '/') {
           req.url = '/vault.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
         }
 

@@ -1,5 +1,5 @@
 let currentLeagueCreds = null;
-// The Fantasy Vault — Editorial Light Hub Script & Auth Integration
+// The Fantasy Vault, as Editorial Light Hub Script & Auth Integration
 // Elements
   const leagueNameInput = document.getElementById('input-league-name');
   const urlPreviewText = document.getElementById('url-preview-text');
@@ -596,14 +596,40 @@ let currentLeagueCreds = null;
       
       const res = await AuthEngine.finalizeJoin(code, managerId);
       if (res.success) {
-        alert(`Successfully joined ${res.league.name}! Directing to league archive.`);
         window.location.href = res.league.path;
       } else {
         alert(res.message);
       }
-    } else {
-      if (defaultMessage) alert(defaultMessage);
-      if (defaultRedirect) window.location.href = defaultRedirect;
+      return;
+    }
+
+    if (defaultRedirect) {
+      window.location.href = defaultRedirect;
+      return;
+    }
+
+    // Auto-redirect off the marketing landing page to the user's active/owned league
+    const session = AuthEngine.getSession();
+    const lastLeague = localStorage.getItem('vault_last_league');
+    
+    let targetSlug = null;
+    if (lastLeague && (session?.joinedLeagues?.includes(lastLeague) || session?.adminLeagues?.includes(lastLeague) || session?.isFounder)) {
+      targetSlug = lastLeague;
+    } else if (session?.joinedLeagues && session.joinedLeagues.length > 0) {
+      targetSlug = session.joinedLeagues[session.joinedLeagues.length - 1];
+    } else if (session?.adminLeagues && session.adminLeagues.length > 0) {
+      targetSlug = session.adminLeagues[session.adminLeagues.length - 1];
+    }
+
+    if (targetSlug) {
+      const info = typeof JOIN_CODES !== 'undefined' ? Object.values(JOIN_CODES).find(l => l.leagueId === targetSlug) : null;
+      const targetPath = (session?.leagueDetails?.[targetSlug]?.path) || (info ? info.path : `/${targetSlug}/`);
+      window.location.href = targetPath;
+      return;
+    }
+
+    if (defaultMessage) {
+      alert(defaultMessage);
     }
   }
 
@@ -702,5 +728,13 @@ let currentLeagueCreds = null;
           btnVerifyJoinCode.click();
         }
       }
+    }
+  }
+
+  // Handle ?action=create URL Parameter
+  const actionParam = urlParams.get('action');
+  if (actionParam === 'create') {
+    if (registerModal && typeof registerModal.showModal === 'function') {
+      registerModal.showModal();
     }
   }

@@ -1,10 +1,20 @@
 // Fantasy Vault Data Compiler
 // Replicates the core functionality of the Python scraper/parser for client-side execution.
 
+export function generateRandomJoinCode() {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customName = null, nflCsvData = null) {
   if (!rawSeasonsData || rawSeasonsData.length === 0) return null;
   
   const ESPN_STAT_MAP = {
+    // Passing
     3: ["Passing", "Passing Yards"],
     4: ["Passing", "TD Pass"],
     7: ["Passing", "Every 20 passing yards"],
@@ -12,12 +22,16 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     18: ["Passing", "400+ yard passing game"],
     19: ["Passing", "2pt Passing Conversion"],
     20: ["Passing", "Interceptions Thrown"],
+
+    // Rushing
     24: ["Rushing", "Rushing Yards"],
     25: ["Rushing", "TD Rush"],
     26: ["Rushing", "2pt Rushing Conversion"],
     28: ["Rushing", "Every 10 rushing yards"],
     37: ["Rushing", "100-199 yard rushing game"],
     38: ["Rushing", "200+ yard rushing game"],
+
+    // Receiving
     42: ["Receiving", "Receiving Yards"],
     43: ["Receiving", "TD Reception"],
     44: ["Receiving", "2pt Receiving Conversion"],
@@ -25,40 +39,59 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     53: ["Receiving", "Each reception"],
     56: ["Receiving", "100-199 yard receiving game"],
     57: ["Receiving", "200+ yard receiving game"],
-    198: ["Kicking", "Each PAT Made"],
-    199: ["Kicking", "Extra Point Missed"],
-    200: ["Kicking", "FG Made (0-39 yards)"],
-    201: ["Kicking", "FG Made (40-49 yards)"],
-    202: ["Kicking", "FG Made (50-59 yards)"],
-    203: ["Kicking", "FG Made (60+ yards)"],
+
+    // Kicking
+    86: ["Kicking", "Each PAT Made"],
+    88: ["Kicking", "Extra Point Missed"],
+    80: ["Kicking", "FG Made (0-39 yards)"],
+    74: ["Kicking", "FG Made (50+ yards)"],
+    77: ["Kicking", "FG Made (40-49 yards)"],
+    198: ["Kicking", "FG Made (50-59 yards)"],
+    201: ["Kicking", "FG Made (60+ yards)"],
+    202: ["Kicking", "FG Made (40-49 yards)"],
+    203: ["Kicking", "FG Made (50+ yards)"],
+    82: ["Kicking", "FG Missed (0-39 yards)"],
+    79: ["Kicking", "FG Missed (40-49 yards)"],
+    83: ["Kicking", "FG Missed (50+ yards)"],
     204: ["Kicking", "FG Missed (0-39 yards)"],
     205: ["Kicking", "FG Missed (40-49 yards)"],
     206: ["Kicking", "FG Missed (50+ yards)"],
-    73: ["Team Defense and Special Teams", "Each Sack"],
-    74: ["Team Defense and Special Teams", "Each Interception"],
-    75: ["Team Defense and Special Teams", "Each Fumble Recovered"],
-    77: ["Team Defense and Special Teams", "Interception Return TD"],
-    80: ["Team Defense and Special Teams", "Fumble Return TD"],
-    82: ["Team Defense and Special Teams", "Kickoff Return TD"],
-    83: ["Team Defense and Special Teams", "Punt Return TD"],
-    86: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+
+    // Team Defense and Special Teams
+    99: ["Team Defense and Special Teams", "Each Sack"],
+    95: ["Team Defense and Special Teams", "Each Interception"],
+    96: ["Team Defense and Special Teams", "Each Fumble Recovered"],
+    97: ["Team Defense and Special Teams", "Each Safety"],
+    98: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+    93: ["Team Defense and Special Teams", "Blocked Punt or FG return for TD"],
+    101: ["Team Defense and Special Teams", "Interception Return TD"],
+    104: ["Team Defense and Special Teams", "Fumble Return TD"],
+    102: ["Team Defense and Special Teams", "Kickoff Return TD"],
+    103: ["Team Defense and Special Teams", "Punt Return TD"],
+
+    // Defense Points Allowed (PA) - In Ascending Numerical Order
     89: ["Team Defense and Special Teams", "0 points allowed"],
     90: ["Team Defense and Special Teams", "1-6 points allowed"],
     91: ["Team Defense and Special Teams", "7-13 points allowed"],
     92: ["Team Defense and Special Teams", "14-17 points allowed"],
-    93: ["Team Defense and Special Teams", "Blocked Punt or FG return for TD"],
-    95: ["Team Defense and Special Teams", "Each Safety"],
+    121: ["Team Defense and Special Teams", "18-21 points allowed"],
+    122: ["Team Defense and Special Teams", "22-27 points allowed"],
     123: ["Team Defense and Special Teams", "28-34 points allowed"],
     124: ["Team Defense and Special Teams", "35-45 points allowed"],
     125: ["Team Defense and Special Teams", "46+ points allowed"],
+
+    // Defense Yards Allowed (YA)
     128: ["Team Defense and Special Teams", "Less than 100 total yards allowed"],
     129: ["Team Defense and Special Teams", "100-199 total yards allowed"],
     130: ["Team Defense and Special Teams", "200-299 total yards allowed"],
+    131: ["Team Defense and Special Teams", "300-349 total yards allowed"],
     132: ["Team Defense and Special Teams", "350-399 total yards allowed"],
     133: ["Team Defense and Special Teams", "400-449 total yards allowed"],
     134: ["Team Defense and Special Teams", "450-499 total yards allowed"],
     135: ["Team Defense and Special Teams", "500-549 total yards allowed"],
     136: ["Team Defense and Special Teams", "550+ total yards allowed"],
+
+    // Miscellaneous
     72: ["Miscellaneous", "Total Fumbles Lost"]
   };
 
@@ -594,6 +627,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     firstYear: seasonsData[seasonsData.length - 1].year,
     lastYear: activeYear,
     totalSeasons: seasonsData.length,
+    join_code: generateRandomJoinCode(),
     scoringRules: {}
   };
 
@@ -606,18 +640,26 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
 
     for (const item of scoringItems) {
       const sid = item.statId;
-      let pts = item.points || 0.0;
-      const overrides = item.pointsOverrides || {};
-      
-      // ESPN overrides D/ST (16) and K (17)
-      if (overrides["16"] !== undefined) pts = overrides["16"];
-      else if (overrides["17"] !== undefined) pts = overrides["17"];
-      else if (overrides["0"] !== undefined) pts = overrides["0"];
-      
-      if (pts === 0) continue;
-      
       if (ESPN_STAT_MAP[sid]) {
         let [category, name] = ESPN_STAT_MAP[sid];
+        let pts = item.points !== undefined ? item.points : 0.0;
+        const overrides = item.pointsOverrides || {};
+        
+        // Map overrides strictly according to the specific category
+        if (category.includes('Defense') && overrides["16"] !== undefined) {
+          pts = overrides["16"];
+        } else if (category.includes('Kicking') && overrides["17"] !== undefined) {
+          pts = overrides["17"];
+        } else if (category.includes('Passing') && overrides["0"] !== undefined) {
+          pts = overrides["0"];
+        } else if (category.includes('Rushing') && overrides["2"] !== undefined) {
+          pts = overrides["2"];
+        } else if (category.includes('Receiving') && overrides["4"] !== undefined) {
+          pts = overrides["4"];
+        }
+        
+        if (pts === 0) continue;
+
         category = category.replace(/[.#$\[\]]/g, '').replace(/\//g, ' and ').trim();
         let cleanName = name.replace(/\s*\([A-Z0-9+]{2,7}\)$/, "").trim();
         if (!yearRules[category]) {
@@ -651,5 +693,101 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     transactions: transactions,
     league_settings: league_settings,
     scoring_settings: scoring_settings
+  };
+}
+
+export function testScoringRulesRetrospective(compiledData) {
+  if (!compiledData) return { passed: false, reason: "No data provided" };
+  const weeklyStats = compiledData.weekly_player_stats || [];
+  const scoringSettings = compiledData.scoring_settings || {};
+  const leagueSettings = compiledData.league_settings || {};
+
+  if (weeklyStats.length === 0) {
+    return { passed: true, sampleCount: 0, message: "No weekly player stats found to test." };
+  }
+
+  const results = {
+    totalTested: 0,
+    passed: 0,
+    failed: 0,
+    samplesByPosition: {},
+    discrepancies: []
+  };
+
+  const samplePool = [];
+  const posBuckets = {};
+
+  weeklyStats.forEach(st => {
+    if (!st.stats || Object.keys(st.stats).length === 0) return;
+    const pos = st.position || 'FLEX';
+    if (!posBuckets[pos]) posBuckets[pos] = [];
+    if (posBuckets[pos].length < 15) {
+      posBuckets[pos].push(st);
+      samplePool.push(st);
+    }
+  });
+
+  samplePool.forEach(player => {
+    const yr = player.season || player.year;
+    const rules = (scoringSettings[yr] || scoringSettings[String(yr)] || leagueSettings.scoringRules || {});
+    
+    const statRuleMap = {};
+    Object.values(rules).forEach(categoryItems => {
+      if (Array.isArray(categoryItems)) {
+        categoryItems.forEach(item => {
+          if (item.stat_id !== undefined) {
+            statRuleMap[item.stat_id] = Number(item.points);
+          }
+        });
+      }
+    });
+
+    let computedPts = 0;
+    Object.entries(player.stats).forEach(([statIdStr, rawVal]) => {
+      const sid = Number(statIdStr);
+      const val = Number(rawVal) || 0;
+      if (statRuleMap[sid] !== undefined) {
+        if (sid === 3) computedPts += (val / 25) * (statRuleMap[sid] || 1);
+        else if (sid === 24) computedPts += (val / 10) * (statRuleMap[sid] || 1);
+        else if (sid === 42) computedPts += (val / 10) * (statRuleMap[sid] || 1);
+        else computedPts += val * statRuleMap[sid];
+      }
+    });
+
+    const recordedPts = Number(player.fantasy_points !== undefined ? player.fantasy_points : player.fantasyPoints) || 0;
+    const diff = Math.abs(computedPts - recordedPts);
+    const passed = diff <= 0.15;
+
+    results.totalTested++;
+    const pos = player.position || 'OTHER';
+    if (!results.samplesByPosition[pos]) results.samplesByPosition[pos] = { tested: 0, passed: 0, failed: 0 };
+    results.samplesByPosition[pos].tested++;
+
+    if (passed) {
+      results.passed++;
+      results.samplesByPosition[pos].passed++;
+    } else {
+      results.failed++;
+      results.samplesByPosition[pos].failed++;
+      if (results.discrepancies.length < 10) {
+        results.discrepancies.push({
+          player: player.player_name,
+          position: pos,
+          season: yr,
+          week: player.week,
+          recordedPts,
+          computedPts: Math.round(computedPts * 100) / 100,
+          diff: Math.round(diff * 100) / 100,
+          rawStats: player.stats
+        });
+      }
+    }
+  });
+
+  const overallPassed = results.failed === 0 || (results.passed / results.totalTested >= 0.90);
+  console.log(`[Scoring Rules Retrospective Test] Tested ${results.totalTested} samples: ${results.passed} passed, ${results.failed} failed. Status: ${overallPassed ? 'PASSED' : 'FLAGGED'}`);
+  return {
+    ...results,
+    passed: overallPassed
   };
 }

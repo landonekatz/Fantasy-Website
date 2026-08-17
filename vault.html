@@ -20,7 +20,7 @@
             <div id="league-id-info" class="edition-info">League ID: ------</div>
             <div class="edition-info" style="color: var(--accent-gold);">Powered by The Fantasy Vault</div>
         </div>
-        <button id="btn-my-account" style="background: var(--accent-gold); color: #000; border: none; padding: 0.4rem 0.8rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem; cursor: pointer;">My Account</button>
+        <button id="btn-my-account" class="btn-account-pill">My Account</button>
     </div>
     <div class="masthead-main">
         <h1 id="league-title">Fantasy Football<br>League HQ</h1>
@@ -30,7 +30,8 @@
         <button id="btn-tab-home" class="top-nav-btn active">League Home</button>
         <button id="btn-tab-h2h" class="top-nav-btn">Head-to-Head History</button>
         <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
-        <button id="btn-tab-admin" class="top-nav-btn admin-nav-btn" style="display: none;"><span class="admin-nav-icon">⚙️</span> Admin Dashboard <span class="admin-nav-badge">Admin</span></button>
+        <button id="btn-tab-draft" class="top-nav-btn">Draft Central</button>
+        <button id="btn-tab-admin" class="top-nav-btn admin-nav-btn" style="display: none;">Admin Dashboard <span class="admin-nav-badge">Admin</span></button>
     </nav>
 </header>
 
@@ -137,6 +138,12 @@
         <div id="sec-playoffs" class="records-section-block"></div>
     </div>
     <!-- END RECORD BOOK VIEW -->
+
+    <!-- DRAFT ARCHIVE PAGE VIEW -->
+    <div id="view-draft" class="page-view">
+        <!-- Dynamically rendered by VaultDraftEngine -->
+    </div>
+    <!-- END DRAFT VIEW -->
 
     <!-- ADMIN DASHBOARD PAGE VIEW -->
     <div id="view-admin" class="page-view">

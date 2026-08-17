@@ -1,3 +1,8 @@
+import { VaultDraftEngine } from '/src/draft.js';
+import { nflStats } from '/src/nfl_stats.js';
+import { database } from '/src/firebase.js';
+import { ref as dbRef, set, get, child, update, onValue } from 'firebase/database';
+
 function formatDumbartonNflInfo(p) {
     let opp = (p.nfl_team || '').trim();
     let rawRes = (p.nfl_game_result || '').trim();
@@ -49,81 +54,158 @@ class FantasyApp {
         this.db = null;
     }
 
-    async showBuildingSequence() {
-        return new Promise((resolve) => {
-            const overlay = document.createElement('div');
-            overlay.style.position = 'fixed';
-            overlay.style.top = '0';
-            overlay.style.left = '0';
-            overlay.style.width = '100vw';
-            overlay.style.height = '100vh';
-            overlay.style.backgroundColor = 'var(--bg-main)';
-            overlay.style.zIndex = '9999';
-            overlay.style.display = 'flex';
-            overlay.style.flexDirection = 'column';
-            overlay.style.alignItems = 'center';
-            overlay.style.justifyContent = 'center';
-            overlay.style.fontFamily = 'var(--font-main, sans-serif)';
-            
-            overlay.innerHTML = `
-              <div style="text-align: center; padding: 3rem 1rem; width: 100%; max-width: 500px;">
-                <div class="spinner" style="margin: 0 auto 1.5rem auto; border: 4px solid rgba(255, 215, 0, 0.2); border-top-color: var(--accent-gold); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-                <h3 style="font-family: var(--font-heading, 'Cinzel', serif); color: var(--accent-gold); margin-bottom: 0.5rem; font-size: 1.5rem;">Forging Your Vault</h3>
-                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">Please keep this page open while we import your league history.</p>
-                
-                <div style="width: 100%; background: var(--bg-card); border-radius: 8px; height: 12px; overflow: hidden; border: 1px solid var(--border-line); margin-bottom: 0.75rem;">
-                  <div id="build-progress-bar" style="width: 0%; height: 100%; background: var(--accent-gold); transition: width 0.3s ease;"></div>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
-                  <span id="build-status-text">Starting up...</span>
-                  <span id="build-progress-text">0%</span>
-                </div>
-              </div>
-              <style>
-                @keyframes spin { 100% { transform: rotate(360deg); } }
-              </style>
-            `;
-            
-            document.body.appendChild(overlay);
-            
-            const bar = document.getElementById('build-progress-bar');
-            const text = document.getElementById('build-progress-text');
-            const status = document.getElementById('build-status-text');
-            
-            let progress = 0;
-            
-            const updateUI = (msg) => {
-              bar.style.width = progress + '%';
-              text.textContent = progress + '%';
-              status.textContent = msg;
-            };
+    renderPrivateGuard() {
+        let overlay = document.getElementById('private-guard-overlay');
+        if (overlay) return;
 
-            setTimeout(() => { progress = 25; updateUI("Initializing database..."); }, 100);
-            setTimeout(() => { progress = 68; updateUI("Syncing historical matchups..."); }, 1500);
-            setTimeout(() => { progress = 85; updateUI("Generating power rankings..."); }, 3500);
-            setTimeout(() => { progress = 99; updateUI("Finalizing deployment..."); }, 5500);
-            
-            setTimeout(() => { 
-              progress = 100; 
-              updateUI("Complete!");
-              setTimeout(() => {
-                overlay.style.opacity = '0';
-                overlay.style.transition = 'opacity 0.5s ease';
-                setTimeout(() => {
-                    document.body.removeChild(overlay);
-                    resolve();
-                }, 500);
-              }, 500);
-            }, 7500);
-        });
+        const leagueTitle = 'The Dumbarton League';
+
+        overlay = document.createElement('div');
+        overlay.id = 'private-guard-overlay';
+        overlay.style.cssText = 'position: fixed; inset: 0; z-index: 99999; background: #0f1115; display: flex; align-items: center; justify-content: center; padding: 1.5rem; font-family: "Inter", sans-serif; color: #fff; overflow-y: auto;';
+        
+        overlay.innerHTML = `
+            <div class="card" style="max-width: 440px; width: 100%; background: #181b20; border: 1px solid rgba(212, 175, 55, 0.25); border-radius: 12px; padding: 2.25rem 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.6); text-align: center; position: relative;">
+                <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--accent-gold, #c5a059); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.25rem;">
+                    Private League Archive
+                </div>
+                
+                <h1 style="font-family: 'Cinzel', serif; font-size: 1.75rem; color: var(--accent-gold, #c5a059); margin: 0 0 0.5rem 0; line-height: 1.25;">
+                    ${leagueTitle}
+                </h1>
+                
+                <p style="color: #94a3b8; font-size: 0.88rem; line-height: 1.5; margin: 0 0 1.5rem 0;">
+                    This Fantasy Vault is private. Please sign in or enter your Join Code to access records, box scores, and analytics.
+                </p>
+
+                <!-- Google 1-Click SSO -->
+                <button id="guard-btn-google" type="button" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0.75rem; background: #fff; color: #1f2937; border: none; border-radius: 6px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                    Sign In with Google
+                </button>
+
+                <div style="display: flex; align-items: center; margin: 1.15rem 0; color: #64748b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                    <span style="padding: 0 0.75rem;">or email</span>
+                    <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                </div>
+
+                <!-- Email & Password Form -->
+                <form id="guard-email-form" style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    <input type="email" id="guard-input-email" placeholder="name@example.com" required style="width: 100%; padding: 0.65rem 0.8rem; background: #0f1115; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 0.88rem; box-sizing: border-box;">
+                    <input type="password" id="guard-input-pass" placeholder="Password" required style="width: 100%; padding: 0.65rem 0.8rem; background: #0f1115; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 0.88rem; box-sizing: border-box;">
+                    <button type="submit" style="width: 100%; padding: 0.7rem; background: var(--accent-gold, #c5a059); color: #000; font-weight: 700; border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer;">Sign In / Register</button>
+                </form>
+
+                <div style="display: flex; align-items: center; margin: 1.15rem 0; color: #64748b; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                    <span style="padding: 0 0.75rem;">or join code</span>
+                    <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                </div>
+
+                <!-- Join Code Form -->
+                <form id="guard-code-form" style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="guard-input-code" placeholder="6-char code" maxlength="6" style="flex: 1; padding: 0.6rem; background: #0f1115; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-family: monospace; text-transform: uppercase; font-size: 0.9rem; text-align: center; letter-spacing: 1px; box-sizing: border-box;">
+                    <button type="submit" style="padding: 0.6rem 1rem; background: rgba(212, 175, 55, 0.15); border: 1px solid var(--accent-gold, #c5a059); color: var(--accent-gold, #c5a059); border-radius: 6px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Unlock</button>
+                </form>
+
+                <div id="guard-error-msg" style="display: none; margin-top: 0.85rem; padding: 0.5rem; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: 6px; font-size: 0.8rem;"></div>
+
+                <div style="margin-top: 1.25rem; font-size: 0.8rem; color: #64748b;">
+                    <a href="/" style="color: #94a3b8; text-decoration: none;">← Return to The Fantasy Vault Home</a>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(overlay);
+
+        const showError = (msg) => {
+            const errEl = document.getElementById('guard-error-msg');
+            if (errEl) {
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
+            }
+        };
+
+        const unlockVault = async () => {
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            const founderBar = document.getElementById('founder-control-bar');
+            if (founderBar) founderBar.remove();
+            this.setupThemeToggle();
+            await this.loadData();
+            this.initPowerRankings();
+            this.setupNavigation();
+            this.setupH2HControls();
+            this.renderH2H();
+        };
+
+        // Google SSO
+        const btnGoogle = document.getElementById('guard-btn-google');
+        if (btnGoogle) {
+            btnGoogle.addEventListener('click', async () => {
+                try {
+                    await window.AuthEngine.loginWithGoogle();
+                    window.AuthEngine.setPersona('member');
+                    await unlockVault();
+                } catch (err) {
+                    showError("Google Sign-In failed: " + err.message);
+                }
+            });
+        }
+
+        // Email Auth Form
+        const emailForm = document.getElementById('guard-email-form');
+        if (emailForm) {
+            emailForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('guard-input-email')?.value.trim();
+                const pass = document.getElementById('guard-input-pass')?.value;
+                if (!email || !pass) return;
+                try {
+                    await window.AuthEngine.loginWithEmail(email, pass);
+                    window.AuthEngine.setPersona('member');
+                    await unlockVault();
+                } catch (err) {
+                    showError("Sign In failed: " + err.message);
+                }
+            });
+        }
+
+        // Code Form
+        const codeForm = document.getElementById('guard-code-form');
+        if (codeForm) {
+            codeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const code = document.getElementById('guard-input-code')?.value.trim().toUpperCase();
+                if (!code) return;
+                const check = window.AuthEngine.processJoinCode(code);
+                if (check.success) {
+                    window.AuthEngine.setPersona('member');
+                    if (typeof window.startManagerClaimFlow === 'function') {
+                        window.startManagerClaimFlow(code);
+                    }
+                    await unlockVault();
+                } else {
+                    showError(check.message || "Invalid Join Code");
+                }
+            });
+        }
+
+        // Also listen for auth changes
+        window.addEventListener('vault_auth_changed', async (e) => {
+            if (e.detail) {
+                await unlockVault();
+            }
+        }, { once: true });
     }
 
     async init() {
-        // 1. Invite Link Intercept
+        localStorage.setItem('vault_last_league', 'dmsfantasy');
+
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('building')) {
-            await this.showBuildingSequence();
             window.history.replaceState({}, '', window.location.pathname);
         }
 
@@ -133,71 +215,158 @@ class FantasyApp {
             return;
         }
 
-        // 2. Private League Guard
-        if (typeof window.AuthEngine !== 'undefined') {
-            const persona = window.AuthEngine.getPersona();
-            if (persona === 'public') {
-                document.body.innerHTML = `
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#1a1d21; color:#fff; text-align:center; padding: 2rem; font-family: 'Inter', sans-serif;">
-                        <h1 style="font-family:'Cinzel', serif; color:#c5a059; margin-bottom: 1rem; font-size: 2.5rem;">Private League Archive</h1>
-                        <p style="margin-bottom: 2rem; color: #a1aab3; max-width: 420px; line-height: 1.6;">This Fantasy Vault is private. You must be an authenticated member or league administrator to view these records.</p>
-                        <a href="/" style="background:#c5a059; color:#000; padding: 0.85rem 1.75rem; border-radius: 4px; font-weight:600; text-decoration:none; font-size: 0.95rem;">Sign In / Enter Invite Code</a>
-                    </div>
-                `;
+        // Wait for initial Firebase auth resolution
+        if (typeof window.AuthEngine !== 'undefined' && typeof window.AuthEngine.ready === 'function') {
+            await window.AuthEngine.ready();
+        }
+
+        await this.loadData();
+
+        // 2. Private League Guard (Public by default)
+        const isPrivate = Boolean(this.leagueSettings?.is_private);
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+
+        if (isPrivate) {
+            if (!session) {
+                this.renderPrivateGuard();
                 return;
+            }
+            const userEmail = (session.email || '').toLowerCase();
+            const adminEmail = (this.leagueSettings?.admin_email || '').toLowerCase();
+            const isLeagueAdmin = (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes('dmsfantasy'));
+            const hasJoined = session.joinedLeagues && session.joinedLeagues.includes('dmsfantasy');
+            const hasClaim = this.claims && Object.values(this.claims).some(c => (c?.userId === session.uid) || (c?.email && c.email.toLowerCase() === userEmail));
+            const isAuthorized = isLeagueAdmin || hasJoined || hasClaim;
+
+            if (!isAuthorized) {
+                this.renderAccessDenied(session);
+                return;
+            }
+        } else {
+            if (session) {
+                const userEmail = (session.email || '').toLowerCase();
+                const adminEmail = (this.leagueSettings?.admin_email || '').toLowerCase();
+                const isLeagueAdmin = (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes('dmsfantasy'));
+                const hasClaim = this.claims && Object.values(this.claims).some(c => (c?.userId === session.uid) || (c?.email && c.email.toLowerCase() === userEmail));
+                if (!isLeagueAdmin && !hasClaim) {
+                    this.showGuestNotice();
+                }
             }
         }
 
-        this.setupFounderControlBar();
+        const founderBar = document.getElementById('founder-control-bar');
+        if (founderBar) founderBar.remove();
         this.setupThemeToggle();
-        await this.loadData();
         this.initPowerRankings();
         this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
     }
 
-    setupFounderControlBar() {
-        if (typeof window.AuthEngine === 'undefined') return;
+    showGuestNotice() {
+        if (document.getElementById('guest-notice-banner')) return;
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        if (!session) return;
         
-        let bar = document.getElementById('founder-control-bar');
-        if (!bar) {
-            bar = document.createElement('div');
-            bar.id = 'founder-control-bar';
-            bar.className = 'founder-control-bar';
-            document.body.prepend(bar);
-        }
-
-        const session = window.AuthEngine.getSession();
-        const persona = window.AuthEngine.getPersona();
-        const activeUser = session ? (session.name || session.email) : 'Guest Visitor';
-        const isFounder = session && session.isFounder;
-
-        bar.innerHTML = `
-            <div class="founder-bar-left">
-                <span>🏛️ The Fantasy Vault Archive</span>
-                <span style="opacity:0.7;">&bull; Dumbarton HQ (Join Code: DMS202)</span>
+        const banner = document.createElement('div');
+        banner.id = 'guest-notice-banner';
+        banner.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; border-left: 4px solid #d97706; padding: 0.85rem 1.15rem; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); max-width: 420px; display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem; line-height: 1.45; animation: slideInUp 0.3s ease;';
+        
+        banner.innerHTML = `
+            <div style="flex: 1;">
+                <div style="font-weight: 700; color: #b45309; margin-bottom: 2px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;">Guest View</div>
+                <div>You are currently viewing this league as a guest. If you are a member of this league, contact your league commissioner for an invite link.</div>
             </div>
-            <div class="founder-bar-right">
-                <span>User: <strong>${activeUser}</strong> ${isFounder ? '<span style="color:#d4af37;">(Founder)</span>' : ''}</span>
-                <label style="margin-left:0.5rem;">Persona:</label>
-                <select id="select-persona-mode" class="persona-select">
-                    <option value="founder" ${persona === 'founder' ? 'selected' : ''}>👑 Founder View (Landon)</option>
-                    <option value="admin" ${persona === 'admin' ? 'selected' : ''}>⚙️ League Admin (Commissioner)</option>
-                    <option value="member" ${persona === 'member' ? 'selected' : ''}>👥 Verified Member (Team Owner)</option>
-                    <option value="public" ${persona === 'public' ? 'selected' : ''}>👁️ Public Visitor</option>
-                </select>
-                <a href="/" style="color:#c5a059; text-decoration:none; margin-left:0.5rem; font-weight:600;">Hub &rarr;</a>
+            <button id="close-guest-banner" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #94a3b8; padding: 0; line-height: 1;" title="Dismiss">&times;</button>
+        `;
+        
+        document.body.appendChild(banner);
+        document.getElementById('close-guest-banner')?.addEventListener('click', () => {
+            banner.remove();
+        });
+        setTimeout(() => {
+            if (banner && banner.parentNode) {
+                banner.style.opacity = '0';
+                banner.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => banner.remove(), 500);
+            }
+        }, 10000);
+    }
+
+    renderAccessDenied(session) {
+        let overlay = document.getElementById('vault-access-denied-overlay');
+        if (overlay) return;
+        
+        overlay = document.createElement('div');
+        overlay.id = 'vault-access-denied-overlay';
+        overlay.className = 'guard-overlay';
+        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 1.5rem;';
+        
+        const userEmail = session?.email || 'Your account';
+        overlay.innerHTML = `
+            <div class="guard-card" style="background: #ffffff; color: #0f172a; max-width: 480px; width: 100%; border-radius: 12px; padding: 2.25rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); text-align: center; border: 1px solid #e2e8f0;">
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; border-radius: 50%; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 1.4rem; font-weight: 800; margin-bottom: 1rem;">!</div>
+                <h2 style="font-size: 1.35rem; font-family: var(--font-heading, 'Cinzel', serif); font-weight: 800; margin-bottom: 0.5rem; color: #0f172a;">Access Denied</h2>
+                <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin-bottom: 1.5rem;">
+                    Your account (<strong>${userEmail}</strong>) does not have access to this private league. If you are a member of this league, please enter a valid Join Code below or ask your commissioner for an invite link.
+                </p>
+
+                <!-- Join Code Form -->
+                <form id="denied-code-form" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <input type="text" id="denied-input-code" placeholder="6-char code" maxlength="6" style="flex: 1; padding: 0.65rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-family: monospace; text-transform: uppercase; font-size: 0.95rem; text-align: center; letter-spacing: 1px; box-sizing: border-box;">
+                    <button type="submit" style="padding: 0.65rem 1.25rem; background: #fef3c7; border: 1px solid #d97706; color: #b45309; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Unlock</button>
+                </form>
+
+                <div id="denied-error-msg" style="display: none; margin-bottom: 1rem; padding: 0.5rem; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 6px; font-size: 0.8rem;"></div>
+
+                <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1.25rem; font-size: 0.82rem;">
+                    <button id="denied-btn-signout" style="background: none; border: none; color: #b45309; font-weight: 600; cursor: pointer; text-decoration: underline;">Sign Out / Switch Account</button>
+                    <span style="color: #cbd5e1;">|</span>
+                    <a href="/" style="color: #64748b; text-decoration: none;">Return Home &rarr;</a>
+                </div>
             </div>
         `;
+        
+        document.body.appendChild(overlay);
 
-        const select = document.getElementById('select-persona-mode');
-        if (select) {
-            select.addEventListener('change', (e) => {
-                window.AuthEngine.setPersona(e.target.value);
-                window.location.reload();
+        const showError = (msg) => {
+            const errEl = document.getElementById('denied-error-msg');
+            if (errEl) {
+                errEl.textContent = msg;
+                errEl.style.display = 'block';
+            }
+        };
+
+        const codeForm = document.getElementById('denied-code-form');
+        if (codeForm) {
+            codeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const code = document.getElementById('denied-input-code')?.value.trim().toUpperCase();
+                if (!code) return;
+                const check = window.AuthEngine.processJoinCode(code);
+                if (check.success) {
+                    if (typeof window.AuthEngine.linkUserLeague === 'function') {
+                        await window.AuthEngine.linkUserLeague('dmsfantasy', 'member', 'The Dumbarton League');
+                    }
+                    overlay.remove();
+                    window.location.reload();
+                } else {
+                    showError(check.message || "Invalid Join Code");
+                }
             });
         }
+
+        const btnSignout = document.getElementById('denied-btn-signout');
+        if (btnSignout) {
+            btnSignout.addEventListener('click', () => {
+                window.AuthEngine.logout();
+            });
+        }
+    }
+
+    setupFounderControlBar() {
+        const bar = document.getElementById('founder-control-bar');
+        if (bar) bar.remove();
     }
 
     setupThemeToggle() {
@@ -232,13 +401,14 @@ class FantasyApp {
             return null;
         };
 
-        const [managersData, matchupsData, statsData, standingsData, transactionsData, powerRankingsData] = await Promise.all([
+        const [managersData, matchupsData, statsData, standingsData, transactionsData, powerRankingsData, draftData] = await Promise.all([
             fetchOrFallback('managers.json', 'managers'),
             fetchOrFallback('matchups.json', 'matchups'),
             fetchOrFallback('weekly_player_stats.json', 'weekly_player_stats'),
             fetchOrFallback('league_standings.json', 'league_standings'),
             fetchOrFallback('transactions.json', 'transactions'),
-            fetchOrFallback('power_rankings_history.json', 'power_rankings_history')
+            fetchOrFallback('power_rankings_history.json', 'power_rankings_history'),
+            fetchOrFallback('draft_results.json', 'draft_results')
         ]);
 
         if (managersData) {
@@ -262,6 +432,10 @@ class FantasyApp {
         this.standings = standingsData || [];
         this.transactions = transactionsData || [];
         this.powerRankingsHistory = powerRankingsData || [];
+        this.draftResults = draftData || [];
+
+        nflStats.preloadSeason(2025);
+        nflStats.preloadSeason(2024);
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
     }
@@ -341,22 +515,25 @@ class FantasyApp {
         const btnHome = document.getElementById('btn-tab-home');
         const btnH2h = document.getElementById('btn-tab-h2h');
         const btnRecords = document.getElementById('btn-tab-records');
+        const btnDraft = document.getElementById('btn-tab-draft');
         const btnRivalry = document.getElementById('btn-tab-rivalry');
+        const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
+        const viewDraft = document.getElementById('view-draft');
         const viewRivalry = document.getElementById('view-rivalry');
+        const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords, btnRivalry].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords, viewRivalry].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnH2h, btnRecords, btnDraft, btnRivalry, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewH2h, viewRecords, viewDraft, viewRivalry, viewAdmin].forEach(view => view && view.classList.remove('active'));
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
                 const themeLabel = document.getElementById('theme-toggle-label');
                 if (themeLabel) themeLabel.textContent = 'THEME: BLOOD';
-                // Inject image URL relative to the page so it works on any host subdirectory
                 if (!document.getElementById('dungeon-bg-style')) {
                     const imgUrl = new URL('dungeon_new.png', window.location.href).href;
                     const s = document.createElement('style');
@@ -391,19 +568,34 @@ class FantasyApp {
                 btnRecords && btnRecords.classList.add('active');
                 viewRecords && viewRecords.classList.add('active');
                 this.renderRecordBook();
+            } else if (tab === 'draft') {
+                btnDraft && btnDraft.classList.add('active');
+                viewDraft && viewDraft.classList.add('active');
+                this.renderDraft();
             } else if (tab === 'rivalry') {
                 btnRivalry && btnRivalry.classList.add('active');
                 viewRivalry && viewRivalry.classList.add('active');
                 if (typeof this.renderRivalryWeek === 'function') {
                     this.renderRivalryWeek();
                 }
+            } else if (tab === 'admin') {
+                btnAdmin && btnAdmin.classList.add('active');
+                viewAdmin && viewAdmin.classList.add('active');
+                this.renderAdminDashboard();
             }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
         if (btnHome) btnHome.addEventListener('click', () => switchTab('home'));
         if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
+        if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
         if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
+        if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
+
+        this.checkAdminAccess();
+        window.addEventListener('vault_auth_changed', () => this.checkAdminAccess());
 
         // Setup smooth scrolling for "On This Page" subnav pills on League Home
         const scrollerLinks = document.querySelectorAll('.scroller-pill');
@@ -419,6 +611,491 @@ class FantasyApp {
                 }
             });
         });
+    }
+
+    checkAdminAccess() {
+        const btnAdmin = document.getElementById('btn-tab-admin');
+        if (!btnAdmin) return;
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const isFounder = session && session.isFounder;
+        const isAdmin = session && ((session.adminLeagues && (session.adminLeagues.includes('dmsfantasy') || session.adminLeagues.includes('dms'))) || isFounder);
+        if (isAdmin) {
+            btnAdmin.style.display = 'inline-flex';
+        } else {
+            btnAdmin.style.display = 'none';
+        }
+    }
+
+    renderAdminDashboard() {
+        const container = document.getElementById('view-admin');
+        if (!container) return;
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const leagueName = this.leagueSettings?.name || "The Dumbarton Fantasy Football League HQ";
+        const leagueSlug = "dmsfantasy";
+        const currentTagline = this.leagueSettings?.tagline || this.leagueSettings?.subtitle || "8 Seasons • 15 Managers • One Vault";
+        if (!this.leagueSettings?.join_code || this.leagueSettings.join_code.includes('2025') || this.leagueSettings.join_code.length !== 6) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            if (!this.leagueSettings) this.leagueSettings = {};
+            this.leagueSettings.join_code = code;
+        }
+        const joinCode = this.leagueSettings.join_code.toUpperCase();
+        const joinLink = `${window.location.origin}/dmsfantasy/?join=${joinCode}`;
+        const isPrivate = Boolean(this.leagueSettings?.is_private);
+
+        const memberList = (this.managers && this.managers.length > 0) ? this.managers : [];
+        const sortedMembers = [...memberList].sort((a, b) => (a.canonical_name || a.name || '').localeCompare(b.canonical_name || b.name || ''));
+
+        // Check if the current admin has claimed a profile in this league
+        const currentAdminClaim = session ? (session.claims?.[leagueSlug] || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === session.email)?.[0])) : null;
+        const unclaimedMembers = sortedMembers.filter(m => !this.claims || !this.claims[m.id]);
+
+        const managerRows = sortedMembers.map(m => {
+            const memberMatchups = (this.matchups || []).filter(x => x.home_manager_id === m.id || x.away_manager_id === m.id || x.team_1_manager_id === m.id || x.team_2_manager_id === m.id);
+            const yearsActive = [...new Set(memberMatchups.map(x => x.season || x.year).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+            const yearsStr = yearsActive.length > 0 ? `${yearsActive[0]}–${yearsActive[yearsActive.length - 1]} (${yearsActive.length} yr${yearsActive.length > 1 ? 's' : ''})` : 'Active';
+            const mName = m.canonical_name || m.name || m.id;
+            const claim = this.claims ? this.claims[m.id] : null;
+            const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
+            const isClaimed = Boolean(claim);
+
+            return `
+                <tr data-manager-id="${m.id}">
+                    <td>
+                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">${mName}</div>
+                    </td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">${yearsStr}</td>
+                    <td>
+                        <div class="admin-actions-cell" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            ${isClaimed ? `
+                                <span class="badge-registered" style="font-size: 0.72rem; padding: 3px 8px; background: #ecfdf5; color: #065f46; border-radius: 4px; border: 1px solid #a7f3d0; font-weight: 600;" title="Claimed by ${claimEmail}">
+                                    ✓ ${claimEmail}
+                                </span>
+                                <button class="btn-reassign-manager btn btn-sm" data-manager-id="${m.id}" data-manager-name="${mName}" style="padding: 3px 8px; font-size: 0.72rem; border: 1px solid var(--border-line); background: #fff; border-radius: 4px; cursor: pointer;">Reassign</button>
+                            ` : `
+                                <span class="badge-unregistered" style="font-size: 0.72rem; padding: 3px 8px; background: #f8fafc; color: #475569; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600;">Unclaimed</span>
+                                <button class="btn-copy-claim-link btn btn-sm" data-manager-id="${m.id}" data-manager-name="${mName}" style="padding: 4px 8px; font-size: 0.72rem; font-weight: 600; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 4px; cursor: pointer;">Copy Link</button>
+                                <button class="btn-email-claim-link btn btn-sm btn-primary" data-manager-id="${m.id}" data-manager-name="${mName}" style="padding: 4px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer; border-radius: 4px;">Email Link</button>
+                            `}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.canonical_name || m.name || m.id}</option>`).join('');
+        const unclaimedOptions = unclaimedMembers.map(m => `<option value="${m.id}">${m.canonical_name || m.name || m.id}</option>`).join('');
+
+        container.innerHTML = `
+            <div class="admin-dashboard-wrapper" style="max-width: 960px; margin: 0 auto; padding: 1.5rem 0;">
+
+                <!-- Retrospective Admin Self-Claim Card (If Admin Has No Claimed Profile) -->
+                ${!currentAdminClaim ? `
+                    <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                            <div>
+                                <div style="font-size: 0.82rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">Claim Your Manager Profile (League Admin)</div>
+                                <p style="font-size: 0.88rem; color: #78350f; margin: 0; line-height: 1.45;">
+                                    You are currently administering this league as <strong>${session?.email || 'Admin'}</strong>, but haven't linked your manager profile yet. Select your team to track your personal career stats, win/loss records, and head-to-head history.
+                                </p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <select id="admin-self-claim-select" style="min-width: 180px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                                    <option value="">-- Select Your Team --</option>
+                                    ${unclaimedOptions}
+                                </select>
+                                <button id="btn-admin-self-claim" class="btn btn-primary" style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">Claim Profile</button>
+                            </div>
+                        </div>
+                        <div id="admin-self-claim-feedback" style="display: none; margin-top: 0.75rem; font-size: 0.85rem;"></div>
+                    </div>
+                ` : ''}
+
+                <!-- 1. IDENTITY & CUSTOMIZATION -->
+                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
+                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Identity &amp; Customization</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize your official masthead title, custom URL slug, and subtitle motto.</p>
+                    </div>
+
+                    <!-- Note from Landon for Tagline Customization -->
+                    <div style="margin-top: 1rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1rem 1.25rem; border-radius: 6px;">
+                        <div style="font-size: 0.75rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">A Note from Landon</div>
+                        <p style="font-size: 0.88rem; color: #78350f; line-height: 1.5; margin: 0;">
+                            Hey, this is one of the first points of customization for your league. Feel free to make the league tagline a tradition, as maybe the champion gets to create the tagline for the next year! That's something you as the admin have control of. I've included below some sample taglines that I came up with in a quick brainstorm, and I'll keep adding more, but feel free to make one up on your own as well.
+                        </p>
+                    </div>
+
+                    <!-- Custom League Title -->
+                    <div style="margin-top: 1rem;">
+                        <label for="admin-league-title-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">Custom League Title:</label>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <input type="text" id="admin-league-title-input" value="${leagueName}" style="flex: 1; min-width: 240px; padding: 8px 12px; font-size: 0.9rem; border: 1px solid var(--border-line); border-radius: 4px;">
+                            <button id="btn-save-league-title" class="btn btn-primary" style="padding: 8px 16px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Title</button>
+                        </div>
+                        <div id="title-save-feedback" style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"></div>
+                    </div>
+
+                    <!-- Tagline Customization -->
+                    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-line);">
+                        <label for="admin-tagline-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--text-secondary);">League Tagline / Subtitle:</label>
+                        <div class="tagline-presets-wrapper">
+                            <button type="button" class="btn-tagline-preset" data-preset="8 Seasons • 15 Managers • One Vault">"8 Seasons • 15 Managers • One Vault"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="The All-Time Archive &amp; Historical Record">"The All-Time Archive &amp; Historical Record"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Where Legends Collide &amp; Records Fall">"Where Legends Collide &amp; Records Fall"</button>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <input type="text" id="admin-tagline-input" value="${currentTagline}" placeholder="Enter custom motto..." style="flex: 1; min-width: 240px; padding: 8px 12px; font-size: 0.9rem; border: 1px solid var(--border-line); border-radius: 4px;">
+                            <button id="btn-save-tagline" class="btn btn-primary" style="padding: 8px 16px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Tagline</button>
+                        </div>
+                        <div id="tagline-save-feedback" style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"></div>
+                    </div>
+                </div>
+
+                <!-- 2. PRIVACY & ACCESS CONTROL -->
+                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
+                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Privacy &amp; Access Control</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Control whether your archive is publicly readable or restricted to signed-in league members.</p>
+                    </div>
+                    <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <strong style="font-size: 0.95rem; color: var(--text-main);">Vault Access:</strong>
+                                    <span id="admin-privacy-badge" style="display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; ${isPrivate ? 'background:#fee2e2; color:#dc2626;' : 'background:#dcfce7; color:#15803d;'}">
+                                        ${isPrivate ? 'Private (Invite &amp; SSO Guarded)' : 'Public (Open Link Access)'}
+                                    </span>
+                                </div>
+                                <p id="admin-privacy-desc" style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45;">
+                                    ${isPrivate 
+                                        ? 'Private vaults require managers to be logged in to view your archive, draft records, and record books.' 
+                                        : 'Public vaults allow anyone with your league link to explore your history, record books, and draft analysis.'}
+                                </p>
+                            </div>
+                            <button id="btn-toggle-privacy" class="btn" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${isPrivate ? 'background:#15803d; color:#fff; border:none;' : 'background:#475569; color:#fff; border:none;'}">
+                                ${isPrivate ? 'Make League Public' : 'Make League Private'}
+                            </button>
+                        </div>
+                        <div id="privacy-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem; color: #15803d; font-size: 0.85rem;"></div>
+                    </div>
+                </div>
+
+                <!-- 3. REGISTERED MEMBERS & MANAGER ROSTER -->
+                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
+                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Members Roster</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager claims, copy individual claim links, or email invitations directly.</p>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border-line); text-align: left;">
+                                    <th style="padding: 8px; width: 40%;">Manager Display Name</th>
+                                    <th style="padding: 8px; width: 25%;">Active Seasons</th>
+                                    <th style="padding: 8px; width: 35%;">Claim Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${managerRows}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="manager-claim-feedback" style="display: none; margin-top: 0.75rem; padding: 0.5rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; color: #065f46; font-size: 0.85rem;"></div>
+                </div>
+
+                <!-- 4. LEAGUE INVITES & ACCESS -->
+                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
+                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Invites &amp; Access Control</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Share your official join code and direct invite links with league members to grant them access to this vault.</p>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Official Join Code:</span>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                                <code style="padding: 4px 10px; background: #fff; border: 1px solid var(--border-line); font-weight: 700; font-size: 1.05rem; letter-spacing: 1px; border-radius: 4px;">${joinCode}</code>
+                                <button class="btn-copy-action btn btn-sm btn-outline-primary" data-copy="${joinCode}" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">Copy Code</button>
+                            </div>
+                        </div>
+                        <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">General League Invite Link:</span>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                                <span style="font-size: 0.82rem; font-family: monospace; color: var(--text-main); word-break: break-all;">${joinLink}</span>
+                                <button class="btn-copy-action btn btn-sm btn-primary" data-copy="${joinLink}" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">Copy Link</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                        <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+                            <strong>General Invite Notice:</strong> Share this general invite link with your league members. When they join using this link, they will be prompted to select and claim their manager profile from the roster.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 5. TRANSFER ADMIN STATUS -->
+                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
+                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">Transfer Admin Status</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Transfer official ownership and commissioner control of this league archive to another manager.</p>
+                    </div>
+                    <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                        <p style="font-size: 0.88rem; color: var(--text-secondary, #334155); line-height: 1.5; margin: 0 0 1rem 0;">
+                            Need to pass commissioner duties to another league member? You can invite a manager to take over admin status by email or by copying an admin transfer link. When they accept and sign in, full commissioner permissions will be transferred to their account.
+                        </p>
+                        <button id="btn-open-transfer-admin-modal" class="btn" style="background: #b45309; color: #fff; padding: 8px 16px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none;">Transfer Admin Status</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Wire up Retrospective Admin Self-Claim
+        const btnSelfClaim = container.querySelector('#btn-admin-self-claim');
+        const selectSelfClaim = container.querySelector('#admin-self-claim-select');
+        if (btnSelfClaim && selectSelfClaim) {
+            btnSelfClaim.addEventListener('click', async () => {
+                const mgrId = selectSelfClaim.value;
+                if (!mgrId) {
+                    alert('Please select your manager profile.');
+                    return;
+                }
+                const selectedMgr = sortedMembers.find(m => m.id === mgrId);
+                const mgrName = selectedMgr?.canonical_name || selectedMgr?.name || mgrId;
+                btnSelfClaim.disabled = true;
+                btnSelfClaim.textContent = 'Claiming...';
+                try {
+                    await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, mgrName);
+                    await window.AuthEngine.linkUserLeague(leagueSlug, 'admin', leagueName);
+
+                    if (!this.claims) this.claims = {};
+                    this.claims[mgrId] = {
+                        userId: session?.uid,
+                        email: session?.email,
+                        name: mgrName,
+                        claimedAt: new Date().toISOString()
+                    };
+                    if (session) {
+                        if (!session.claims) session.claims = {};
+                        session.claims[leagueSlug] = mgrId;
+                    }
+                    try {
+                        localStorage.setItem(`vault_claims_${leagueSlug}`, JSON.stringify(this.claims));
+                    } catch (e) {}
+
+                    const feedbackEl = document.getElementById('admin-self-claim-feedback');
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#15803d';
+                        feedbackEl.innerHTML = `✓ Successfully linked your profile as <strong>${mgrName}</strong>!`;
+                    }
+                    setTimeout(() => { this.renderAdminDashboard(); }, 1000);
+                } catch (e) {
+                    console.error('Failed to self claim', e);
+                    alert('Failed to link profile.');
+                } finally {
+                    btnSelfClaim.disabled = false;
+                    btnSelfClaim.textContent = 'Claim Profile';
+                }
+            });
+        }
+
+        // Wire up Tagline preset buttons
+        container.querySelectorAll('.btn-tagline-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.getAttribute('data-preset');
+                const taglineInput = container.querySelector('#admin-tagline-input');
+                if (taglineInput && text) {
+                    taglineInput.value = text;
+                    taglineInput.focus();
+                }
+            });
+        });
+
+        // Wire up Save Tagline button
+        container.querySelector('#btn-save-tagline')?.addEventListener('click', async () => {
+            const taglineInput = container.querySelector('#admin-tagline-input');
+            const newTagline = taglineInput?.value.trim();
+            if (!newTagline) return;
+            const feedbackEl = document.getElementById('tagline-save-feedback');
+            try {
+                if (!this.leagueSettings) this.leagueSettings = {};
+                this.leagueSettings.tagline = newTagline;
+                const settingsRef = dbRef(database, `leagues/dmsfantasy/league_settings`);
+                await update(settingsRef, { tagline: newTagline });
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#15803d';
+                    feedbackEl.innerHTML = `✓ Tagline updated to: "<em>${newTagline}</em>"`;
+                    setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                }
+            } catch (e) {
+                console.error('Failed to save tagline', e);
+            }
+        });
+
+        // Wire up Save Title button
+        container.querySelector('#btn-save-league-title')?.addEventListener('click', async () => {
+            const titleInput = container.querySelector('#admin-league-title-input');
+            const newTitle = titleInput?.value.trim();
+            if (!newTitle) return;
+            const feedbackEl = document.getElementById('title-save-feedback');
+            try {
+                if (!this.leagueSettings) this.leagueSettings = {};
+                this.leagueSettings.name = newTitle;
+                const settingsRef = dbRef(database, `leagues/dmsfantasy/league_settings`);
+                await update(settingsRef, { name: newTitle });
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#15803d';
+                    feedbackEl.innerHTML = `✓ League title updated to "<strong>${newTitle}</strong>"!`;
+                    setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                }
+            } catch (e) {
+                console.error('Failed to save title', e);
+            }
+        });
+
+        // Wire up Transfer Admin Status modal opener
+        container.querySelector('#btn-open-transfer-admin-modal')?.addEventListener('click', () => {
+            if (typeof window.openAdminTransferModal === 'function') {
+                window.openAdminTransferModal(leagueSlug);
+            }
+        });
+
+        // Wire up Privacy Toggle
+        const btnTogglePrivacy = container.querySelector('#btn-toggle-privacy');
+        if (btnTogglePrivacy) {
+            btnTogglePrivacy.addEventListener('click', async () => {
+                const currentPrivate = Boolean(this.leagueSettings?.is_private);
+                const nextPrivate = !currentPrivate;
+                btnTogglePrivacy.disabled = true;
+                btnTogglePrivacy.textContent = 'Updating...';
+
+                try {
+                    if (!this.leagueSettings) this.leagueSettings = {};
+                    this.leagueSettings.is_private = nextPrivate;
+                    const settingsRef = dbRef(database, `leagues/dmsfantasy/league_settings`);
+                    await update(settingsRef, { is_private: nextPrivate });
+
+                    const feedbackEl = document.getElementById('privacy-toggle-feedback');
+                    const badgeEl = document.getElementById('admin-privacy-badge');
+                    const descEl = document.getElementById('admin-privacy-desc');
+
+                    if (badgeEl) {
+                        badgeEl.style.background = nextPrivate ? '#fee2e2' : '#dcfce7';
+                        badgeEl.style.color = nextPrivate ? '#dc2626' : '#15803d';
+                        badgeEl.textContent = nextPrivate ? 'Private (Invite &amp; SSO Guarded)' : 'Public (Open Link Access)';
+                    }
+                    if (descEl) {
+                        descEl.textContent = nextPrivate 
+                            ? 'Private vaults require managers to be logged in to view your archive, draft records, and record books.' 
+                            : 'Public vaults allow anyone with your league link to explore your history, record books, and draft analysis.';
+                    }
+                    btnTogglePrivacy.style.background = nextPrivate ? '#15803d' : '#475569';
+                    btnTogglePrivacy.textContent = nextPrivate ? 'Make League Public' : 'Make League Private';
+
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.innerHTML = `✓ League access updated to <strong>${nextPrivate ? 'Private (Guarded)' : 'Public (Open)'}</strong>.`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                } catch (e) {
+                    console.error('Failed to toggle privacy', e);
+                } finally {
+                    btnTogglePrivacy.disabled = false;
+                }
+            });
+        }
+
+        // Wire up Copy Action buttons
+        container.querySelectorAll('.btn-copy-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const textToCopy = btn.getAttribute('data-copy');
+                if (!textToCopy) return;
+                const orig = btn.textContent;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => { btn.textContent = orig; }, 2000);
+                });
+            });
+        });
+
+        // Wire up Copy Claim Link buttons on manager rows
+        container.querySelectorAll('.btn-copy-claim-link').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mgrId = btn.getAttribute('data-manager-id');
+                const mgrName = btn.getAttribute('data-manager-name');
+                const claimLink = `${window.location.origin}/dmsfantasy/?action=claim_manager&manager=${encodeURIComponent(mgrId)}`;
+
+                navigator.clipboard.writeText(claimLink).then(() => {
+                    const orig = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    const feedbackEl = document.getElementById('manager-claim-feedback');
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.innerHTML = `✓ Personalized claim link for <strong>${mgrName}</strong> copied to clipboard!<br><span style="font-family: monospace; font-size: 0.8rem;">${claimLink}</span>`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 6000);
+                    }
+                    setTimeout(() => { btn.textContent = orig; }, 2500);
+                });
+            });
+        });
+
+        // Wire up Email Claim Link buttons on manager rows
+        container.querySelectorAll('.btn-email-claim-link').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mgrId = btn.getAttribute('data-manager-id');
+                const mgrName = btn.getAttribute('data-manager-name');
+                if (typeof window.openEmailClaimModal === 'function') {
+                    window.openEmailClaimModal(leagueSlug, mgrId, mgrName);
+                }
+            });
+        });
+
+        // Wire up Reassign buttons on claimed manager rows
+        container.querySelectorAll('.btn-reassign-manager').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const mgrId = btn.getAttribute('data-manager-id');
+                const mgrName = btn.getAttribute('data-manager-name');
+                const confirmReassign = window.confirm(
+                    `Do you want to unlink and reassign the account claimed for "${mgrName}"?\n\n` +
+                    `This will mark "${mgrName}" as Unclaimed so another email account can claim this manager profile.`
+                );
+                if (confirmReassign) {
+                    if (this.claims && this.claims[mgrId]) {
+                        delete this.claims[mgrId];
+                    }
+                    try {
+                        const claimRef = dbRef(database, `leagues/dmsfantasy/claims/${mgrId}`);
+                        await set(claimRef, null);
+                    } catch (e) {
+                        console.error('Failed to unlink claim', e);
+                    }
+                    this.renderAdminDashboard();
+                }
+            });
+        });
+    }
+
+    async renderDraft() {
+        if (!this.draftEngine) {
+            this.draftEngine = new VaultDraftEngine({
+                containerId: 'view-draft',
+                draftResults: this.draftResults,
+                weeklyPlayerStats: this.playerStats,
+                transactions: this.transactions,
+                managers: this.managers,
+                leagueSettings: { name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)' },
+                scoringSettings: {}
+            });
+        }
+        await this.draftEngine.render();
     }
 
     setupH2HControls() {
@@ -896,12 +1573,12 @@ class FantasyApp {
                                 <span class="slot-badge ${slotClass}">${slot}</span>
                                 <div>
                                     <div class="player-name" style="font-style: italic; color: var(--text-muted);">Empty</div>
-                                    <div class="nfl-team">—</div>
+                                    <div class="nfl-team">-</div>
                                 </div>
                             </div>
                             <div class="player-right">
                                 <div class="player-pts">0.00</div>
-                                <div class="player-proj">Proj: —</div>
+                                <div class="player-proj">Proj: -</div>
                             </div>
                         </div>
                     `;
@@ -958,7 +1635,7 @@ class FantasyApp {
         modalContent.innerHTML = `
             <div class="modal-header">
                 <div class="modal-title-area">
-                    <h2>${season} • Week ${week} ${m.is_playoffs ? '— ' + (m.playoff_round || 'Playoffs') : '— Regular Season'}</h2>
+                    <h2>${season} • Week ${week} ${m.is_playoffs ? ', as ' + (m.playoff_round || 'Playoffs') : ', as Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>
