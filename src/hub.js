@@ -87,28 +87,12 @@ let currentLeagueCreds = null;
       const code = inputHeaderCode.value.trim().toUpperCase();
       if (!code) return;
 
-      const session = AuthEngine.getSession();
-      if (!session) {
-        // User is not signed in; prompt them to sign in first
-        window.pendingJoinCode = code;
-        if (authModal && typeof authModal.showModal === 'function') {
-          authModal.showModal();
-        }
-        return;
-      }
-
       if (typeof window.startManagerClaimFlow === 'function') {
-        window.startManagerClaimFlow(code, async () => {
-          const res = await AuthEngine.resolveJoinCode(code);
-          if (res.success) {
-            window.location.href = res.league.path + `?join=${code}`;
-          }
-        });
+        window.startManagerClaimFlow(code);
       } else {
         const res = await AuthEngine.resolveJoinCode(code);
         if (res.success) {
-          alert(`Joining ${res.league.name}... Directing to league archive.`);
-          window.location.href = res.league.path + `?join=${code}`;
+          window.location.href = res.league.path;
         } else {
           alert(res.message);
         }
@@ -558,52 +542,15 @@ let currentLeagueCreds = null;
     });
   }
 
-  // Join Code Flow
-  const btnVerifyJoinCode = document.getElementById('btn-verify-join-code');
-  const inputJoinCode = document.getElementById('input-join-code');
-  const profileSelectWrapper = document.getElementById('join-profile-select-wrapper');
-  const selectJoinProfile = document.getElementById('select-join-profile');
-  
-  if (btnVerifyJoinCode && inputJoinCode) {
-    btnVerifyJoinCode.addEventListener('click', async () => {
-      const code = inputJoinCode.value.trim().toUpperCase();
-      if (!code) {
-        alert("Please enter a join code");
-        return;
-      }
-      
-      const result = await AuthEngine.resolveJoinCode(code);
-      if (result.success) {
-        // Populate manager dropdown
-        if (selectJoinProfile) {
-          selectJoinProfile.innerHTML = '<option value="" disabled selected>Select your profile...</option>';
-          result.league.managers.forEach(mgr => {
-            selectJoinProfile.innerHTML += `<option value="${mgr.id}">${mgr.canonical_name || mgr.name}</option>`;
-          });
-        }
-        if (profileSelectWrapper) profileSelectWrapper.style.display = 'block';
-        window.pendingJoinCode = code; // save it to complete after auth
-      } else {
-        alert(result.message);
-      }
-    });
-  }
-
   // Post-Login Redirect Handler
   async function handlePostLogin(defaultMessage, defaultRedirect) {
-    if (window.pendingJoinCode && selectJoinProfile && selectJoinProfile.value) {
+    if (window.pendingJoinCode) {
       const code = window.pendingJoinCode;
-      const managerId = selectJoinProfile.value;
-      
       window.pendingJoinCode = null;
-      
-      const res = await AuthEngine.finalizeJoin(code, managerId);
-      if (res.success) {
-        window.location.href = res.league.path;
-      } else {
-        alert(res.message);
+      if (typeof window.startManagerClaimFlow === 'function') {
+        window.startManagerClaimFlow(code);
+        return;
       }
-      return;
     }
 
     if (defaultRedirect) {
@@ -812,15 +759,11 @@ let currentLeagueCreds = null;
   const urlParams = new URLSearchParams(window.location.search);
   const joinParam = urlParams.get('join');
   if (joinParam) {
-    if (authModal && typeof authModal.showModal === 'function') {
-      authModal.showModal();
-      if (inputJoinCode) {
-        inputJoinCode.value = joinParam;
-        if (btnVerifyJoinCode) {
-          btnVerifyJoinCode.click();
-        }
+    setTimeout(() => {
+      if (typeof window.startManagerClaimFlow === 'function') {
+        window.startManagerClaimFlow(joinParam);
       }
-    }
+    }, 300);
   }
 
   // Handle ?action=create URL Parameter

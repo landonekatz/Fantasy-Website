@@ -150,31 +150,24 @@ const AuthEngine = {
       return { success: false, message: "Please enter a 6-character Join Code." };
     }
 
-    if (JOIN_CODES[cleanCode]) {
-      const league = { ...JOIN_CODES[cleanCode] };
-      if (window.app && window.app.leagueSlug === league.leagueId) {
-        league.managers = window.app.members || window.app.managers || league.managers;
-      }
-      return { success: true, league };
-    }
+    let league = null;
 
-    // Check dynamic active app instance
-    if (window.app && window.app.leagueSlug) {
+    if (JOIN_CODES[cleanCode]) {
+      league = { ...JOIN_CODES[cleanCode] };
+    } else if (window.app && window.app.leagueSlug) {
       const appCode = (window.app.leagueSettings?.join_code || '').toUpperCase();
       if (cleanCode === appCode || cleanCode === window.app.leagueSlug.toUpperCase()) {
-        const info = {
+        league = {
           leagueId: window.app.leagueSlug,
           name: window.app.leagueSettings?.name || 'Fantasy Football League',
-          path: `/${window.app.leagueSlug}`,
+          path: this.resolveLeaguePath(window.app.leagueSlug),
           managers: window.app.members || window.app.managers || []
         };
-        JOIN_CODES[cleanCode] = info;
-        return { success: true, league: info };
       }
     }
 
-    // Check Firebase Realtime Database leagues
-    if (database) {
+    // Check Firebase Realtime Database leagues if not matched yet
+    if (!league && database) {
       try {
         const leaguesSnap = await rtdbGet(dbRef(database, 'leagues'));
         if (leaguesSnap.exists()) {
@@ -182,14 +175,13 @@ const AuthEngine = {
           for (const [slug, lData] of Object.entries(allLeagues)) {
             const lCode = (lData?.league_settings?.join_code || '').toUpperCase();
             if (cleanCode === lCode || cleanCode === slug.toUpperCase()) {
-              const info = {
+              league = {
                 leagueId: slug,
                 name: lData?.league_settings?.name || `${slug} Vault`,
-                path: `/${slug}`,
+                path: this.resolveLeaguePath(slug),
                 managers: lData?.members || lData?.managers || []
               };
-              JOIN_CODES[cleanCode] = info;
-              return { success: true, league: info };
+              break;
             }
           }
         }
@@ -198,7 +190,66 @@ const AuthEngine = {
       }
     }
 
-    return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
+    if (!league) {
+      return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
+    }
+
+    // Ensure path is standardized
+    league.path = this.resolveLeaguePath(league.leagueId);
+
+    // If managers array is empty, fetch manager datasets
+    if (!league.managers || league.managers.length === 0) {
+      if (window.app && (window.app.leagueSlug === league.leagueId || (league.leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (league.leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+        league.managers = window.app.members || window.app.managers || [];
+      }
+      
+      if (!league.managers || league.managers.length === 0) {
+        if (league.leagueId === 'dmsfantasy') {
+          try {
+            const resp = await fetch('/dmsfantasy/data/managers.json');
+            if (resp.ok) {
+              const d = await resp.json();
+              league.managers = d.managers || [];
+            }
+          } catch (e) {}
+        } else if (league.leagueId === 'gaywoodfantasy') {
+          try {
+            const resp = await fetch('/gaywoodfantasy/data/managers.json');
+            if (resp.ok) {
+              const d = await resp.json();
+              league.managers = d.managers || [];
+            }
+          } catch (e) {}
+        } else if (database) {
+          try {
+            const memSnap = await rtdbGet(dbRef(database, `leagues/${league.leagueId}/members`));
+            if (memSnap.exists()) {
+              league.managers = memSnap.val() || [];
+            } else {
+              const mgrSnap = await rtdbGet(dbRef(database, `leagues/${league.leagueId}/managers`));
+              if (mgrSnap.exists()) league.managers = mgrSnap.val() || [];
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    // Always fetch existing claims from RTDB so caller knows who is available
+    if (database) {
+      try {
+        const claimsSnap = await rtdbGet(dbRef(database, `leagues/${league.leagueId}/claims`));
+        if (claimsSnap.exists()) {
+          league.claims = claimsSnap.val() || {};
+        } else {
+          league.claims = {};
+        }
+      } catch (e) {
+        league.claims = {};
+      }
+    }
+
+    JOIN_CODES[cleanCode] = league;
+    return { success: true, league };
   },
 
   processJoinCode(code) {
@@ -208,6 +259,7 @@ const AuthEngine = {
       if (window.app && window.app.leagueSlug === league.leagueId) {
         league.managers = window.app.members || window.app.managers || league.managers;
       }
+      league.path = this.resolveLeaguePath(league.leagueId);
       return { success: true, league };
     }
 
@@ -218,7 +270,7 @@ const AuthEngine = {
         const info = {
           leagueId: window.app.leagueSlug,
           name: window.app.leagueSettings?.name || 'Fantasy Football League',
-          path: `/${window.app.leagueSlug}`,
+          path: this.resolveLeaguePath(window.app.leagueSlug),
           managers: window.app.members || window.app.managers || []
         };
         JOIN_CODES[cleanCode] = info;
@@ -232,7 +284,7 @@ const AuthEngine = {
   async finalizeJoin(code, managerId) {
     const cleanCode = (code || '').trim().toUpperCase();
     let info = JOIN_CODES[cleanCode];
-    if (!info) {
+    if (!info || !info.managers || info.managers.length === 0) {
       const check = await this.resolveJoinCode(code);
       if (check.success) info = check.league;
     }
@@ -243,7 +295,10 @@ const AuthEngine = {
 
     try {
       await this.linkUserLeague(info.leagueId, 'member', info.name);
-      await this.claimManagerProfile(info.leagueId, managerId, session.email);
+      if (managerId && managerId !== 'unknown' && managerId !== 'guest') {
+        await this.claimManagerProfile(info.leagueId, managerId, session.email);
+      }
+      await this.recordActiveLeague(info.leagueId);
       window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
       return { success: true, league: info };
     } catch (e) {
@@ -355,6 +410,7 @@ const AuthEngine = {
 
     try {
       await this.linkUserLeague(cleanSlug, 'guest', '');
+      await this.recordActiveLeague(cleanSlug);
       window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
       return { success: true };
     } catch (e) {

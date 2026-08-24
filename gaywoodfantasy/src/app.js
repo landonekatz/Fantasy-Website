@@ -290,8 +290,11 @@ class FantasyApp {
         // 1. Invite Link Intercept
         const joinCode = urlParams.get('join');
         if (joinCode) {
-            window.location.href = `/?join=${joinCode}`;
-            return;
+            setTimeout(() => {
+                if (typeof window.startManagerClaimFlow === 'function') {
+                    window.startManagerClaimFlow(joinCode);
+                }
+            }, 500);
         }
 
         // 1. Immediately wire navigation, theme, and admin tab visibility on frame 0
