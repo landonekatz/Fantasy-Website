@@ -73,3 +73,6 @@ Fantasy-Website/
 ### 6. Landon Draft Index (LDI) Single Source of Truth
 - Any work on LDI, including scoring calculations, games-missed proration, adjusted expectations, Winsorization, VORP, and diagnostic pills, must refer first and foremost to `landon_draft_index_framework.md` as the absolute bible for the system.
 
+### 7. Default Scope Policy
+- All proposed changes, new features, and bug fixes are for the Dumbarton League (`dmsfantasy/`) and for The Fantasy Vault engine (`src/` & `vault.html`), unless obvious or otherwise specified.
+

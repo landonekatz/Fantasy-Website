@@ -35,5 +35,8 @@ Standardized NFL data from Sleeper API (`src/nfl_stats.js`) must be used for off
 Format-specific finishes must match each league's scoring system:
 - DMS League: Explicitly Half-PPR (`0.5`) for all years (2018–2026).
 - Gaywood / Katz: Half-PPR (`0.5`).
-- Standard / PPR dynamic vaults: Match detected league format (`pos_rank_ppr` for 1.0 PPR, `pos_rank_half_ppr` for 0.5 Half-PPR, `pos_rank_std` for Standard).
+---
+
+## 📜 Default Scope Policy
+All proposed changes, new features, and bug fixes are for the Dumbarton League (`dmsfantasy/`) and for The Fantasy Vault engine (`src/` & `vault.html`), unless obvious or otherwise specified.
 

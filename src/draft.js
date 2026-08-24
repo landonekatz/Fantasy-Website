@@ -38,9 +38,13 @@ export class VaultDraftEngine {
         this.selectedYear = null;
         this.selectedManagerId = null;
         this.showLeagueAvg = true; // Toggle for solo team graph comparison line
-        this.overallYearFilter = 'all'; // 'all' or specific year
+        this.overallYearFilter = 'all'; // 'all' | '2020-present' | 'custom' | specific year e.g. '2024'
+        this.overallCustomStart = null;
+        this.overallCustomEnd = null;
         this.overallIncludeRetired = false; // toggle to include retired managers in overall
-        this.soloYearFilter = 'all'; // 'all' or specific year
+        this.soloYearFilter = 'all'; // 'all' | '2020-present' | 'custom' | specific year e.g. '2024'
+        this.soloCustomStart = null;
+        this.soloCustomEnd = null;
         this.soloIncludeRetired = false; // toggle to show retired managers in solo profile
         this.seasons = [];
         this.playerTruePositions = {};
@@ -138,6 +142,15 @@ export class VaultDraftEngine {
         
         this.seasons = Array.from(yearsSet).sort((a, b) => b - a);
         if (this.seasons.length > 0) {
+            const sortedAsc = [...this.seasons].sort((a, b) => a - b);
+            const minYr = sortedAsc[0];
+            const maxYr = sortedAsc[sortedAsc.length - 1];
+
+            if (!this.overallCustomStart) this.overallCustomStart = minYr;
+            if (!this.overallCustomEnd) this.overallCustomEnd = maxYr;
+            if (!this.soloCustomStart) this.soloCustomStart = minYr;
+            if (!this.soloCustomEnd) this.soloCustomEnd = maxYr;
+
             if (!this.selectedYear || !this.seasons.includes(this.selectedYear)) {
                 this.selectedYear = this.seasons[0];
             }
@@ -162,6 +175,18 @@ export class VaultDraftEngine {
         } else if (mgrList.length > 0 && !this.selectedManagerId) {
             this.selectedManagerId = mgrList[0].id;
         }
+    }
+
+    filterSeasonByRule(seasonYear, filterMode, customStart, customEnd) {
+        const y = Number(seasonYear);
+        if (!filterMode || filterMode === 'all') return true;
+        if (filterMode === '2020-present') return y >= 2020;
+        if (filterMode === 'custom') {
+            const start = Number(customStart || 2015);
+            const end = Number(customEnd || 2030);
+            return y >= start && y <= end;
+        }
+        return String(filterMode) === String(y);
     }
 
     destroy() {
@@ -769,16 +794,14 @@ export class VaultDraftEngine {
     /**
      * Compute All-Time Macro Analytics across every completed draft season with year & retired manager filtering
      */
-    computeAllTimeAnalytics(yearFilter = this.overallYearFilter, includeRetired = this.overallIncludeRetired) {
+    computeAllTimeAnalytics(yearFilter = this.overallYearFilter, includeRetired = this.overallIncludeRetired, customStart = this.overallCustomStart, customEnd = this.overallCustomEnd) {
         const seasonAnalyticsMap = {};
         const managerAllPicks = {};
         const managerSeasonRollups = {};
         const allScoredPicks = [];
         const allManagerSeasons = [];
 
-        const targetSeasons = (yearFilter && yearFilter !== 'all') 
-            ? this.seasons.filter(yr => String(yr) === String(yearFilter)) 
-            : this.seasons;
+        const targetSeasons = this.seasons.filter(yr => this.filterSeasonByRule(yr, yearFilter, customStart, customEnd));
 
         targetSeasons.forEach(yr => {
             const a = this.computeSeasonAnalytics(yr);
@@ -908,7 +931,10 @@ export class VaultDraftEngine {
             top5BiggestBusts,
             top5WhatIfs,
             allScoredPicks,
+            targetSeasons,
             yearFilter,
+            customStart,
+            customEnd,
             includeRetired
         };
     }
@@ -1395,9 +1421,46 @@ export class VaultDraftEngine {
      * View 2: Draft Overall (All-Time Macro Leaderboard & Top 5 Records)
      */
     renderOverallView(container) {
-        const allTime = this.computeAllTimeAnalytics(this.overallYearFilter, this.overallIncludeRetired);
+        const allTime = this.computeAllTimeAnalytics(this.overallYearFilter, this.overallIncludeRetired, this.overallCustomStart, this.overallCustomEnd);
         const managerLeaderboard = allTime.managerCompositeList;
-        const isYearFiltered = this.overallYearFilter && this.overallYearFilter !== 'all';
+        const targetSeasons = allTime.targetSeasons || [];
+        const isCustom = this.overallYearFilter === 'custom';
+        const isPresent = this.overallYearFilter === '2020-present';
+        const isSingleYear = !['all', '2020-present', 'custom'].includes(this.overallYearFilter);
+
+        let heroSubtitle = 'All-Time League Compilation';
+        let heroTitle = 'All-Time Draft Leaderboard & Records';
+        let heroDesc = `Macro analysis of every draft pick and manager performance across league history (${this.seasons.length} Seasons). Ranked by the <strong>Statistically Shrunk Composite LDI</strong>, accounting for career sample size, positional scarcity, and consistency.`;
+        let tableColTitle = 'Composite LDI';
+        let sectionTitle = 'All-Time Manager Draft Leaderboard';
+        let sectionTag = `Ranked by Career Composite LDI (${managerLeaderboard.length} Managers)`;
+
+        if (isPresent) {
+            heroSubtitle = '2020–Present Draft Analytics';
+            heroTitle = '2020–Present Draft Leaderboard & Records';
+            heroDesc = `Comparative multi-season draft evaluation for drafts from 2020 to present (${targetSeasons.length} Seasons) based on empirical rate scoring, games-missed proration, and positional scarcity.`;
+            tableColTitle = '2020+ Score';
+            sectionTitle = '2020–Present Draft Leaderboard';
+            sectionTag = `Ranked by 2020–Present Composite (${managerLeaderboard.length} Managers)`;
+        } else if (isCustom) {
+            heroSubtitle = `${this.overallCustomStart}–${this.overallCustomEnd} Draft Analytics`;
+            heroTitle = `${this.overallCustomStart}–${this.overallCustomEnd} Draft Leaderboard & Records`;
+            heroDesc = `Comparative multi-season draft evaluation for drafts from ${this.overallCustomStart} to ${this.overallCustomEnd} (${targetSeasons.length} Seasons) based on empirical rate scoring, games-missed proration, and positional scarcity.`;
+            tableColTitle = 'Span Score';
+            sectionTitle = `${this.overallCustomStart}–${this.overallCustomEnd} Draft Leaderboard`;
+            sectionTag = `Ranked by ${this.overallCustomStart}–${this.overallCustomEnd} Composite (${managerLeaderboard.length} Managers)`;
+        } else if (isSingleYear) {
+            heroSubtitle = `${this.overallYearFilter} Season Analytics`;
+            heroTitle = `${this.overallYearFilter} Draft Leaderboard & Records`;
+            heroDesc = `Single-season comparative evaluation for the ${this.overallYearFilter} draft class based on empirical rate scoring, games-missed proration, and positional scarcity.`;
+            tableColTitle = `${this.overallYearFilter} Score`;
+            sectionTitle = `${this.overallYearFilter} Season Draft Leaderboard`;
+            sectionTag = `Ranked by ${this.overallYearFilter} Draft Score (${managerLeaderboard.length} Managers)`;
+        }
+
+        const sortedAsc = [...this.seasons].sort((a, b) => a - b);
+        const yearOptionsStartHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.overallCustomStart) === Number(y) ? 'selected' : ''}>${y}</option>`).join('');
+        const yearOptionsEndHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.overallCustomEnd) === Number(y) ? 'selected' : ''}>${y}</option>`).join('');
 
         const formatLdiVal = (val, showPlus = true) => {
             const num = Number(val);
@@ -1518,22 +1581,39 @@ export class VaultDraftEngine {
                 <!-- Draft Overall Hero Banner -->
                 <div class="draft-hero-banner">
                     <div class="draft-hero-title-group">
-                        <span class="draft-hero-subtitle">${isYearFiltered ? `${this.overallYearFilter} Season Analytics` : 'All-Time League Compilation'}</span>
-                        <h1>${isYearFiltered ? `${this.overallYearFilter} Draft Leaderboard & Records` : 'All-Time Draft Leaderboard & Records'}</h1>
+                        <span class="draft-hero-subtitle">${heroSubtitle}</span>
+                        <h1>${heroTitle}</h1>
                         <p class="draft-hero-desc">
-                            ${isYearFiltered 
-                                ? `Single-season comparative evaluation for the ${this.overallYearFilter} draft class based on empirical rate scoring, games-missed proration, and positional scarcity.`
-                                : 'Macro analysis of every draft pick and manager performance across league history. Ranked by the <strong>Statistically Shrunk Composite LDI</strong>, accounting for career sample size, positional scarcity, and consistency.'}
+                            ${heroDesc}
                         </p>
                     </div>
 
                     <!-- Filter Controls Bar -->
                     <div class="draft-toolbar-row">
-                        <div class="draft-filters-bar">
+                        <div class="draft-filters-bar" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                            <div class="draft-filter-item" style="display: flex; gap: 6px; align-items: center;">
+                                <span class="draft-filter-label">Seasons:</span>
+                                <div class="records-year-group">
+                                    <button class="records-year-btn ${this.overallYearFilter === 'all' ? 'active' : ''}" data-section="overall" data-year="all">All Years</button>
+                                    <button class="records-year-btn ${this.overallYearFilter === '2020-present' ? 'active' : ''}" data-section="overall" data-year="2020-present">2020–Present</button>
+                                    <button class="records-year-btn ${this.overallYearFilter === 'custom' ? 'active' : ''}" data-section="overall" data-year="custom">Custom Span</button>
+                                </div>
+                            </div>
+
+                            <div class="records-custom-span-wrap" id="overall-custom-span-wrap" style="${this.overallYearFilter === 'custom' ? 'display:flex; gap:6px; align-items:center;' : 'display:none;'}">
+                                <select id="overall-custom-start" class="records-custom-span-select">
+                                    ${yearOptionsStartHTML}
+                                </select>
+                                <span style="color:var(--text-muted); font-size:0.8rem;">to</span>
+                                <select id="overall-custom-end" class="records-custom-span-select">
+                                    ${yearOptionsEndHTML}
+                                </select>
+                            </div>
+
                             <div class="draft-filter-item">
-                                <span class="draft-filter-label">Season Filter:</span>
-                                <select id="overall-filter-year" class="draft-filter-select">
-                                    <option value="all" ${this.overallYearFilter === 'all' ? 'selected' : ''}>All Seasons (All-Time Macro)</option>
+                                <span class="draft-filter-label">Single Season:</span>
+                                <select id="overall-filter-year-select" class="draft-filter-select">
+                                    <option value="all" ${['all', '2020-present', 'custom'].includes(this.overallYearFilter) ? 'selected' : ''}>-- Single Year --</option>
                                     ${this.seasons.map(yr => `
                                         <option value="${yr}" ${String(this.overallYearFilter) === String(yr) ? 'selected' : ''}>${yr} Season</option>
                                     `).join('')}
@@ -1553,8 +1633,8 @@ export class VaultDraftEngine {
                 <!-- All-Time / Filtered Leaderboard Section -->
                 <div class="draft-overall-section">
                     <div class="section-header-row">
-                        <h2>${isYearFiltered ? `${this.overallYearFilter} Season Draft Leaderboard` : 'All-Time Manager Draft Leaderboard'}</h2>
-                        <span class="section-tag-badge">${isYearFiltered ? `Ranked by ${this.overallYearFilter} Draft Score` : 'Ranked by Career Composite LDI'} (${managerLeaderboard.length} Managers)</span>
+                        <h2>${sectionTitle}</h2>
+                        <span class="section-tag-badge">${sectionTag}</span>
                     </div>
 
                     <div class="table-container draft-table-card">
@@ -1565,7 +1645,7 @@ export class VaultDraftEngine {
                                     <th class="col-manager">Manager / Team</th>
                                     <th class="col-center" title="Total seasons drafted in filter">Seasons</th>
                                     <th class="col-center" title="Total skill picks evaluated">Picks</th>
-                                    <th class="col-composite" title="Sample-size adjusted 1-99 Composite Grade">${isYearFiltered ? `${this.overallYearFilter} Score` : 'Composite LDI'}</th>
+                                    <th class="col-composite" title="Sample-size adjusted 1-99 Composite Grade">${tableColTitle}</th>
                                     <th class="col-mean" title="Career unweighted mean LDI per pick">Mean LDI</th>
                                     <th class="col-center" title="% of picks scoring >= 75 LDI">Hit Rate</th>
                                     <th class="col-center" title="% of picks scoring <= 25 LDI">Bust Rate</th>
@@ -1675,15 +1755,17 @@ export class VaultDraftEngine {
         const allPicks = mgrComposite?.picks || [];
         const sortedAllSeasons = [...allSeasonRollups].sort((a, b) => b.seasonYear - a.seasonYear);
 
-        // Check if soloYearFilter is active and matches a season for this manager
-        const isYearFiltered = this.soloYearFilter && this.soloYearFilter !== 'all';
-        const targetSeasonRollup = isYearFiltered 
+        const isCustom = this.soloYearFilter === 'custom';
+        const isPresent = this.soloYearFilter === '2020-present';
+        const isSingleYear = !['all', '2020-present', 'custom'].includes(this.soloYearFilter);
+
+        // Filter target picks and target season rollups according to filter rule
+        const targetPicks = allPicks.filter(p => this.filterSeasonByRule(p.seasonYear, this.soloYearFilter, this.soloCustomStart, this.soloCustomEnd));
+        const targetSeasonRollups = sortedAllSeasons.filter(s => this.filterSeasonByRule(s.seasonYear, this.soloYearFilter, this.soloCustomStart, this.soloCustomEnd));
+
+        const targetSeasonRollup = isSingleYear 
             ? sortedAllSeasons.find(s => String(s.seasonYear) === String(this.soloYearFilter))
             : null;
-
-        const targetPicks = isYearFiltered
-            ? allPicks.filter(p => String(p.seasonYear) === String(this.soloYearFilter))
-            : allPicks;
 
         const formatLdiVal = (val, showPlus = true) => {
             const num = Number(val);
@@ -1691,21 +1773,54 @@ export class VaultDraftEngine {
             return (showPlus && num >= 0 ? '+' : '') + num.toFixed(2);
         };
 
-        // Scorecard metrics based on whether single season or all seasons are selected
+        let heroSubtitle = `Solo Team Draft Profile · All-Time Career History`;
+        let heroTitle = `${managerName}'s Draft History`;
+        let heroDesc = `Career draft scorecard, year-over-year LDI performance trends, round efficiency, and historical draft class archives for ${managerName} (${sortedAllSeasons.length} Seasons).`;
+        let cardMainTag = 'Composite Draft Grade';
+        let peakTitle = 'Peak Performance';
+        let peakVal = mgrComposite?.bestYear ?? 'N/A';
+        let peakSub = `Best Score: ${mgrComposite?.bestYearScore ?? 'N/A'} / 100`;
+
+        if (isPresent) {
+            heroSubtitle = `Solo Team Draft Profile · 2020–Present Compilation`;
+            heroTitle = `${managerName}'s 2020–Present Draft Profile`;
+            heroDesc = `Multi-season draft scorecard and round efficiency breakdown for ${managerName} across the 2020–Present draft classes (${targetSeasonRollups.length} Seasons).`;
+            cardMainTag = '2020+ Draft Grade';
+            peakTitle = '2020+ Best Draft';
+            const bestInSpan = [...targetSeasonRollups].sort((a, b) => b.draftIndex - a.draftIndex)[0];
+            peakVal = bestInSpan ? `${bestInSpan.seasonYear} (${bestInSpan.draftIndex})` : 'N/A';
+            peakSub = bestInSpan ? `Grade: ${bestInSpan.gradeInfo?.grade || 'A'}` : '';
+        } else if (isCustom) {
+            heroSubtitle = `Solo Team Draft Profile · ${this.soloCustomStart}–${this.soloCustomEnd} Compilation`;
+            heroTitle = `${managerName}'s ${this.soloCustomStart}–${this.soloCustomEnd} Draft Profile`;
+            heroDesc = `Multi-season draft scorecard and round efficiency breakdown for ${managerName} across the ${this.soloCustomStart}–${this.soloCustomEnd} draft classes (${targetSeasonRollups.length} Seasons).`;
+            cardMainTag = `${this.soloCustomStart}–${this.soloCustomEnd} Draft Grade`;
+            peakTitle = 'Span Best Draft';
+            const bestInSpan = [...targetSeasonRollups].sort((a, b) => b.draftIndex - a.draftIndex)[0];
+            peakVal = bestInSpan ? `${bestInSpan.seasonYear} (${bestInSpan.draftIndex})` : 'N/A';
+            peakSub = bestInSpan ? `Grade: ${bestInSpan.gradeInfo?.grade || 'A'}` : '';
+        } else if (isSingleYear) {
+            heroSubtitle = `Solo Team Draft Profile · ${this.soloYearFilter} Draft Class`;
+            heroTitle = `${managerName}'s ${this.soloYearFilter} Draft Scorecard`;
+            heroDesc = `Single-season draft scorecard and round efficiency breakdown for ${managerName}'s <strong>${this.soloYearFilter} Draft Class</strong>.`;
+            cardMainTag = `${this.soloYearFilter} Draft Grade`;
+            peakTitle = `${this.soloYearFilter} Class Score`;
+            peakVal = `${targetSeasonRollup?.draftIndex ?? 50} / 100`;
+            peakSub = `Season Grade: ${targetSeasonRollup?.gradeInfo?.grade || 'B'}`;
+        }
+
+        // Scorecard calculations
         let displayScore = 50;
         let gradeInfo = { grade: 'B', color: '#10b981' };
         let displayMeanLdi = 0;
         let totalPicksCount = targetPicks.length;
-        let seasonsCount = isYearFiltered ? 1 : (mgrComposite?.seasonsCount ?? sortedAllSeasons.length);
+        let seasonsCount = targetSeasonRollups.length;
         let hitCount = targetPicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) >= 75).length;
         let bustCount = targetPicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) < 30).length;
         let hitRate = totalPicksCount > 0 ? Math.round((hitCount / totalPicksCount) * 100) : 0;
         let bustRate = totalPicksCount > 0 ? Math.round((bustCount / totalPicksCount) * 100) : 0;
-        let peakTitle = isYearFiltered ? `${this.soloYearFilter} Class Score` : 'Peak Performance';
-        let peakVal = isYearFiltered ? `${targetSeasonRollup?.draftIndex ?? displayScore} / 100` : (mgrComposite?.bestYear ?? 'N/A');
-        let peakSub = isYearFiltered ? `Season Grade: ${targetSeasonRollup?.gradeInfo?.grade || 'B'}` : `Best Score: ${mgrComposite?.bestYearScore ?? 'N/A'} / 100`;
 
-        if (targetSeasonRollup) {
+        if (isSingleYear && targetSeasonRollup) {
             displayScore = targetSeasonRollup.draftIndex;
             gradeInfo = targetSeasonRollup.gradeInfo || LDIEngine.getScoreGrade(displayScore);
             displayMeanLdi = targetSeasonRollup.LDI_manager_season ?? targetSeasonRollup.meanLdi ?? 0;
@@ -1714,6 +1829,18 @@ export class VaultDraftEngine {
             totalPicksCount = targetSeasonRollup.scoredPicksCount;
             hitRate = totalPicksCount > 0 ? Math.round((hitCount / totalPicksCount) * 100) : 0;
             bustRate = totalPicksCount > 0 ? Math.round((bustCount / totalPicksCount) * 100) : 0;
+            seasonsCount = 1;
+        } else if (targetPicks.length > 0 && targetSeasonRollups.length > 0) {
+            const spanComposite = ldiEngine.computeCareerComposite(targetPicks, targetSeasonRollups);
+            displayScore = spanComposite.compositeScore;
+            gradeInfo = spanComposite.gradeInfo;
+            displayMeanLdi = spanComposite.careerMeanLdi;
+            hitCount = spanComposite.hitCount;
+            bustCount = spanComposite.bustCount;
+            hitRate = spanComposite.hitRate;
+            bustRate = spanComposite.bustRate;
+            totalPicksCount = spanComposite.totalPicks;
+            seasonsCount = spanComposite.seasonsCount;
         } else if (mgrComposite) {
             displayScore = mgrComposite.compositeScore;
             gradeInfo = mgrComposite.gradeInfo;
@@ -1725,6 +1852,10 @@ export class VaultDraftEngine {
             totalPicksCount = mgrComposite.totalPicks;
             seasonsCount = mgrComposite.seasonsCount;
         }
+
+        const sortedAsc = [...this.seasons].sort((a, b) => a - b);
+        const soloYearOptionsStartHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.soloCustomStart) === Number(y) ? 'selected' : ''}>${y}</option>`).join('');
+        const soloYearOptionsEndHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.soloCustomEnd) === Number(y) ? 'selected' : ''}>${y}</option>`).join('');
 
         // Manager Dropdown Options
         const activeOptions = activeMgrs.map(m => `<option value="${m.id}" ${String(m.id).toLowerCase() === String(mId).toLowerCase() ? 'selected' : ''}>${m.name} (${m.team})</option>`).join('');
@@ -1787,9 +1918,10 @@ export class VaultDraftEngine {
         // Season History Cards
         const seasonCardsHTML = sortedAllSeasons.map(s => {
             const sGrade = s.gradeInfo || { grade: 'B', color: '#10b981' };
-            const isCardSelected = String(this.soloYearFilter) === String(s.seasonYear);
+            const isMatch = this.filterSeasonByRule(s.seasonYear, this.soloYearFilter, this.soloCustomStart, this.soloCustomEnd);
+            const isCardSelected = isSingleYear ? String(this.soloYearFilter) === String(s.seasonYear) : isMatch;
             return `
-                <div class="solo-season-card ${isCardSelected ? 'card-selected-highlight' : ''}">
+                <div class="solo-season-card ${isCardSelected ? 'card-selected-highlight' : ''}" style="${!isMatch ? 'opacity: 0.45;' : ''}">
                     <div class="solo-season-header">
                         <div>
                             <span class="solo-season-year">${s.seasonYear} Draft</span>
@@ -1831,18 +1963,16 @@ export class VaultDraftEngine {
                 <!-- Solo Profile Hero Header -->
                 <div class="draft-hero-banner">
                     <div class="draft-hero-title-group">
-                        <span class="draft-hero-subtitle">Solo Team Draft Profile ${isRetired ? '<span class="retired-pill-badge">Retired Manager</span>' : ''}</span>
-                        <h1>${managerName}'s Draft History</h1>
+                        <span class="draft-hero-subtitle">${heroSubtitle} ${isRetired ? '<span class="retired-pill-badge">Retired Manager</span>' : ''}</span>
+                        <h1>${heroTitle}</h1>
                         <p class="draft-hero-desc">
-                            ${isYearFiltered 
-                                ? `Single-season draft scorecard and round efficiency breakdown for ${managerName}'s <strong>${this.soloYearFilter} Draft Class</strong>.`
-                                : `Career draft scorecard, year-over-year LDI performance trends, round efficiency, and historical draft class archives for ${managerName}.`}
+                            ${heroDesc}
                         </p>
                     </div>
 
                     <!-- Filter Controls Bar -->
                     <div class="draft-toolbar-row">
-                        <div class="draft-filters-bar">
+                        <div class="draft-filters-bar" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
                             <div class="draft-filter-item">
                                 <span class="draft-filter-label">Manager:</span>
                                 <select id="solo-mgr-select" class="draft-filter-select">
@@ -1857,12 +1987,31 @@ export class VaultDraftEngine {
                                 </select>
                             </div>
 
+                            <div class="draft-filter-item" style="display: flex; gap: 6px; align-items: center;">
+                                <span class="draft-filter-label">Draft Classes:</span>
+                                <div class="records-year-group">
+                                    <button class="records-year-btn ${this.soloYearFilter === 'all' ? 'active' : ''}" data-section="solo" data-year="all">All Years</button>
+                                    <button class="records-year-btn ${this.soloYearFilter === '2020-present' ? 'active' : ''}" data-section="solo" data-year="2020-present">2020–Present</button>
+                                    <button class="records-year-btn ${this.soloYearFilter === 'custom' ? 'active' : ''}" data-section="solo" data-year="custom">Custom Span</button>
+                                </div>
+                            </div>
+
+                            <div class="records-custom-span-wrap" id="solo-custom-span-wrap" style="${this.soloYearFilter === 'custom' ? 'display:flex; gap:6px; align-items:center;' : 'display:none;'}">
+                                <select id="solo-custom-start" class="records-custom-span-select">
+                                    ${soloYearOptionsStartHTML}
+                                </select>
+                                <span style="color:var(--text-muted); font-size:0.8rem;">to</span>
+                                <select id="solo-custom-end" class="records-custom-span-select">
+                                    ${soloYearOptionsEndHTML}
+                                </select>
+                            </div>
+
                             <div class="draft-filter-item">
-                                <span class="draft-filter-label">Draft Class Filter:</span>
-                                <select id="solo-filter-year" class="draft-filter-select">
-                                    <option value="all" ${this.soloYearFilter === 'all' ? 'selected' : ''}>All Draft Classes (${sortedAllSeasons.length} Seasons)</option>
+                                <span class="draft-filter-label">Single Class:</span>
+                                <select id="solo-filter-year-select" class="draft-filter-select">
+                                    <option value="all" ${['all', '2020-present', 'custom'].includes(this.soloYearFilter) ? 'selected' : ''}>-- Single Class --</option>
                                     ${sortedAllSeasons.map(s => `
-                                        <option value="${s.seasonYear}" ${String(this.soloYearFilter) === String(s.seasonYear) ? 'selected' : ''}>${s.seasonYear} Draft Class (${s.draftIndex}/100)</option>
+                                        <option value="${s.seasonYear}" ${String(this.soloYearFilter) === String(s.seasonYear) ? 'selected' : ''}>${s.seasonYear} Class (${s.draftIndex}/100)</option>
                                     `).join('')}
                                 </select>
                             </div>
@@ -1887,17 +2036,17 @@ export class VaultDraftEngine {
                 <!-- Career / Single-Season Scorecard Grid -->
                 <div class="solo-scorecard-grid">
                     <div class="solo-score-card main-grade">
-                        <div class="solo-score-tag">${isYearFiltered ? `${this.soloYearFilter} Draft Grade` : 'Composite Draft Grade'}</div>
+                        <div class="solo-score-tag">${cardMainTag}</div>
                         <div class="solo-score-val" style="color: ${gradeInfo.color};">
                             ${displayScore} <small>(${gradeInfo.grade})</small>
                         </div>
                         <div class="solo-score-sub">
-                            ${isYearFiltered ? 'Season' : 'Career'} Mean LDI: <strong>${formatLdiVal(displayMeanLdi, true)}</strong>
+                            ${isSingleYear ? 'Season' : 'Career'} Mean LDI: <strong>${formatLdiVal(displayMeanLdi, true)}</strong>
                         </div>
                     </div>
 
                     <div class="solo-score-card">
-                        <div class="solo-score-tag">${isYearFiltered ? 'Class Size' : 'Draft Experience'}</div>
+                        <div class="solo-score-tag">${isSingleYear ? 'Class Size' : 'Draft Experience'}</div>
                         <div class="solo-score-val">${seasonsCount} <small style="font-size:0.9rem; color:var(--text-muted);">${seasonsCount === 1 ? 'Season' : 'Seasons'}</small></div>
                         <div class="solo-score-sub">Total Skill Picks: <strong>${totalPicksCount}</strong></div>
                     </div>
@@ -1922,7 +2071,7 @@ export class VaultDraftEngine {
                     <div class="chart-header-row">
                         <div>
                             <h2>Landon Draft Index History</h2>
-                            <p class="text-muted">Season-by-season draft efficiency progression (${sortedAllSeasons.length} Draft Classes)${isYearFiltered ? ` · Highlighting ${this.soloYearFilter} Season` : ''}</p>
+                            <p class="text-muted">Season-by-season draft efficiency progression (${sortedAllSeasons.length} Draft Classes)${isSingleYear ? ` · Highlighting ${this.soloYearFilter} Season` : ''}</p>
                         </div>
                         <div class="chart-controls">
                             <button id="btn-toggle-league-avg" class="chart-toggle-btn ${this.showLeagueAvg ? 'active' : ''}">
@@ -1932,7 +2081,7 @@ export class VaultDraftEngine {
                         </div>
                     </div>
 
-                    <div class="chart-svg-container">
+                    <div class="chart-canvas-card">
                         ${chartSVG}
                     </div>
                 </div>
@@ -1986,7 +2135,7 @@ export class VaultDraftEngine {
                 <div class="solo-picks-grid">
                     <div class="solo-table-card">
                         <div class="solo-table-header">
-                            <h3 style="color: #10b981;">${isYearFiltered ? `Top ${this.soloYearFilter} Picks` : 'Top 5 Greatest Career Picks'}</h3>
+                            <h3 style="color: #10b981;">${isSingleYear ? `Top ${this.soloYearFilter} Picks` : 'Top 5 Greatest Career Picks'}</h3>
                             <span class="text-muted">Highest LDI value generated</span>
                         </div>
                         <table class="data-table solo-table">
@@ -2008,7 +2157,7 @@ export class VaultDraftEngine {
 
                     <div class="solo-table-card">
                         <div class="solo-table-header">
-                            <h3 style="color: #ef4444;">${isYearFiltered ? `Worst ${this.soloYearFilter} Busts` : 'Top 5 Worst Career Busts'}</h3>
+                            <h3 style="color: #ef4444;">${isSingleYear ? `Worst ${this.soloYearFilter} Busts` : 'Top 5 Worst Career Busts'}</h3>
                             <span class="text-muted">Lowest LDI relative to draft slot</span>
                         </div>
                         <table class="data-table solo-table">
@@ -2240,12 +2389,39 @@ export class VaultDraftEngine {
             });
         });
 
-        // Overall View Filters
-        const overallYearSelect = container.querySelector('#overall-filter-year');
+        // Overall View Filters: Year button group
+        container.querySelectorAll('.records-year-btn[data-section="overall"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = e.currentTarget.getAttribute('data-year');
+                this.overallYearFilter = val;
+                this.render();
+            });
+        });
+
+        // Overall Custom Span Selects
+        const overallStart = container.querySelector('#overall-custom-start');
+        const overallEnd = container.querySelector('#overall-custom-end');
+        if (overallStart && overallEnd) {
+            overallStart.addEventListener('change', () => {
+                this.overallCustomStart = Number(overallStart.value);
+                this.overallYearFilter = 'custom';
+                this.render();
+            });
+            overallEnd.addEventListener('change', () => {
+                this.overallCustomEnd = Number(overallEnd.value);
+                this.overallYearFilter = 'custom';
+                this.render();
+            });
+        }
+
+        // Overall Single Year Select
+        const overallYearSelect = container.querySelector('#overall-filter-year-select');
         if (overallYearSelect) {
             overallYearSelect.addEventListener('change', (e) => {
-                this.overallYearFilter = e.target.value;
-                this.render();
+                if (e.target.value) {
+                    this.overallYearFilter = e.target.value;
+                    this.render();
+                }
             });
         }
 
@@ -2257,7 +2433,7 @@ export class VaultDraftEngine {
             });
         }
 
-        // Solo Profile Filters
+        // Solo Profile Filters: Manager select
         const soloMgrSelect = container.querySelector('#solo-mgr-select');
         if (soloMgrSelect) {
             soloMgrSelect.addEventListener('change', (e) => {
@@ -2265,11 +2441,39 @@ export class VaultDraftEngine {
             });
         }
 
-        const soloYearSelect = container.querySelector('#solo-filter-year');
+        // Solo Profile Filters: Year button group
+        container.querySelectorAll('.records-year-btn[data-section="solo"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = e.currentTarget.getAttribute('data-year');
+                this.soloYearFilter = val;
+                this.render();
+            });
+        });
+
+        // Solo Custom Span Selects
+        const soloStart = container.querySelector('#solo-custom-start');
+        const soloEnd = container.querySelector('#solo-custom-end');
+        if (soloStart && soloEnd) {
+            soloStart.addEventListener('change', () => {
+                this.soloCustomStart = Number(soloStart.value);
+                this.soloYearFilter = 'custom';
+                this.render();
+            });
+            soloEnd.addEventListener('change', () => {
+                this.soloCustomEnd = Number(soloEnd.value);
+                this.soloYearFilter = 'custom';
+                this.render();
+            });
+        }
+
+        // Solo Single Class Select
+        const soloYearSelect = container.querySelector('#solo-filter-year-select');
         if (soloYearSelect) {
             soloYearSelect.addEventListener('change', (e) => {
-                this.soloYearFilter = e.target.value;
-                this.render();
+                if (e.target.value) {
+                    this.soloYearFilter = e.target.value;
+                    this.render();
+                }
             });
         }
 
