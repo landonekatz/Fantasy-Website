@@ -623,6 +623,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
 
   const league_settings = {
     name: customName || activeSeason.data.settings?.name || "Fantasy League",
+    tagline: "In a league of our own",
+    subtitle: "In a league of our own",
     id: activeSeason.data.id || "",
     firstYear: seasonsData[seasonsData.length - 1].year,
     lastYear: activeYear,

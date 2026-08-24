@@ -755,12 +755,39 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 const isUserAdmin = Boolean(session.isFounder || (session.adminLeagues && session.adminLeagues.includes(leagueId)));
                 const isCurrent = (activeSlug === leagueId) || (activeSlug === '' && leagueId === 'vault');
                 
-                const claimId = session.claims ? session.claims[leagueId] : null;
+                const storedClaim = localStorage.getItem(`vault_claim_${leagueId}`);
+                let claimId = (session.claims && session.claims[leagueId]) || storedClaim || null;
+                
+                // If on active league page or claims in app instance, check app.claims
+                if (!claimId && app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                    if (app.claims) {
+                        const matchedClaim = Object.entries(app.claims).find(([k, v]) => v?.email === session.email || (session.uid && v?.userId === session.uid));
+                        if (matchedClaim) {
+                            claimId = matchedClaim[0];
+                            if (!session.claims) session.claims = {};
+                            session.claims[leagueId] = claimId;
+                            try { localStorage.setItem(`vault_claim_${leagueId}`, claimId); } catch(e){}
+                        }
+                    }
+                }
+
                 let mgr = null;
                 if (claimId) {
-                    mgr = (app?.members ? app.members.find(m => m.id === claimId) : null) ||
-                          (app?.managers ? app.managers.find(m => m.id === claimId) : null) ||
-                          (info && info.managers ? info.managers.find(m => m.id === claimId) : null);
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                        mgr = (app?.members ? app.members.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId)) : null) ||
+                              (app?.managers ? app.managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId)) : null);
+                    }
+                    if (!mgr && info && info.managers) {
+                        mgr = info.managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
+                    }
+                    if (!mgr && typeof JOIN_CODES !== 'undefined') {
+                        if (leagueId === 'dmsfantasy' && JOIN_CODES['DNFUAM']?.managers) {
+                            mgr = JOIN_CODES['DNFUAM'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase());
+                        }
+                        if (leagueId === 'gaywoodfantasy' && JOIN_CODES['Y6CW7J']?.managers) {
+                            mgr = JOIN_CODES['Y6CW7J'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
+                        }
+                    }
                 }
 
                 const mgrBaseName = mgr?.canonical_name || mgr?.name || (claimId ? (session.name || 'Manager') : '');
@@ -1063,7 +1090,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     <div id="u-espn-private-box" style="display: none; margin-bottom: 1.25rem; padding: 1.15rem; background: rgba(251, 188, 5, 0.05); border-radius: 8px; border: 1px solid var(--border-gold, #fde047);">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.5rem; flex-wrap: wrap;">
                             <h4 style="margin: 0; color: var(--accent-gold, #854d0e); font-size: 0.92rem;">Private ESPN Authentication</h4>
-                            <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #b45309); text-decoration: underline;">
+                            <a href="https://fantasy.espn.com" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #b45309); text-decoration: underline;">
                                 Open ESPN Fantasy &nearr;
                             </a>
                         </div>
@@ -1072,20 +1099,24 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         </p>
 
                         <!-- Quick 1-Click Helper Bar -->
-                        <div style="background: rgba(0, 0, 0, 0.04); border: 1px dashed var(--border-gold, #fde047); border-radius: 6px; padding: 0.75rem 0.85rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 6px;">
-                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-gold, #854d0e); text-transform: uppercase; letter-spacing: 0.5px;">Quick Cookie Extraction:</div>
+                        <div style="background: rgba(0, 0, 0, 0.04); border: 1px dashed var(--border-gold, #fde047); border-radius: 6px; padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-size: 0.78rem; font-weight: 700; color: var(--accent-gold, #854d0e); text-transform: uppercase; letter-spacing: 0.5px;">1-Click Bookmark Helper:</div>
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                                 <a href="javascript:(function(){var c=document.cookie;var s2=(c.match(/espn_s2=([^;]+)/)||[])[1];var sw=(c.match(/SWID=([^;]+)/i)||[])[1];if(s2&amp;&amp;sw){navigator.clipboard.writeText('espn_s2: '+s2+'\nSWID: '+sw).then(function(){alert('ESPN credentials copied to clipboard! Switch back to The Fantasy Vault and paste them.');});}else{alert('Could not find ESPN cookies. Make sure you are logged into fantasy.espn.com.');}})();" 
-                                   title="Drag to your Bookmarks Bar, then click on fantasy.espn.com"
-                                   style="background: var(--accent-gold, #b45309); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-decoration: none; cursor: grab; display: inline-flex; align-items: center; gap: 4px;">
-                                  ⭐ Get ESPN Cookies (Drag to Bookmarks)
+                                   title="Drag to your Bookmarks Bar"
+                                   style="background: var(--accent-gold, #b45309); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 6px 12px; border-radius: 4px; text-decoration: none; cursor: grab; display: inline-flex; align-items: center; gap: 6px;">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: inline-block;"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                                  Get ESPN Cookies (Drag to Bookmarks)
                                 </a>
-                                <button type="button" id="btn-copy-espn-script-u" style="background: #ffffff; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-main, #0f172a); font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 4px; cursor: pointer;">
-                                  Copy Console Snippet
-                                </button>
                             </div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted, #64748b); line-height: 1.35;">
-                                <strong>Tip:</strong> Paste either cookie or combined text into either field, as smart auto-detect will automatically split and fill both fields.
+                            <div style="font-size: 0.78rem; color: var(--text-muted, #64748b); line-height: 1.45;">
+                                <strong>Instructions:</strong>
+                                <ol style="margin: 4px 0 0 0; padding-left: 1.2rem; line-height: 1.5;">
+                                    <li>Drag the gold button above into your browser Bookmarks Bar (press <code>Cmd+Shift+B</code> or <code>Ctrl+Shift+B</code> if your bookmarks bar is hidden).</li>
+                                    <li>In a browser tab, open <a href="https://fantasy.espn.com" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309); text-decoration: underline;">fantasy.espn.com</a> and make sure you are logged in.</li>
+                                    <li>With your ESPN fantasy tab active and currently open, click this bookmark from your bookmarks bar, as it will instantly copy your credentials to your clipboard.</li>
+                                    <li>Return here and paste into either field below. Smart auto-detect will automatically split and fill both credentials.</li>
+                                </ol>
                             </div>
                         </div>
 
@@ -1100,7 +1131,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         <details style="font-size: 0.78rem; color: var(--text-muted, #713f12);">
                             <summary style="cursor: pointer; color: var(--accent-gold, #b45309); font-weight: 600;">Manual Developer Tools Guide</summary>
                             <ol style="margin-top: 0.5rem; padding-left: 1.2rem; line-height: 1.5;">
-                                <li>Log into your ESPN league on desktop at <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309);">fantasy.espn.com</a>.</li>
+                                <li>Log into your ESPN league on desktop at <a href="https://fantasy.espn.com" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309);">fantasy.espn.com</a>.</li>
                                 <li>Right-click anywhere and select <strong>Inspect</strong> (or press <code>F12</code>).</li>
                                 <li>Open <strong>Application</strong> &rarr; <strong>Cookies</strong> &rarr; <code>https://fantasy.espn.com</code>.</li>
                                 <li>Copy the values for <code>espn_s2</code> and <code>swid</code> into the fields above.</li>
@@ -1169,20 +1200,6 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     if (e.target.value.includes('SWID') || e.target.value.includes('espn_s2') || e.target.value.includes('{')) handleUPaste({ target: e.target });
                 });
             }
-
-            document.getElementById('btn-copy-espn-script-u')?.addEventListener('click', () => {
-                const btn = document.getElementById('btn-copy-espn-script-u');
-                const snippet = `(() => { const v = document.cookie; const s2 = (v.match(/espn_s2=([^;]+)/) || [])[1]; const sw = (v.match(/SWID=([^;]+)/i) || [])[1]; if (s2 && sw) { prompt("Copy your ESPN Credentials:", "espn_s2: " + s2 + "\\nSWID: " + sw); } else { alert("Make sure you are logged into fantasy.espn.com."); } })();`;
-                navigator.clipboard.writeText(snippet).then(() => {
-                    if (btn) {
-                        const orig = btn.textContent;
-                        btn.textContent = '✓ Copied!';
-                        setTimeout(() => { btn.textContent = orig; }, 2000);
-                    }
-                }).catch(() => {
-                    prompt("Copy this snippet and paste in browser console at fantasy.espn.com:", snippet);
-                });
-            });
 
             // Form Submit -> Fetch ESPN Data
             const form = document.getElementById('universal-import-form');

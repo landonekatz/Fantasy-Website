@@ -984,7 +984,7 @@ class FantasyApp {
             titleEl.innerHTML = `${leagueName}<br>${hasLeagueSuffix ? 'HQ' : 'League HQ'}`;
         }
 
-        const tagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "Your League Archive";
+        const tagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
         const subtitleEl = document.getElementById("league-subtitle");
         if (subtitleEl) subtitleEl.textContent = tagline;
         
@@ -1716,9 +1716,20 @@ class FantasyApp {
         if (!container) return;
 
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
-        const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "Your League Archive";
+        const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
         const leagueSlug = this.leagueSlug || window.location.pathname.substring(1).replace(/\/$/, "") || "league";
+
+        // Check 30-day slug change limit
+        const lastSlugChange = this.leagueSettings?.last_slug_change_at;
+        let slugDaysRemaining = 0;
+        if (lastSlugChange) {
+            const elapsed = Date.now() - Number(lastSlugChange);
+            const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+            if (elapsed < thirtyDays) {
+                slugDaysRemaining = Math.ceil((thirtyDays - elapsed) / (24 * 60 * 60 * 1000));
+            }
+        }
 
         // Ensure clean 6-character random alphanumeric join code
         if (!this.leagueSettings.join_code || this.leagueSettings.join_code.length < 6 || /24$/.test(this.leagueSettings.join_code)) {
@@ -1743,8 +1754,7 @@ class FantasyApp {
         const currentAdminClaim = session ? (session.claims?.[leagueSlug] || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === session.email)?.[0])) : null;
         const unclaimedMembers = sortedMembers.filter(m => !this.claims || !this.claims[m.id]);
         
-        // Build 5-column table rows: Base Name | Nickname | Display Preview | Active Seasons | Actions
-        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        // Build 3-column table rows: Manager Name (input + Save) | Active Seasons | Account & Actions
         const managerRows = sortedMembers.map(m => {
             const memberMatchups = (this.matchups || []).filter(x => x.home_manager_id === m.id || x.away_manager_id === m.id || x.team_1_manager_id === m.id || x.team_2_manager_id === m.id);
             const yearsActive = [...new Set(memberMatchups.map(x => x.year || x.season).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
@@ -1753,25 +1763,18 @@ class FantasyApp {
             const claim = this.claims ? this.claims[m.id] : null;
             const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
             const isClaimed = Boolean(claim);
-            const previewName = formatManagerDisplayName(m.name, m.nickname, allowNicknames);
 
             return `
                 <tr data-manager-id="${m.id}">
                     <td>
-                        <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" style="width: 100%; min-width: 120px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box;">
-                    </td>
-                    <td>
-                        <input type="text" class="admin-input mgr-nickname-input" value="${m.nickname || ''}" maxlength="20" placeholder="e.g. The Commish" style="width: 100%; min-width: 110px; padding: 6px 8px; font-size: 0.84rem; box-sizing: border-box;">
-                    </td>
-                    <td>
-                        <span class="mgr-preview-badge" style="font-size: 0.86rem; font-weight: 700; color: var(--accent-gold, #b45309); white-space: nowrap;">
-                            ${previewName}
-                        </span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box;">
+                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" style="padding: 5px 12px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; border-radius: 4px;">Save</button>
+                        </div>
                     </td>
                     <td style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap;">${yearsStr}</td>
                     <td>
                         <div class="admin-actions-cell" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" style="padding: 5px 10px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap;">Save</button>
                             ${isClaimed ? `
                                 <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
                                     ✓ ${claimEmail}
@@ -1793,6 +1796,7 @@ class FantasyApp {
         const unclaimedOptions = unclaimedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 
         const isPrivate = Boolean(this.leagueSettings.is_private);
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
 
         container.innerHTML = `
             <div class="admin-dashboard-wrapper">
@@ -1824,7 +1828,7 @@ class FantasyApp {
                     <div class="admin-card-header">
                         <div>
                             <h2>League Identity &amp; Customization</h2>
-                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize your official masthead title, custom URL slug, subtitle motto, and manager nicknames.</p>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize your official masthead title, custom URL slug, and subtitle motto.</p>
                         </div>
                     </div>
 
@@ -1848,7 +1852,15 @@ class FantasyApp {
 
                     <!-- Custom League URL Slug -->
                     <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
-                        <label for="admin-league-slug-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">Custom League URL Slug:</label>
+                        <label for="admin-league-slug-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; color: var(--text-secondary);">Custom League URL Slug:</label>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 8px 0; line-height: 1.45;">
+                            You can only change this once every 30 days. Once you click save, you will be immediately redirected to the new URL, and the previous URL will no longer work.
+                        </p>
+                        ${slugDaysRemaining > 0 ? `
+                            <div style="margin-bottom: 8px; font-size: 0.82rem; color: #b45309; background: #fffbeb; border: 1px solid #fef3c7; padding: 6px 10px; border-radius: 4px; font-weight: 600;">
+                                Slug last changed ${new Date(lastSlugChange).toLocaleDateString()}. You can change it again in ${slugDaysRemaining} day(s).
+                            </div>
+                        ` : ''}
                         <div class="tagline-input-row">
                             <div style="display: flex; align-items: center; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding-left: 10px; flex: 1;">
                                 <span style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">thefantasyvault.com/</span>
@@ -1863,10 +1875,11 @@ class FantasyApp {
                     <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
                         <label for="admin-tagline-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">League Tagline / Subtitle Motto:</label>
                         <div class="tagline-presets-wrapper">
-                            <button type="button" class="btn-tagline-preset" data-preset="Variance is an excuse for incompetence.">"Variance is an excuse for incompetence."</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="Every Matchup. Every Champion. Eternal Record.">"Every Matchup. Every Champion. Eternal Record."</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="A Tradition Unlike Any Other">"A Tradition Unlike Any Other"</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="Where Bad Trades Live Forever">"Where Bad Trades Live Forever"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Variance is an excuse for incompetence">"Variance is an excuse for incompetence"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Landon is the greatest fantasy player of all time">"Landon is the greatest fantasy player of all time"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Fantasy in name only">"Fantasy in name only"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Inside joke">"Inside joke"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="In a league of our own">"In a league of our own"</button>
                         </div>
                         <div class="tagline-input-row">
                             <input type="text" id="admin-tagline-input" class="admin-input" value="${currentTagline}" placeholder="Enter your league's custom motto or tagline...">
@@ -1874,30 +1887,41 @@ class FantasyApp {
                         </div>
                         <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
+                </div>
 
-                    <!-- Manager Nickname Customization -->
-                    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                <!-- 2. LEAGUE NICKNAMES CUSTOMIZATION -->
+                <div class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div>
+                            <h2>League Nicknames Customization</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Enable or disable custom manager nicknames across your league archive.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.25rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                             <div>
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                    <strong style="font-size: 0.95rem; color: var(--text-primary);">Manager Nicknames:</strong>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <strong style="font-size: 1rem; color: var(--text-primary);">Nickname Status:</strong>
                                     <span id="admin-nickname-badge" style="display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; ${allowNicknames ? 'background:#dcfce7; color:#15803d;' : 'background:#f1f5f9; color:#64748b;'}">
-                                        ${allowNicknames ? 'Enabled (Nicknames Displayed)' : 'Disabled (Standard Names Only)'}
+                                        ${allowNicknames ? 'Nicknames: Enabled' : 'Nicknames: Disabled'}
                                     </span>
                                 </div>
-                                <p id="admin-nickname-desc" style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45; max-width: 620px;">
-                                    This is another point of customization for your league, and you can enable nicknames for your league members to be displayed if you so choose.
+                                <p id="admin-nickname-desc" style="margin: 0 0 6px 0; font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; max-width: 650px;">
+                                    This is another point of customization for your league, and you can enable nicknames for your league members to be displayed if you so choose. When enabled, custom nicknames will appear formatted in quotes (e.g. <em>John "Downtown" Brown</em> or <em>Landon "The Commish"</em>) throughout your vault in Head-to-Head matchups, Draft Central, and the Record Book.
+                                </p>
+                                <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted); line-height: 1.45; max-width: 650px;">
+                                    You and your league members can assign and edit your individual nicknames anytime in the <strong>My Account</strong> tab located in the top right of the navigation bar.
                                 </p>
                             </div>
-                            <button id="btn-toggle-nicknames" class="btn" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #b45309); color:#fff; border:none;'}">
-                                ${allowNicknames ? 'Disable Nicknames' : 'Enable Nicknames'}
+                            <button id="btn-toggle-nicknames" class="btn" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #b45309); color:#fff; border:none;'}">
+                                ${allowNicknames ? 'Disable League Nicknames' : 'Enable League Nicknames'}
                             </button>
                         </div>
                         <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
                 </div>
 
-                <!-- 2. PRIVACY & ACCESS CONTROL -->
+                <!-- 3. PRIVACY & ACCESS CONTROL -->
                 <div class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
@@ -1928,12 +1952,12 @@ class FantasyApp {
                     </div>
                 </div>
 
-                <!-- 3. REGISTERED MEMBERS & MANAGER ROSTER -->
+                <!-- 4. REGISTERED MEMBERS & MANAGER ROSTER -->
                 <div class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>League Members Roster</h2>
-                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, nicknames, copy personalized claim links, and manage account assignments.</p>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, copy personalized claim links, and manage account assignments.</p>
                         </div>
                     </div>
 
@@ -1942,11 +1966,9 @@ class FantasyApp {
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 25%;">Manager Name</th>
-                                        <th style="width: 20%;">Nickname</th>
-                                        <th style="width: 20%;">Display Preview</th>
-                                        <th style="width: 12%;">Seasons</th>
-                                        <th style="width: 23%;">Account &amp; Actions</th>
+                                        <th style="width: 45%;">Manager Display Name</th>
+                                        <th style="width: 20%;">Active Seasons</th>
+                                        <th style="width: 35%;">Account &amp; Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="manager-roster-tbody">
@@ -1988,7 +2010,7 @@ class FantasyApp {
                     </div>
                 </div>
 
-                <!-- 4. LEAGUE INVITES & ACCESS -->
+                <!-- 5. LEAGUE INVITES & ACCESS -->
                 <div class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
@@ -2159,6 +2181,34 @@ class FantasyApp {
             });
         });
 
+        // Wire up Save Title button
+        const btnSaveTitle = container.querySelector('#btn-save-league-title');
+        const titleInput = container.querySelector('#admin-league-title-input');
+        if (btnSaveTitle && titleInput) {
+            btnSaveTitle.addEventListener('click', async () => {
+                const newTitle = titleInput.value.trim();
+                if (!newTitle) {
+                    alert("League title cannot be empty.");
+                    return;
+                }
+                await this.saveLeagueTitle(newTitle);
+            });
+        }
+
+        // Wire up Save URL Slug button
+        const btnSaveSlug = container.querySelector('#btn-save-league-slug');
+        const slugInput = container.querySelector('#admin-league-slug-input');
+        if (btnSaveSlug && slugInput) {
+            btnSaveSlug.addEventListener('click', async () => {
+                const newSlug = slugInput.value.trim();
+                if (!newSlug) {
+                    alert("League URL slug cannot be empty.");
+                    return;
+                }
+                await this.saveLeagueSlug(newSlug);
+            });
+        }
+
         // Wire up Save Tagline button
         const btnSaveTagline = container.querySelector('#btn-save-tagline');
         if (btnSaveTagline && taglineInput) {
@@ -2169,17 +2219,15 @@ class FantasyApp {
             });
         }
 
-        // Wire up Manager Rename & Nickname buttons
+        // Wire up Manager Rename buttons
         const renameBtns = container.querySelectorAll('.btn-save-manager-name');
         renameBtns.forEach(btn => {
             btn.addEventListener('click', async () => {
                 const mgrId = btn.getAttribute('data-manager-id');
                 const row = container.querySelector(`tr[data-manager-id="${mgrId}"]`);
                 const nameInput = row ? row.querySelector('.mgr-rename-input') : null;
-                const nickInput = row ? row.querySelector('.mgr-nickname-input') : null;
                 if (!nameInput) return;
                 const newName = nameInput.value.trim();
-                const newNick = nickInput ? nickInput.value.trim() : '';
                 if (!newName) {
                     alert("Manager display name cannot be empty.");
                     return;
@@ -2187,25 +2235,9 @@ class FantasyApp {
                 const orig = btn.textContent;
                 btn.disabled = true;
                 btn.textContent = 'Saving...';
-                await this.updateManagerName(mgrId, newName, newNick);
+                await this.updateManagerName(mgrId, newName);
                 btn.disabled = false;
                 btn.textContent = orig;
-            });
-        });
-
-        // Wire live input preview on rename and nickname inputs
-        const mgrInputs = container.querySelectorAll('.mgr-rename-input, .mgr-nickname-input');
-        mgrInputs.forEach(inp => {
-            inp.addEventListener('input', (e) => {
-                const row = e.target.closest('tr');
-                if (!row) return;
-                const nInp = row.querySelector('.mgr-rename-input');
-                const kInp = row.querySelector('.mgr-nickname-input');
-                const previewEl = row.querySelector('.mgr-preview-badge');
-                if (previewEl && nInp) {
-                    const allowNick = this.leagueSettings?.allow_nicknames !== false;
-                    previewEl.textContent = formatManagerDisplayName(nInp.value.trim(), kInp ? kInp.value.trim() : '', allowNick);
-                }
             });
         });
 
@@ -2309,6 +2341,194 @@ class FantasyApp {
         }
     }
 
+    async saveLeagueTitle(newTitle) {
+        const feedbackEl = document.getElementById('title-save-feedback');
+        const btn = document.getElementById('btn-save-league-title');
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+        try {
+            this.leagueSettings.name = newTitle;
+
+            // Live update header masthead immediately
+            const titleEl = document.getElementById("league-title");
+            if (titleEl) {
+                const hasLeagueSuffix = /league$/i.test(newTitle.trim());
+                titleEl.innerHTML = `${newTitle}<br>${hasLeagueSuffix ? 'HQ' : 'League HQ'}`;
+            }
+
+            document.title = `${newTitle} HQ | The Fantasy Vault`;
+
+            const footerTextEl = document.getElementById("footer-text");
+            if (footerTextEl) footerTextEl.textContent = `${newTitle} Archive`;
+
+            const recordsHeroLeagueNameEl = document.getElementById("records-hero-league-name");
+            if (recordsHeroLeagueNameEl) recordsHeroLeagueNameEl.textContent = `The ${newTitle} Record Book`;
+
+            // Save to Firebase RTDB
+            if (this.leagueSlug) {
+                const settingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings`);
+                await update(settingsRef, { name: newTitle });
+            }
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ League title updated to "<strong>${newTitle}</strong>"!`;
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+            }
+        } catch (e) {
+            console.error('Failed to save league title', e);
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'Error saving league title. Please try again.';
+            }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Title'; }
+        }
+    }
+
+    async saveLeagueSlug(newSlugRaw) {
+        const feedbackEl = document.getElementById('slug-save-feedback');
+        const btn = document.getElementById('btn-save-league-slug');
+        const cleanSlug = String(newSlugRaw || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+
+        if (!cleanSlug || cleanSlug.length < 3) {
+            alert("Custom URL slug must be at least 3 characters long (letters, numbers, hyphens).");
+            return;
+        }
+
+        if (cleanSlug.length > 40) {
+            alert("Custom URL slug must be 40 characters or fewer.");
+            return;
+        }
+
+        if (cleanSlug === this.leagueSlug) {
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'This is already your current league URL slug.';
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 3000);
+            }
+            return;
+        }
+
+        const reservedSlugs = ['admin', 'api', 'auth', 'draft', 'records', 'h2h', 'login', 'signup', 'vault', 'thefantasyvault', 'dmsfantasy', 'gaywoodfantasy', 'assets', 'data', 'dist', 'node_modules'];
+        if (reservedSlugs.includes(cleanSlug)) {
+            alert(`The slug "${cleanSlug}" is a reserved system keyword. Please choose a different slug.`);
+            return;
+        }
+
+        // 30-day rate limit check
+        const lastChange = this.leagueSettings?.last_slug_change_at;
+        if (lastChange) {
+            const elapsedMs = Date.now() - Number(lastChange);
+            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+            if (elapsedMs < thirtyDaysMs) {
+                const daysRemaining = Math.ceil((thirtyDaysMs - elapsedMs) / (24 * 60 * 60 * 1000));
+                alert(`You can only change your custom URL slug once every 30 days.\n\nPlease wait ${daysRemaining} more day(s) before changing it again.`);
+                return;
+            }
+        }
+
+        // Check if new slug is already taken
+        if (btn) { btn.disabled = true; btn.textContent = 'Checking availability...'; }
+        try {
+            const targetSnap = await get(dbRef(database, `leagues/${cleanSlug}`));
+            if (targetSnap.exists()) {
+                alert(`The URL slug "${cleanSlug}" is already taken by another league. Please choose a different slug.`);
+                if (btn) { btn.disabled = false; btn.textContent = 'Save URL'; }
+                return;
+            }
+
+            const confirmed = window.confirm(
+                `Are you sure you want to change your league URL to:\nthefantasyvault.com/${cleanSlug}\n\n` +
+                `IMPORTANT:\n` +
+                `1. You can only change your URL slug once every 30 days.\n` +
+                `2. Once saved, you will be immediately redirected to the new URL.\n` +
+                `3. The old URL (thefantasyvault.com/${this.leagueSlug}) will permanently stop working.\n\n` +
+                `Do you want to proceed?`
+            );
+
+            if (!confirmed) {
+                if (btn) { btn.disabled = false; btn.textContent = 'Save URL'; }
+                return;
+            }
+
+            if (btn) btn.textContent = 'Migrating league data...';
+
+            // Read existing league data from RTDB
+            const oldSlug = this.leagueSlug;
+            const oldSnap = await get(dbRef(database, `leagues/${oldSlug}`));
+            let leagueData = oldSnap.exists() ? oldSnap.val() : {};
+
+            // Update settings in payload
+            if (!leagueData.league_settings) leagueData.league_settings = {};
+            leagueData.league_settings.slug = cleanSlug;
+            leagueData.league_settings.last_slug_change_at = Date.now();
+
+            // Write to new path
+            await set(dbRef(database, `leagues/${cleanSlug}`), leagueData);
+
+            // Delete old path completely so old URL will not work
+            await set(dbRef(database, `leagues/${oldSlug}`), null);
+
+            // Update local storage and cached references
+            localStorage.setItem('vault_last_league', cleanSlug);
+            const oldClaim = localStorage.getItem('vault_claim_' + oldSlug);
+            if (oldClaim) {
+                localStorage.setItem('vault_claim_' + cleanSlug, oldClaim);
+                localStorage.removeItem('vault_claim_' + oldSlug);
+            }
+
+            // Update user profile leagues in Firebase if session exists
+            const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+            if (session && session.uid) {
+                try {
+                    const userSnap = await get(dbRef(database, `users/${session.uid}`));
+                    if (userSnap.exists()) {
+                        const uData = userSnap.val();
+                        let adminLeagues = (uData.adminLeagues || []).map(s => s === oldSlug ? cleanSlug : s);
+                        let joinedLeagues = (uData.joinedLeagues || []).map(s => s === oldSlug ? cleanSlug : s);
+                        let claims = uData.claims || {};
+                        if (claims[oldSlug]) {
+                            claims[cleanSlug] = claims[oldSlug];
+                            delete claims[oldSlug];
+                        }
+                        await update(dbRef(database, `users/${session.uid}`), {
+                            adminLeagues,
+                            joinedLeagues,
+                            claims
+                        });
+                    }
+                } catch (uErr) {
+                    console.warn('Failed to update user league list', uErr);
+                }
+            }
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ URL slug changed to <strong>${cleanSlug}</strong>! Redirecting...`;
+            }
+
+            // Immediately redirect to new URL
+            setTimeout(() => {
+                window.location.href = `/vault.html?league=${encodeURIComponent(cleanSlug)}`;
+            }, 800);
+
+        } catch (e) {
+            console.error('Failed to change URL slug', e);
+            alert('An error occurred while updating the league URL slug. Please try again.');
+            if (btn) { btn.disabled = false; btn.textContent = 'Save URL'; }
+        }
+    }
+
     async updateManagerName(managerId, newName, newNickname = null) {
         const feedbackEl = document.getElementById('manager-rename-feedback');
         try {
@@ -2401,9 +2621,7 @@ class FantasyApp {
             if (feedbackEl) {
                 feedbackEl.style.display = 'block';
                 feedbackEl.className = 'admin-feedback-msg success';
-                const allowNick = this.leagueSettings?.allow_nicknames !== false;
-                const formatted = formatManagerDisplayName(cleanName, cleanNick, allowNick);
-                feedbackEl.innerHTML = `✓ Manager updated to "<strong>${formatted}</strong>"!`;
+                feedbackEl.innerHTML = `✓ Manager display name updated to "<strong>${cleanName}</strong>"!`;
                 setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
             }
         } catch (e) {

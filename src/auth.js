@@ -233,9 +233,23 @@ const AuthEngine = {
       const userClaimRef = dbRef(database, `users/${session.uid}/claims/${leagueId}`);
       await rtdbSet(userClaimRef, {
         managerId: managerId,
+        managerName: managerName || session.name,
         claimedAt: Date.now()
       });
 
+      if (!session.claims) session.claims = {};
+      session.claims[leagueId] = managerId;
+      if (currentSession) {
+        if (!currentSession.claims) currentSession.claims = {};
+        currentSession.claims[leagueId] = managerId;
+      }
+
+      try {
+        localStorage.setItem('vault_cached_session', JSON.stringify(session));
+        localStorage.setItem(`vault_claim_${leagueId}`, managerId);
+      } catch (e) {}
+
+      window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
       return { success: true };
     } catch (e) {
       console.error("Claim profile error:", e);
@@ -386,6 +400,13 @@ onAuthStateChanged(auth, async (user) => {
       'dmsfantasy': { name: 'The Dumbarton League', path: '/dmsfantasy/' },
       'gaywoodfantasy': { name: 'Gaywood / Katz League', path: '/gaywoodfantasy/' }
     };
+    let claims = currentSession?.claims || {};
+    try {
+      ['dmsfantasy', 'gaywoodfantasy', 'fbofantasy'].forEach(slug => {
+        const stored = localStorage.getItem(`vault_claim_${slug}`);
+        if (stored && !claims[slug]) claims[slug] = stored;
+      });
+    } catch (e) {}
     
     currentSession = {
       uid: user.uid,
@@ -394,7 +415,8 @@ onAuthStateChanged(auth, async (user) => {
       isFounder: isFounder,
       joinedLeagues: joinedLeagues,
       adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
-      leagueDetails: leagueDetails
+      leagueDetails: leagueDetails,
+      claims: claims
     };
 
     try {
@@ -447,6 +469,19 @@ onAuthStateChanged(auth, async (user) => {
               }
             });
           }
+
+          // Check user's RTDB claimed profiles
+          const userClaimsSnap = await rtdbGet(dbRef(database, `users/${user.uid}/claims`));
+          if (userClaimsSnap.exists()) {
+            const rtdbClaims = userClaimsSnap.val();
+            Object.entries(rtdbClaims).forEach(([slug, cData]) => {
+              const mId = typeof cData === 'object' && cData !== null ? (cData.managerId || cData.id) : cData;
+              if (mId) {
+                claims[slug] = mId;
+                try { localStorage.setItem(`vault_claim_${slug}`, mId); } catch(e){}
+              }
+            });
+          }
         }
 
         currentSession = {
@@ -456,7 +491,8 @@ onAuthStateChanged(auth, async (user) => {
           isFounder: isFounder,
           joinedLeagues: joinedLeagues,
           adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
-          leagueDetails: leagueDetails
+          leagueDetails: leagueDetails,
+          claims: claims
         };
         try {
           localStorage.setItem('vault_cached_session', JSON.stringify(currentSession));

@@ -728,20 +728,6 @@ let currentLeagueCreds = null;
   const espnPasteFeedback = document.getElementById('espn-smart-paste-feedback');
   attachSmartEspnPaste(s2ModalInput, swidModalInput, espnPasteFeedback);
 
-  const btnCopyEspnScriptHub = document.getElementById('btn-copy-espn-script-hub');
-  if (btnCopyEspnScriptHub) {
-    btnCopyEspnScriptHub.addEventListener('click', () => {
-      const snippet = `(() => { const v = document.cookie; const s2 = (v.match(/espn_s2=([^;]+)/) || [])[1]; const sw = (v.match(/SWID=([^;]+)/i) || [])[1]; if (s2 && sw) { prompt("Copy your ESPN Credentials:", "espn_s2: " + s2 + "\\nSWID: " + sw); } else { alert("Make sure you are logged into fantasy.espn.com."); } })();`;
-      navigator.clipboard.writeText(snippet).then(() => {
-        const orig = btnCopyEspnScriptHub.textContent;
-        btnCopyEspnScriptHub.textContent = '✓ Copied!';
-        setTimeout(() => { btnCopyEspnScriptHub.textContent = orig; }, 2000);
-      }).catch(() => {
-        prompt("Copy this snippet and paste in browser console at fantasy.espn.com:", snippet);
-      });
-    });
-  }
-
   // Google SSO 1-Click
   if (btnGoogleSSO) {
     btnGoogleSSO.addEventListener('click', async (e) => {
