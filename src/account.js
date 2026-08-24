@@ -1,4 +1,7 @@
 // account.js - Logic for "My Account" modal & Universal League Import on all pages
+import { formatManagerDisplayName } from '/src/formatters.js';
+import { database } from '/src/firebase.js';
+import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
 (function() {
     // Elements
@@ -752,30 +755,61 @@
                 const isUserAdmin = Boolean(session.isFounder || (session.adminLeagues && session.adminLeagues.includes(leagueId)));
                 const isCurrent = (activeSlug === leagueId) || (activeSlug === '' && leagueId === 'vault');
                 
-                let claimText = '';
-                if (session.claims && session.claims[leagueId]) {
-                    const claimId = session.claims[leagueId];
-                    const mgr = (info && info.managers ? info.managers.find(m => m.id === claimId) : null) ||
-                                (app?.members ? app.members.find(m => m.id === claimId) : null) ||
-                                (app?.managers ? app.managers.find(m => m.id === claimId) : null);
-                    if (mgr) claimText = ` <span style="color: var(--text-muted, #64748b); font-size: 0.8rem;">(as ${mgr.name || mgr.canonical_name || claimId})</span>`;
+                const claimId = session.claims ? session.claims[leagueId] : null;
+                let mgr = null;
+                if (claimId) {
+                    mgr = (app?.members ? app.members.find(m => m.id === claimId) : null) ||
+                          (app?.managers ? app.managers.find(m => m.id === claimId) : null) ||
+                          (info && info.managers ? info.managers.find(m => m.id === claimId) : null);
                 }
-                
+
+                const mgrBaseName = mgr?.canonical_name || mgr?.name || (claimId ? (session.name || 'Manager') : '');
+                const mgrNickname = mgr?.nickname || (session.managerNicknames && session.managerNicknames[leagueId]) || '';
+                const allowNick = (app?.leagueSlug === leagueId && app?.leagueSettings?.allow_nicknames !== false) || true;
+                const previewName = claimId ? formatManagerDisplayName(mgrBaseName, mgrNickname, allowNick) : '';
+
                 return `
-                    <li style="margin-bottom: 0.65rem; padding: 0.65rem 0.85rem; background: var(--bg-card-alt, #f8fafc); border: 1px solid var(--border-line, #e2e8f0); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; transition: all 0.2s;">
-                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                            ${isCurrent 
-                                ? `<span style="color: var(--accent-gold, #b45309); font-weight: 700; font-size: 0.95rem;">${name}</span>`
-                                : `<a href="${path}" style="color: var(--text-primary, #0f172a); text-decoration: none; font-weight: 600; font-size: 0.95rem;">${name}</a>`
-                            }
-                            ${claimText}
-                            ${isUserAdmin ? '<span style="display:inline-block; background:rgba(212,175,55,0.15); border:1px solid rgba(212,175,55,0.35); color:#b45309; font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:6px; text-transform:uppercase; letter-spacing:0.5px;">Admin</span>' : ''}
+                    <li style="margin-bottom: 0.85rem; padding: 0.85rem; background: var(--bg-card-alt, #f8fafc); border: 1px solid var(--border-line, #e2e8f0); border-radius: 8px; box-sizing: border-box;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                ${isCurrent 
+                                    ? `<span style="color: var(--accent-gold, #b45309); font-weight: 700; font-size: 0.95rem;">${name}</span>`
+                                    : `<a href="${path}" style="color: var(--text-primary, #0f172a); text-decoration: none; font-weight: 600; font-size: 0.95rem;">${name}</a>`
+                                }
+                                ${isUserAdmin ? '<span style="display:inline-block; background:rgba(212,175,55,0.15); border:1px solid rgba(212,175,55,0.35); color:#b45309; font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:6px; text-transform:uppercase; letter-spacing:0.5px;">Admin</span>' : ''}
+                            </div>
+                            <div>
+                                ${isCurrent 
+                                    ? `<span style="font-size: 0.72rem; padding: 2px 7px; background: #e0f2fe; color: #0284c7; border-radius: 4px; font-weight: 600;">Current Vault</span>`
+                                    : `<a href="${path}" class="btn-primary" style="font-size: 0.78rem; padding: 4px 10px; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">Open &rarr;</a>`
+                                }
+                            </div>
                         </div>
-                        <div>
-                            ${isCurrent 
-                                ? ``
-                                : `<a href="${path}" class="btn-primary" style="font-size: 0.78rem; padding: 4px 10px; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">Open &rarr;</a>`
-                            }
+
+                        <!-- Linked Member Profile & Nickname Customization -->
+                        <div style="margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px solid var(--border-line, #e2e8f0);">
+                            ${claimId ? `
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted, #64748b); text-transform: uppercase; letter-spacing: 0.5px;">Linked Profile:</span>
+                                    <span style="font-size: 0.86rem; font-weight: 700; color: var(--text-primary, #0f172a);">${mgrBaseName}</span>
+                                </div>
+                                <div style="background: #ffffff; border: 1px solid var(--border-line, #cbd5e1); border-radius: 6px; padding: 0.6rem 0.75rem;">
+                                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary, #475569); margin-bottom: 4px;">Change Nickname:</div>
+                                    <div style="display: flex; gap: 6px; align-items: center;">
+                                        <input type="text" class="input-account-nickname" data-league-id="${leagueId}" data-manager-id="${claimId}" data-base-name="${mgrBaseName}" value="${mgrNickname}" maxlength="20" placeholder="e.g. The Commish" style="flex: 1; padding: 5px 8px; font-size: 0.84rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; box-sizing: border-box;">
+                                        <button class="btn-save-account-nickname btn btn-sm btn-primary" data-league-id="${leagueId}" data-manager-id="${claimId}" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; border-radius: 4px;">Save</button>
+                                    </div>
+                                    <div class="account-nickname-preview" data-league-id="${leagueId}" style="font-size: 0.8rem; color: var(--accent-gold, #b45309); font-weight: 700; margin-top: 5px;">
+                                        Display: <span>${previewName}</span>
+                                    </div>
+                                    <div class="account-nickname-feedback" data-league-id="${leagueId}" style="display: none; font-size: 0.78rem; margin-top: 4px; color: #15803d; font-weight: 600;"></div>
+                                </div>
+                            ` : `
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.78rem; color: var(--text-muted, #64748b);">Linked Profile: <em style="color: #94a3b8;">Unlinked</em></span>
+                                    <span style="font-size: 0.72rem; color: var(--text-muted, #64748b);">Join via league code to claim your team</span>
+                                </div>
+                            `}
                         </div>
                     </li>
                 `;
@@ -831,6 +865,93 @@
                 <button id="btn-account-logout" style="background: none; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-muted, #64748b); padding: 0.4rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">Sign Out</button>
             </div>
         `;
+
+        // Wire live input preview on account nicknames
+        accountModalContent.querySelectorAll('.input-account-nickname').forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const leagueId = inp.getAttribute('data-league-id');
+                const baseName = inp.getAttribute('data-base-name') || '';
+                const previewEl = accountModalContent.querySelector(`.account-nickname-preview[data-league-id="${leagueId}"] span`);
+                if (previewEl) {
+                    const allowNick = (app?.leagueSlug === leagueId && app?.leagueSettings?.allow_nicknames !== false) || true;
+                    previewEl.textContent = formatManagerDisplayName(baseName, inp.value.trim(), allowNick);
+                }
+            });
+        });
+
+        // Wire save nickname buttons in account modal
+        accountModalContent.querySelectorAll('.btn-save-account-nickname').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const leagueId = btn.getAttribute('data-league-id');
+                const managerId = btn.getAttribute('data-manager-id');
+                const inp = accountModalContent.querySelector(`.input-account-nickname[data-league-id="${leagueId}"]`);
+                const feedbackEl = accountModalContent.querySelector(`.account-nickname-feedback[data-league-id="${leagueId}"]`);
+                if (!inp || !managerId) return;
+
+                const newNick = inp.value.trim().slice(0, 20);
+                const orig = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                try {
+                    // 1. Update Firebase RTDB claims
+                    const claimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
+                    await update(claimRef, { nickname: newNick }).catch(() => {});
+
+                    // 2. If app is currently active for this league, update in-memory
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                        if (app.members) {
+                            const m = app.members.find(x => x.id === managerId);
+                            if (m) m.nickname = newNick;
+                            const allMemRef = dbRef(database, `leagues/${leagueId}/members`);
+                            await set(allMemRef, app.members).catch(() => {});
+                        }
+                        if (app.managers) {
+                            const m = app.managers.find(x => x.id === managerId);
+                            if (m) m.nickname = newNick;
+                            const allMgrRef = dbRef(database, `leagues/${leagueId}/managers`);
+                            await set(allMgrRef, app.managers).catch(() => {});
+                        }
+
+                        // Re-render views immediately
+                        app.setupH2HControls?.();
+                        app.renderH2H?.();
+                        app.renderRecords?.();
+                        if (app.draftEngine) {
+                            app.draftEngine.updateData({ managers: app.managers, draftResults: app.draftResults, leagueSettings: app.leagueSettings });
+                            if (app.activeTab === 'draft') app.draftEngine.render();
+                        }
+                        if (app.activeTab === 'admin') {
+                            app.renderAdminDashboard?.();
+                        }
+                    }
+
+                    // 3. Update session cache
+                    if (!session.managerNicknames) session.managerNicknames = {};
+                    session.managerNicknames[leagueId] = newNick;
+                    try {
+                        sessionStorage.setItem('vault_auth_session', JSON.stringify(session));
+                    } catch (e) {}
+
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#15803d';
+                        feedbackEl.textContent = newNick ? `✓ Nickname saved as "${newNick}"!` : `✓ Nickname cleared!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                } catch (e) {
+                    console.error('Failed to save nickname from account', e);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#dc2626';
+                        feedbackEl.textContent = 'Error saving nickname. Please try again.';
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = orig;
+                }
+            });
+        });
 
         // Join code form submission
         const joinForm = document.getElementById('account-join-form');

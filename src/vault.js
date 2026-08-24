@@ -3,6 +3,7 @@ import { database } from './firebase.js';
 import { ref as dbRef, set, get, child, update, onValue } from 'firebase/database';
 import { VaultDraftEngine } from './draft.js';
 import { nflStats } from './nfl_stats.js';
+import { formatManagerDisplayName } from './formatters.js';
 function getPlayoffRoundName(season, week) {
     const yr = Number(season);
     const wk = Number(week);
@@ -1184,11 +1185,12 @@ class FantasyApp {
         const currentGroup = this.managers.filter(m => m.status_group === 'Current Managers');
         const retiredGroup = this.managers.filter(m => m.status_group === 'Retired Managers');
 
+        const allowNick = this.leagueSettings?.allow_nicknames !== false;
         const createOptgroup = (label, items) => {
             if (!items.length) return '';
             let html = `<optgroup label="${label}">`;
             items.forEach(m => {
-                const name = m.canonical_name || m.name || m.id;
+                const name = formatManagerDisplayName(m.canonical_name || m.name || m.id, m.nickname, allowNick);
                 html += `<option value="${m.id}">${name}</option>`;
             });
             html += `</optgroup>`;
@@ -1311,8 +1313,9 @@ class FantasyApp {
         const m1Obj = this.managers.find(m => m.id === m1Id) || { name: m1Id };
         const m2Obj = this.managers.find(m => m.id === m2Id) || { name: m2Id };
 
-        const m1Name = m1Obj.canonical_name || m1Obj.name || m1Id;
-        const m2Name = m2Obj.canonical_name || m2Obj.name || m2Id;
+        const allowNick = this.leagueSettings?.allow_nicknames !== false;
+        const m1Name = formatManagerDisplayName(m1Obj.canonical_name || m1Obj.name || m1Id, m1Obj.nickname, allowNick);
+        const m2Name = formatManagerDisplayName(m2Obj.canonical_name || m2Obj.name || m2Id, m2Obj.nickname, allowNick);
 
         if (!m1Id || !m2Id) {
             heroContainer.innerHTML = `
@@ -1740,7 +1743,8 @@ class FantasyApp {
         const currentAdminClaim = session ? (session.claims?.[leagueSlug] || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === session.email)?.[0])) : null;
         const unclaimedMembers = sortedMembers.filter(m => !this.claims || !this.claims[m.id]);
         
-        // Build 3-column table rows: Manager Display Name | Active Seasons | Registered Account & Actions
+        // Build 5-column table rows: Base Name | Nickname | Display Preview | Active Seasons | Actions
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
         const managerRows = sortedMembers.map(m => {
             const memberMatchups = (this.matchups || []).filter(x => x.home_manager_id === m.id || x.away_manager_id === m.id || x.team_1_manager_id === m.id || x.team_2_manager_id === m.id);
             const yearsActive = [...new Set(memberMatchups.map(x => x.year || x.season).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
@@ -1749,18 +1753,25 @@ class FantasyApp {
             const claim = this.claims ? this.claims[m.id] : null;
             const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
             const isClaimed = Boolean(claim);
+            const previewName = formatManagerDisplayName(m.name, m.nickname, allowNicknames);
 
             return `
                 <tr data-manager-id="${m.id}">
                     <td>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" style="min-width: 140px; max-width: 220px; padding: 6px 10px; font-size: 0.88rem; font-weight: 600;">
-                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" style="padding: 6px 12px; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap;">Save</button>
-                        </div>
+                        <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" style="width: 100%; min-width: 120px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box;">
                     </td>
-                    <td style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">${yearsStr}</td>
+                    <td>
+                        <input type="text" class="admin-input mgr-nickname-input" value="${m.nickname || ''}" maxlength="20" placeholder="e.g. The Commish" style="width: 100%; min-width: 110px; padding: 6px 8px; font-size: 0.84rem; box-sizing: border-box;">
+                    </td>
+                    <td>
+                        <span class="mgr-preview-badge" style="font-size: 0.86rem; font-weight: 700; color: var(--accent-gold, #b45309); white-space: nowrap;">
+                            ${previewName}
+                        </span>
+                    </td>
+                    <td style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap;">${yearsStr}</td>
                     <td>
                         <div class="admin-actions-cell" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" style="padding: 5px 10px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap;">Save</button>
                             ${isClaimed ? `
                                 <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
                                     ✓ ${claimEmail}
@@ -1813,7 +1824,7 @@ class FantasyApp {
                     <div class="admin-card-header">
                         <div>
                             <h2>League Identity &amp; Customization</h2>
-                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize your official masthead title, custom URL slug, and subtitle motto.</p>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize your official masthead title, custom URL slug, subtitle motto, and manager nicknames.</p>
                         </div>
                     </div>
 
@@ -1863,6 +1874,27 @@ class FantasyApp {
                         </div>
                         <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
+
+                    <!-- Manager Nickname Customization -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <strong style="font-size: 0.95rem; color: var(--text-primary);">Manager Nicknames:</strong>
+                                    <span id="admin-nickname-badge" style="display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; ${allowNicknames ? 'background:#dcfce7; color:#15803d;' : 'background:#f1f5f9; color:#64748b;'}">
+                                        ${allowNicknames ? 'Enabled (Nicknames Displayed)' : 'Disabled (Standard Names Only)'}
+                                    </span>
+                                </div>
+                                <p id="admin-nickname-desc" style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45; max-width: 620px;">
+                                    This is another point of customization for your league, and you can enable nicknames for your league members to be displayed if you so choose.
+                                </p>
+                            </div>
+                            <button id="btn-toggle-nicknames" class="btn" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #b45309); color:#fff; border:none;'}">
+                                ${allowNicknames ? 'Disable Nicknames' : 'Enable Nicknames'}
+                            </button>
+                        </div>
+                        <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
                 </div>
 
                 <!-- 2. PRIVACY & ACCESS CONTROL -->
@@ -1901,7 +1933,7 @@ class FantasyApp {
                     <div class="admin-card-header">
                         <div>
                             <h2>League Members Roster</h2>
-                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, copy personalized claim links, and manage account assignments.</p>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, nicknames, copy personalized claim links, and manage account assignments.</p>
                         </div>
                     </div>
 
@@ -1910,9 +1942,11 @@ class FantasyApp {
                             <table class="admin-table">
                                 <thead>
                                     <tr>
-                                        <th style="width: 40%;">Manager Display Name</th>
-                                        <th style="width: 25%;">Active Seasons</th>
-                                        <th style="width: 35%;">Registered Account &amp; Actions</th>
+                                        <th style="width: 25%;">Manager Name</th>
+                                        <th style="width: 20%;">Nickname</th>
+                                        <th style="width: 20%;">Display Preview</th>
+                                        <th style="width: 12%;">Seasons</th>
+                                        <th style="width: 23%;">Account &amp; Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="manager-roster-tbody">
@@ -2135,22 +2169,54 @@ class FantasyApp {
             });
         }
 
-        // Wire up Manager Rename buttons
+        // Wire up Manager Rename & Nickname buttons
         const renameBtns = container.querySelectorAll('.btn-save-manager-name');
         renameBtns.forEach(btn => {
             btn.addEventListener('click', async () => {
                 const mgrId = btn.getAttribute('data-manager-id');
                 const row = container.querySelector(`tr[data-manager-id="${mgrId}"]`);
-                const input = row ? row.querySelector('.mgr-rename-input') : null;
-                if (!input) return;
-                const newName = input.value.trim();
+                const nameInput = row ? row.querySelector('.mgr-rename-input') : null;
+                const nickInput = row ? row.querySelector('.mgr-nickname-input') : null;
+                if (!nameInput) return;
+                const newName = nameInput.value.trim();
+                const newNick = nickInput ? nickInput.value.trim() : '';
                 if (!newName) {
                     alert("Manager display name cannot be empty.");
                     return;
                 }
-                await this.updateManagerName(mgrId, newName);
+                const orig = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+                await this.updateManagerName(mgrId, newName, newNick);
+                btn.disabled = false;
+                btn.textContent = orig;
             });
         });
+
+        // Wire live input preview on rename and nickname inputs
+        const mgrInputs = container.querySelectorAll('.mgr-rename-input, .mgr-nickname-input');
+        mgrInputs.forEach(inp => {
+            inp.addEventListener('input', (e) => {
+                const row = e.target.closest('tr');
+                if (!row) return;
+                const nInp = row.querySelector('.mgr-rename-input');
+                const kInp = row.querySelector('.mgr-nickname-input');
+                const previewEl = row.querySelector('.mgr-preview-badge');
+                if (previewEl && nInp) {
+                    const allowNick = this.leagueSettings?.allow_nicknames !== false;
+                    previewEl.textContent = formatManagerDisplayName(nInp.value.trim(), kInp ? kInp.value.trim() : '', allowNick);
+                }
+            });
+        });
+
+        // Wire up Toggle Nicknames button
+        const btnToggleNicknames = container.querySelector('#btn-toggle-nicknames');
+        if (btnToggleNicknames) {
+            btnToggleNicknames.addEventListener('click', async () => {
+                const currentAllow = this.leagueSettings?.allow_nicknames !== false;
+                await this.toggleLeagueNicknames(!currentAllow);
+            });
+        }
 
         // Wire up Merge Managers button
         const btnMerge = container.querySelector('#btn-run-merge');
@@ -2243,60 +2309,91 @@ class FantasyApp {
         }
     }
 
-    async updateManagerName(managerId, newName) {
+    async updateManagerName(managerId, newName, newNickname = null) {
         const feedbackEl = document.getElementById('manager-rename-feedback');
         try {
+            const cleanName = String(newName || '').trim();
+            const cleanNick = newNickname !== null ? String(newNickname).trim().slice(0, 20) : null;
+
             // 1. Update in-memory members
             const memberIdx = this.members.findIndex(m => m.id === managerId);
             if (memberIdx !== -1) {
-                this.members[memberIdx].name = newName;
+                this.members[memberIdx].name = cleanName;
+                this.members[memberIdx].canonical_name = cleanName;
+                if (cleanNick !== null) {
+                    this.members[memberIdx].nickname = cleanNick;
+                }
             }
 
             // 2. Update in-memory managers
             const mgr = this.managers.find(m => m.id === managerId);
             if (mgr) {
-                mgr.name = newName;
-                mgr.manager_name = newName;
+                mgr.name = cleanName;
+                mgr.canonical_name = cleanName;
+                mgr.manager_name = cleanName;
+                if (cleanNick !== null) {
+                    mgr.nickname = cleanNick;
+                }
             }
 
             // 3. Update matchups
             this.matchups.forEach(m => {
                 if (m.home_manager_id === managerId || m.team_1_manager_id === managerId) {
-                    m.home_manager_name = newName;
-                    m.team_1_manager_name = newName;
+                    m.home_manager_name = cleanName;
+                    m.team_1_manager_name = cleanName;
                 }
                 if (m.away_manager_id === managerId || m.team_2_manager_id === managerId) {
-                    m.away_manager_name = newName;
-                    m.team_2_manager_name = newName;
+                    m.away_manager_name = cleanName;
+                    m.team_2_manager_name = cleanName;
                 }
             });
 
             // 4. Update player stats
             this.playerStats.forEach(p => {
                 if (p.manager_id === managerId) {
-                    p.manager_name = newName;
+                    p.manager_name = cleanName;
                 }
             });
 
             // 5. Update standings
             this.standings.forEach(s => {
                 if (s.manager_id === managerId) {
-                    s.manager_name = newName;
+                    s.manager_name = cleanName;
                 }
             });
 
-            // 6. Update Firebase RTDB
-            if (this.leagueSlug) {
-                if (memberIdx !== -1) {
-                    const memberRef = dbRef(database, `leagues/${this.leagueSlug}/members/${memberIdx}`);
-                    await update(memberRef, { name: newName });
+            // 6. Update draft results
+            (this.draftResults || []).forEach(d => {
+                if (d.manager_id === managerId || d.managerId === managerId) {
+                    d.manager_name = cleanName;
                 }
+            });
+
+            // 7. Update Firebase RTDB
+            if (this.leagueSlug) {
                 const allMembersRef = dbRef(database, `leagues/${this.leagueSlug}/members`);
                 await set(allMembersRef, this.members);
+
+                const allManagersRef = dbRef(database, `leagues/${this.leagueSlug}/managers`);
+                await set(allManagersRef, this.managers);
+
+                if (cleanNick !== null) {
+                    const claimRef = dbRef(database, `leagues/${this.leagueSlug}/claims/${managerId}`);
+                    await update(claimRef, { name: cleanName, nickname: cleanNick }).catch(() => {});
+                }
             }
 
-            // 7. Refresh UI components
+            // 8. Refresh ALL UI components across the site immediately
             this.setupH2HControls();
+            this.renderH2H();
+            this.initPowerRankings?.();
+            if (typeof this.renderRecords === 'function') {
+                this.renderRecords();
+            }
+            if (this.draftEngine) {
+                this.draftEngine.updateData({ managers: this.managers, draftResults: this.draftResults, leagueSettings: this.leagueSettings });
+                if (this.activeTab === 'draft') this.draftEngine.render();
+            }
             if (this.activeTab === 'admin') {
                 this.renderAdminDashboard();
             }
@@ -2304,7 +2401,9 @@ class FantasyApp {
             if (feedbackEl) {
                 feedbackEl.style.display = 'block';
                 feedbackEl.className = 'admin-feedback-msg success';
-                feedbackEl.innerHTML = `✓ Manager name updated to "<strong>${newName}</strong>"!`;
+                const allowNick = this.leagueSettings?.allow_nicknames !== false;
+                const formatted = formatManagerDisplayName(cleanName, cleanNick, allowNick);
+                feedbackEl.innerHTML = `✓ Manager updated to "<strong>${formatted}</strong>"!`;
                 setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
             }
         } catch (e) {
@@ -2314,6 +2413,51 @@ class FantasyApp {
                 feedbackEl.className = 'admin-feedback-msg error';
                 feedbackEl.textContent = 'Error updating manager name. Please try again.';
             }
+        }
+    }
+
+    async toggleLeagueNicknames(enabled) {
+        const feedbackEl = document.getElementById('nickname-toggle-feedback');
+        const btn = document.getElementById('btn-toggle-nicknames');
+        if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+        try {
+            this.leagueSettings.allow_nicknames = enabled;
+
+            if (this.leagueSlug) {
+                const settingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings`);
+                await update(settingsRef, { allow_nicknames: enabled });
+            }
+
+            // Live update all components
+            this.setupH2HControls();
+            this.renderH2H();
+            this.initPowerRankings?.();
+            if (typeof this.renderRecords === 'function') this.renderRecords();
+            if (this.draftEngine) {
+                this.draftEngine.updateData({ managers: this.managers, leagueSettings: this.leagueSettings });
+                if (this.activeTab === 'draft') this.draftEngine.render();
+            }
+
+            if (this.activeTab === 'admin') {
+                this.renderAdminDashboard();
+            }
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.textContent = `✓ Nickname display ${enabled ? 'enabled' : 'disabled'} across your league!`;
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+            }
+        } catch (e) {
+            console.error('Failed to toggle nicknames', e);
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'Error updating nickname setting. Please try again.';
+            }
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 

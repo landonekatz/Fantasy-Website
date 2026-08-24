@@ -1,3 +1,5 @@
+import { formatManagerDisplayName } from '../../src/formatters.js';
+
 // The Record Book Analytics & UI Renderer for Gaywood Fantasy Football League HQ
 // Extends FantasyApp with all 5 Record Book sections, table PPG toggles, and custom interactive filtering
 
@@ -81,8 +83,11 @@ Object.assign(TargetApp.prototype, {
                    (espnId && (espnId === searchId || espnId === searchFallback));
         });
 
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+
         if (m) {
-            return m.name || m.manager_name || m.display_name || m.full_name;
+            const baseName = m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name;
+            return formatManagerDisplayName(baseName, m.nickname, allowNicknames);
         }
 
         const raw = (fallbackName && fallbackName !== managerId) ? fallbackName : managerId;

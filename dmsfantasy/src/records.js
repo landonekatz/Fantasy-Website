@@ -1,3 +1,5 @@
+import { formatManagerDisplayName } from '../../src/formatters.js';
+
 // The Record Book Analytics & UI Renderer for Dumbarton Fantasy Football League
 // Extends FantasyApp with all 5 Record Book sections, table PPG toggles, and custom interactive filtering
 
@@ -79,7 +81,12 @@ Object.assign(TargetApp.prototype, {
     // Helper: lookup manager name or return default
     getManagerName(managerId, fallbackName = '') {
         const m = (this.managers || []).find(mgr => (mgr.id || mgr.manager_id) === managerId);
-        return m ? (m.name || m.manager_name) : (fallbackName || managerId);
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        if (m) {
+            const baseName = m.canonical_name || m.name || m.manager_name;
+            return formatManagerDisplayName(baseName, m.nickname, allowNicknames);
+        }
+        return fallbackName || managerId;
     },
 
     // Helper: get final placement badge HTML for a season and manager

@@ -6,6 +6,7 @@
 
 import { nflStats } from './nfl_stats.js';
 import { ldiEngine, LDIEngine, normalizeName } from './ldi_engine.js';
+import { formatManagerDisplayName } from './formatters.js';
 
 function normalizePosition(rawPos, playerName = '') {
     const p = String(rawPos || '').trim().toUpperCase();
@@ -172,6 +173,8 @@ export class VaultDraftEngine {
         const mgrs = Array.isArray(this.managers) ? this.managers : (this.managers?.managers || []);
         const found = [];
         const seen = new Set();
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+
         mgrs.forEach(m => {
             const id = String(m.id || m.manager_id || '');
             if (id && !seen.has(id)) {
@@ -180,10 +183,13 @@ export class VaultDraftEngine {
                                   m.isActive === false || 
                                   (m.status || '').toLowerCase() === 'retired' || 
                                   m.status_group === 'Retired Managers';
+                const baseName = m.canonical_name || m.name || m.manager_name || id;
+                const displayName = formatManagerDisplayName(baseName, m.nickname, allowNicknames);
                 found.push({
                     id,
-                    name: m.name || m.manager_name || id,
-                    team: m.team || m.team_name || m.name || id,
+                    name: displayName,
+                    baseName: baseName,
+                    team: m.team || m.team_name || displayName,
                     isRetired,
                     status: m.status || (isRetired ? 'retired' : 'active'),
                     statusGroup: isRetired ? 'Retired Managers' : 'Current Managers'
@@ -195,10 +201,13 @@ export class VaultDraftEngine {
             const id = String(p.manager_id || p.managerId || '');
             if (id && !seen.has(id)) {
                 seen.add(id);
+                const baseName = p.manager_name || p.managerName || id;
+                const displayName = formatManagerDisplayName(baseName, p.nickname, allowNicknames);
                 found.push({
                     id,
-                    name: p.manager_name || p.managerName || id,
-                    team: p.team_name || p.teamName || p.manager_name || id,
+                    name: displayName,
+                    baseName: baseName,
+                    team: p.team_name || p.teamName || displayName,
                     isRetired: false,
                     status: 'active',
                     statusGroup: 'Current Managers'
