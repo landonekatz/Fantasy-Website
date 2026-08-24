@@ -25,16 +25,6 @@ function serveMultiLeagueDataPlugin() {
           }
         }
 
-        // Handle /gaywoodfantasy/data/...
-        if (cleanUrl.startsWith('/gaywoodfantasy/data/')) {
-          const relPath = cleanUrl.replace('/gaywoodfantasy/data/', '');
-          const filePath = path.join(__dirname, 'gaywoodfantasy', 'data', relPath);
-          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            return fs.createReadStream(filePath).pipe(res);
-          }
-        }
 
         // Handle /api/* serverless functions locally
         if (cleanUrl.startsWith('/api/')) {
@@ -105,18 +95,6 @@ function serveMultiLeagueDataPlugin() {
           }
         }
       }
-
-      // Copy gaywoodfantasy/data to dist/gaywoodfantasy/data
-      const gaywoodSrc = path.join(__dirname, 'gaywoodfantasy', 'data');
-      const gaywoodDest = path.join(__dirname, 'dist', 'gaywoodfantasy', 'data');
-      if (fs.existsSync(gaywoodSrc)) {
-        fs.mkdirSync(gaywoodDest, { recursive: true });
-        for (const file of fs.readdirSync(gaywoodSrc)) {
-          if (file.endsWith('.json') || file.endsWith('.js')) {
-            fs.copyFileSync(path.join(gaywoodSrc, file), path.join(gaywoodDest, file));
-          }
-        }
-      }
     }
   };
 }
@@ -135,8 +113,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         vault: path.resolve(__dirname, 'vault.html'),
-        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html'),
-        gaywoodfantasy: path.resolve(__dirname, 'gaywoodfantasy/index.html')
+        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html')
       }
     }
   }

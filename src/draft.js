@@ -5,6 +5,7 @@
  */
 
 import { nflStats } from './nfl_stats.js';
+import { nflHistoricalTeams } from './nfl_historical_teams.js';
 import { ldiEngine, LDIEngine, normalizeName } from './ldi_engine.js';
 import { formatManagerDisplayName } from './formatters.js';
 
@@ -562,19 +563,15 @@ export class VaultDraftEngine {
                 }
             }
 
-            // Resolve accurate NFL team
-            let resolvedNflTeam = '';
-            if (nflInfo?.team) {
+            // Resolve accurate NFL team at time of draft
+            let resolvedNflTeam = pick.nfl_team || pick.nflTeam || '';
+            const histTeam = nflHistoricalTeams.getTeam(pName, year, pos);
+            if (histTeam) {
+                resolvedNflTeam = histTeam;
+            } else if (nflInfo?.team) {
                 resolvedNflTeam = nflInfo.team;
-            } else if (nflInfo?.playerId && nflStats.playersCache?.[nflInfo.playerId]?.team) {
-                resolvedNflTeam = nflStats.playersCache[nflInfo.playerId].team;
-            } else {
-                const sleeperId = nflStats.findPlayerId(pName, pos);
-                if (sleeperId && nflStats.playersCache?.[sleeperId]?.team) {
-                    resolvedNflTeam = nflStats.playersCache[sleeperId].team;
-                } else if (nflTeam && nflTeam.length <= 4) {
-                    resolvedNflTeam = nflTeam;
-                }
+            } else if (nflTeam && nflTeam.length <= 4) {
+                resolvedNflTeam = nflTeam;
             }
 
             // Score pick using pure LDI Engine

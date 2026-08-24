@@ -1,5 +1,6 @@
 // Fantasy Vault Data Compiler
 // Replicates the core functionality of the Python scraper/parser for client-side execution.
+import { nflHistoricalTeams } from './nfl_historical_teams.js';
 
 export function generateRandomJoinCode() {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -133,6 +134,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   };
 
   const playerIdToName = new Map();
+  const playerIdToPosition = new Map();
 
   // 0. Filter out unplayed seasons (where no games have been played)
   let seasonsData = rawSeasonsData.filter(season => {
@@ -458,7 +460,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               is_playoff: isPlayoff,
               is_consolation: isConsolation,
               game_type: gameType,
-              ...(playerIdToName.set(pp.player.id, pp.player.fullName) && {})
+              ...(playerIdToName.set(pp.player.id, pp.player.fullName) && {}),
+              ...(playerIdToPosition.set(pp.player.id, posStr) && {})
            });
         }
       };
@@ -562,7 +565,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     const picks = season.data.draftDetail?.picks || [];
     for (const pick of picks) {
       const tid = pick.teamId;
-      const tinfo = teamMap[year][tid] || {};
+      const pName = playerIdToName.get(pick.playerId) || `Player ID ${pick.playerId}`;
+      const pos = playerIdToPosition.get(pick.playerId) || '';
+      const histTeam = nflHistoricalTeams.getTeam(pName, year, pos);
       draft_results.push({
         year,
         overall_pick: pick.overallPickNumber,
@@ -573,7 +578,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         manager_id: tinfo.ownerId,
         manager_name: tinfo.ownerName || "",
         player_id: pick.playerId,
-        player_name: playerIdToName.get(pick.playerId) || `Player ID ${pick.playerId}`,
+        player_name: pName,
+        position: pos,
+        nfl_team: histTeam || "",
         is_keeper: pick.keeper || false,
         bid_amount: pick.bidAmount || 0
       });

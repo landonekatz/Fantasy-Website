@@ -4,6 +4,8 @@
  * Powered by Sleeper NFL API (Free, Unauthenticated REST Endpoints)
  */
 
+import { nflHistoricalTeams } from './nfl_historical_teams.js';
+
 class NFLStatsService {
     constructor() {
         this.playersCache = null;
@@ -252,7 +254,7 @@ class NFLStatsService {
         const missedGames = (gp !== null && !isDefOrK) ? Math.max(0, regularSeasonLength - gp) : 0;
 
         const posRank = posRankNum && pos ? `${pos}${posRankNum}` : (posRankNum ? `#${posRankNum}` : null);
-        const playerTeam = (this.playersCache && this.playersCache[pId]?.team) || raw.team || '';
+        const playerTeam = nflHistoricalTeams.getTeam(name, yr, pos) || raw.team || (this.playersCache && this.playersCache[pId]?.team) || '';
 
         return {
             playerId: pId,
