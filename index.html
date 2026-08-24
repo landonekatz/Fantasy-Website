@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Fantasy Vault</title>
   
-
+  <script>
+    (function() {
+      var path = window.location.pathname.replace(/^\/|\/$/g, '');
+      var reserved = ['', 'index.html', 'dmsfantasy', 'gaywoodfantasy', 'vault.html', 'privacy', 'terms', 'api'];
+      if (path && !reserved.includes(path) && !path.includes('.') && !path.startsWith('api/')) {
+        sessionStorage.setItem('vault_nav_slug', path);
+        window.location.replace('/vault.html?league=' + encodeURIComponent(path) + (window.location.search ? '&' + window.location.search.substring(1) : '') + window.location.hash);
+      }
+    })();
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -246,27 +255,56 @@
         </div>
       </div>
 
-      <div id="modal-espn-private" style="display: none; margin-bottom: 1rem; padding: 1rem; background: rgba(251, 188, 5, 0.05); border-radius: 6px; border: 1px solid var(--border-gold);">
-        <h4 style="margin-top: 0; color: var(--accent-gold); font-size: 0.95rem; margin-bottom: 0.5rem;">Private ESPN Authentication</h4>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;">
-          To connect to a private ESPN league, we temporarily require your <code>s2</code> and <code>SWID</code> browser cookies. <strong>We are fully transparent:</strong> these values are used strictly to authenticate the one-time data sync with ESPN. We do not store them.
+      <div id="modal-espn-private" style="display: none; margin-bottom: 1rem; padding: 1.15rem; background: rgba(251, 188, 5, 0.05); border-radius: 8px; border: 1px solid var(--border-gold);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.5rem; flex-wrap: wrap;">
+          <h4 style="margin: 0; color: var(--accent-gold); font-size: 0.95rem;">Private ESPN Authentication</h4>
+          <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold); text-decoration: underline;">
+            Open ESPN Fantasy &nearr;
+          </a>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.45;">
+          Private ESPN leagues require your temporary <code>espn_s2</code> and <code>SWID</code> browser cookies for a one-time historical archive fetch. We do not store your credentials.
         </p>
+
+        <!-- Quick 1-Click Helper Bar -->
+        <div style="background: rgba(0, 0, 0, 0.04); border: 1px dashed var(--border-gold); border-radius: 6px; padding: 0.75rem 0.85rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-gold); text-transform: uppercase; letter-spacing: 0.5px;">Quick Cookie Extraction:</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <a href="javascript:(function(){var c=document.cookie;var s2=(c.match(/espn_s2=([^;]+)/)||[])[1];var sw=(c.match(/SWID=([^;]+)/i)||[])[1];if(s2&amp;&amp;sw){navigator.clipboard.writeText('espn_s2: '+s2+'\nSWID: '+sw).then(function(){alert('ESPN credentials copied to clipboard! Switch back to The Fantasy Vault and paste them.');});}else{alert('Could not find ESPN cookies. Make sure you are logged into fantasy.espn.com.');}})();" 
+               title="Drag to your Bookmarks Bar, then click on fantasy.espn.com"
+               style="background: var(--accent-gold); color: #000; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-decoration: none; cursor: grab; display: inline-flex; align-items: center; gap: 4px;">
+              ⭐ Get ESPN Cookies (Drag to Bookmarks)
+            </a>
+            <button type="button" id="btn-copy-espn-script-hub" style="background: #ffffff; border: 1px solid var(--border-line); color: var(--text-main); font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 4px; cursor: pointer;">
+              Copy Console Snippet
+            </button>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.35;">
+            <strong>Tip:</strong> You can paste your entire cookie string into either box below, as smart auto-detect will automatically split and fill both fields.
+          </div>
+        </div>
+
         <div style="margin-bottom: 0.75rem;">
-          <label for="modal-espn-s2" class="form-label" style="font-size: 0.8rem;">ESPN s2 Cookie</label>
-          <input type="text" id="modal-espn-s2" class="form-input" placeholder="Paste your s2 cookie string here">
+          <label for="modal-espn-s2" class="form-label" style="font-size: 0.8rem; font-weight: 600;">ESPN s2 Cookie</label>
+          <input type="text" id="modal-espn-s2" class="form-input" placeholder="Paste s2 cookie (e.g. AECsRJF...)" style="font-family: monospace; font-size: 0.8rem;">
         </div>
-        <div style="margin-bottom: 1rem;">
-          <label for="modal-espn-swid" class="form-label" style="font-size: 0.8rem;">ESPN SWID</label>
-          <input type="text" id="modal-espn-swid" class="form-input" placeholder="{1234-5678-ABCD}">
+        <div style="margin-bottom: 0.85rem;">
+          <label for="modal-espn-swid" class="form-label" style="font-size: 0.8rem; font-weight: 600;">ESPN SWID</label>
+          <input type="text" id="modal-espn-swid" class="form-input" placeholder="Paste SWID (e.g. {1234-5678-ABCD})" style="font-family: monospace; font-size: 0.8rem;">
         </div>
-        <details style="font-size: 0.8rem; color: var(--text-muted);">
-          <summary style="cursor: pointer; color: var(--accent-gold);">How to find these cookies</summary>
-          <ol style="margin-top: 0.5rem; padding-left: 1.2rem;">
-            <li>Log into your ESPN league on a desktop browser.</li>
-            <li>Right-click anywhere on the page and select <strong>Inspect</strong>.</li>
-            <li>Go to the <strong>Application</strong> or <strong>Storage</strong> tab.</li>
-            <li>Expand the <strong>Cookies</strong> menu and click on <code>https://fantasy.espn.com</code>.</li>
-            <li>Find the rows named <code>swid</code> and <code>espn_s2</code>. Copy their Values into these fields.</li>
+
+        <div id="espn-smart-paste-feedback" style="display: none; font-size: 0.75rem; font-weight: 600; color: #16a34a; margin-bottom: 0.75rem;">
+          ✓ Auto-detected and filled both credentials!
+        </div>
+
+        <details style="font-size: 0.78rem; color: var(--text-muted);">
+          <summary style="cursor: pointer; color: var(--accent-gold); font-weight: 600;">Manual Developer Tools Guide</summary>
+          <ol style="margin-top: 0.5rem; padding-left: 1.2rem; line-height: 1.5;">
+            <li>Log into your ESPN league on desktop at <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener" style="color: var(--accent-gold);">fantasy.espn.com</a>.</li>
+            <li>Right-click anywhere and select <strong>Inspect</strong> (or press <code>F12</code>).</li>
+            <li>Go to the <strong>Application</strong> tab (Chrome/Edge) or <strong>Storage</strong> tab (Firefox).</li>
+            <li>Expand <strong>Cookies</strong> &rarr; select <code>https://fantasy.espn.com</code>.</li>
+            <li>Copy the <strong>Value</strong> for <code>espn_s2</code> and <code>SWID</code> into the fields above.</li>
           </ol>
         </details>
       </div>

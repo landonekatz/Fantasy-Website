@@ -52,6 +52,12 @@ class FantasyApp {
             playoffs: { year: '2020-present', retired: false, customStart: 2018, customEnd: 2026 }
         };
         this.db = null;
+        this.leagueSlug = 'dmsfantasy';
+        this.leagueSettings = {
+            name: 'The Dumbarton Fantasy Football League HQ',
+            join_code: 'DNFUAM',
+            tagline: '8 Seasons • 15 Managers • One Vault'
+        };
     }
 
     renderPrivateGuard() {
@@ -640,14 +646,9 @@ class FantasyApp {
         const leagueName = this.leagueSettings?.name || "The Dumbarton Fantasy Football League HQ";
         const leagueSlug = "dmsfantasy";
         const currentTagline = this.leagueSettings?.tagline || this.leagueSettings?.subtitle || "8 Seasons • 15 Managers • One Vault";
-        if (!this.leagueSettings?.join_code || this.leagueSettings.join_code.includes('2025') || this.leagueSettings.join_code.length !== 6) {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = '';
-            for (let i = 0; i < 6; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            if (!this.leagueSettings) this.leagueSettings = {};
-            this.leagueSettings.join_code = code;
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.join_code) {
+            this.leagueSettings.join_code = 'DNFUAM';
         }
         const joinCode = this.leagueSettings.join_code.toUpperCase();
         const joinLink = `${window.location.origin}/dmsfantasy/?join=${joinCode}`;

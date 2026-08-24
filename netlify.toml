@@ -2,6 +2,12 @@
   command = "npm run build"
   publish = "dist"
 
+# Static assets pass-through
+[[redirects]]
+  from = "/assets/*"
+  to = "/assets/:splat"
+  status = 200
+
 # Route Dumbarton League HQ
 [[redirects]]
   from = "/dmsfantasy"
@@ -24,8 +30,20 @@
   to = "/gaywoodfantasy/index.html"
   status = 200
 
-# Route landing hub SPA & custom dynamic league slugs fallback
+# API endpoints
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+
+# Landing page root
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+
+# Fallback for dynamic league vaults
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/vault.html"
   status = 200

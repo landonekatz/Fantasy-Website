@@ -103,8 +103,12 @@ class FantasyApp {
         this.playerStats = [];
         this.standings = [];
         this.transactions = [];
-        this.draftResults = [];
-        this.leagueSettings = {};
+        this.leagueSlug = 'gaywoodfantasy';
+        this.leagueSettings = {
+            name: 'Gaywood / Katz Fantasy Football League HQ',
+            join_code: 'Y6CW7J',
+            tagline: '11 Seasons • 21 Managers • One Eternal Pursuit'
+        };
         this.currentYearFilter = 'all'; // 'all', '2020-present', 'custom'
         this.customStartYear = 2018;
         this.customEndYear = 2026;
@@ -840,14 +844,9 @@ class FantasyApp {
         const leagueName = this.leagueSettings?.name || "Gaywood / Katz Fantasy Football League HQ";
         const leagueSlug = "gaywoodfantasy";
         const currentTagline = this.leagueSettings?.tagline || this.leagueSettings?.subtitle || "11 Seasons • 21 Managers • One Eternal Pursuit";
-        if (!this.leagueSettings?.join_code || this.leagueSettings.join_code.includes('2025') || this.leagueSettings.join_code.length !== 6) {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-            let code = '';
-            for (let i = 0; i < 6; i++) {
-                code += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            if (!this.leagueSettings) this.leagueSettings = {};
-            this.leagueSettings.join_code = code;
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.join_code) {
+            this.leagueSettings.join_code = 'Y6CW7J';
         }
         const joinCode = this.leagueSettings.join_code.toUpperCase();
         const joinLink = `${window.location.origin}/gaywoodfantasy/?join=${joinCode}`;

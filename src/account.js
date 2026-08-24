@@ -546,9 +546,12 @@
     // ==========================================
     // GENERAL JOIN CODE & CLAIM FLOW (With Guest Option)
     // ==========================================
-    window.startManagerClaimFlow = function(code, onSuccess) {
+    window.startManagerClaimFlow = async function(code, onSuccess) {
         if (typeof window.AuthEngine === 'undefined') return;
-        const res = window.AuthEngine.processJoinCode(code);
+        const res = typeof window.AuthEngine.resolveJoinCode === 'function'
+            ? await window.AuthEngine.resolveJoinCode(code)
+            : window.AuthEngine.processJoinCode(code);
+            
         if (!res.success) {
             alert(res.message);
             return;
@@ -745,7 +748,7 @@
                            localStoredName ||
                            (leagueId === 'fbofantasy' ? 'FBO Fantasy League' : (leagueId.charAt(0).toUpperCase() + leagueId.slice(1) + ' League'));
                 
-                const path = (cachedDetails && cachedDetails.path) || (info ? info.path : `/${leagueId}/`);
+                const path = (cachedDetails && cachedDetails.path) || (info ? info.path : `/${leagueId}`);
                 const isUserAdmin = Boolean(session.isFounder || (session.adminLeagues && session.adminLeagues.includes(leagueId)));
                 const isCurrent = (activeSlug === leagueId) || (activeSlug === '' && leagueId === 'vault');
                 
@@ -936,26 +939,50 @@
                         <div style="font-size: 0.78rem; color: #64748b; margin-top: 0.35rem;">Found in your league's browser URL (e.g. <code>leagueId=12345678</code>).</div>
                     </div>
 
-                    <div id="u-espn-private-box" style="display: none; margin-bottom: 1.25rem; padding: 1rem; background: #fefce8; border-radius: 6px; border: 1px solid #fde047;">
-                        <h4 style="margin-top: 0; color: #854d0e; font-size: 0.9rem; margin-bottom: 0.5rem;">Private ESPN Authentication</h4>
-                        <p style="font-size: 0.8rem; color: #713f12; margin-bottom: 0.75rem; line-height: 1.4;">
-                            To connect to a private ESPN league, enter your <code>s2</code> and <code>SWID</code> browser cookies. These are used only for the sync and are never stored.
+                    <div id="u-espn-private-box" style="display: none; margin-bottom: 1.25rem; padding: 1.15rem; background: rgba(251, 188, 5, 0.05); border-radius: 8px; border: 1px solid var(--border-gold, #fde047);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                            <h4 style="margin: 0; color: var(--accent-gold, #854d0e); font-size: 0.92rem;">Private ESPN Authentication</h4>
+                            <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #b45309); text-decoration: underline;">
+                                Open ESPN Fantasy &nearr;
+                            </a>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted, #713f12); margin-bottom: 0.85rem; line-height: 1.45;">
+                            Private ESPN leagues require your temporary <code>espn_s2</code> and <code>SWID</code> cookies for historical import. Credentials are never stored.
                         </p>
+
+                        <!-- Quick 1-Click Helper Bar -->
+                        <div style="background: rgba(0, 0, 0, 0.04); border: 1px dashed var(--border-gold, #fde047); border-radius: 6px; padding: 0.75rem 0.85rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 6px;">
+                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-gold, #854d0e); text-transform: uppercase; letter-spacing: 0.5px;">Quick Cookie Extraction:</div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                <a href="javascript:(function(){var c=document.cookie;var s2=(c.match(/espn_s2=([^;]+)/)||[])[1];var sw=(c.match(/SWID=([^;]+)/i)||[])[1];if(s2&amp;&amp;sw){navigator.clipboard.writeText('espn_s2: '+s2+'\nSWID: '+sw).then(function(){alert('ESPN credentials copied to clipboard! Switch back to The Fantasy Vault and paste them.');});}else{alert('Could not find ESPN cookies. Make sure you are logged into fantasy.espn.com.');}})();" 
+                                   title="Drag to your Bookmarks Bar, then click on fantasy.espn.com"
+                                   style="background: var(--accent-gold, #b45309); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 4px; text-decoration: none; cursor: grab; display: inline-flex; align-items: center; gap: 4px;">
+                                  ⭐ Get ESPN Cookies (Drag to Bookmarks)
+                                </a>
+                                <button type="button" id="btn-copy-espn-script-u" style="background: #ffffff; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-main, #0f172a); font-size: 0.75rem; font-weight: 600; padding: 4px 10px; border-radius: 4px; cursor: pointer;">
+                                  Copy Console Snippet
+                                </button>
+                            </div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted, #64748b); line-height: 1.35;">
+                                <strong>Tip:</strong> Paste either cookie or combined text into either field, as smart auto-detect will automatically split and fill both fields.
+                            </div>
+                        </div>
+
                         <div style="margin-bottom: 0.65rem;">
-                            <label style="display: block; font-size: 0.78rem; color: #854d0e; margin-bottom: 0.25rem;">ESPN s2 Cookie</label>
-                            <input type="text" id="u-import-s2" placeholder="Paste your s2 cookie string" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; font-size: 0.82rem; box-sizing: border-box;">
+                            <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #854d0e); margin-bottom: 0.25rem;">ESPN s2 Cookie</label>
+                            <input type="text" id="u-import-s2" placeholder="Paste s2 cookie (e.g. AECsRJF...)" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: #0f172a; font-family: monospace; font-size: 0.8rem; box-sizing: border-box;">
                         </div>
                         <div style="margin-bottom: 0.75rem;">
-                            <label style="display: block; font-size: 0.78rem; color: #854d0e; margin-bottom: 0.25rem;">ESPN SWID</label>
-                            <input type="text" id="u-import-swid" placeholder="e.g. {1234-5678-ABCD}" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; font-size: 0.82rem; box-sizing: border-box;">
+                            <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #854d0e); margin-bottom: 0.25rem;">ESPN SWID</label>
+                            <input type="text" id="u-import-swid" placeholder="Paste SWID (e.g. {1234-5678-ABCD})" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: #0f172a; font-family: monospace; font-size: 0.8rem; box-sizing: border-box;">
                         </div>
-                        <details style="font-size: 0.78rem; color: #854d0e;">
-                            <summary style="cursor: pointer; color: #b45309; font-weight: 600;">How to find these cookies</summary>
+                        <details style="font-size: 0.78rem; color: var(--text-muted, #713f12);">
+                            <summary style="cursor: pointer; color: var(--accent-gold, #b45309); font-weight: 600;">Manual Developer Tools Guide</summary>
                             <ol style="margin-top: 0.5rem; padding-left: 1.2rem; line-height: 1.5;">
-                                <li>Log into ESPN fantasy in your desktop browser.</li>
-                                <li>Right-click anywhere and select <strong>Inspect</strong>.</li>
+                                <li>Log into your ESPN league on desktop at <a href="https://fantasy.espn.com/football/" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309);">fantasy.espn.com</a>.</li>
+                                <li>Right-click anywhere and select <strong>Inspect</strong> (or press <code>F12</code>).</li>
                                 <li>Open <strong>Application</strong> &rarr; <strong>Cookies</strong> &rarr; <code>https://fantasy.espn.com</code>.</li>
-                                <li>Copy the values for <code>espn_s2</code> and <code>swid</code>.</li>
+                                <li>Copy the values for <code>espn_s2</code> and <code>swid</code> into the fields above.</li>
                             </ol>
                         </details>
                     </div>
@@ -989,6 +1016,52 @@
                     espnPrivateBox.style.display = privacySelect.value === 'private' ? 'block' : 'none';
                 });
             }
+
+            // Smart ESPN Paste for Universal Importer
+            const uS2 = document.getElementById('u-import-s2');
+            const uSwid = document.getElementById('u-import-swid');
+            const handleUPaste = (e) => {
+                const text = (e.clipboardData || window.clipboardData)?.getData('text') || e.target?.value || '';
+                if (!text) return;
+                let foundS2 = null;
+                let foundSwid = null;
+                const s2Match = text.match(/espn_s2[:=]\s*([^\s;]+)/i);
+                if (s2Match) foundS2 = s2Match[1].trim();
+                const swidMatch = text.match(/swid[:=]\s*([^\s;]+)/i);
+                if (swidMatch) foundSwid = swidMatch[1].trim();
+                if (!foundSwid && text.includes('{') && text.includes('}')) {
+                    const rawSwid = text.match(/\{[a-f0-9-]+\}/i);
+                    if (rawSwid) foundSwid = rawSwid[0];
+                }
+                if (foundS2 && uS2) uS2.value = foundS2;
+                if (foundSwid && uSwid) uSwid.value = foundSwid;
+            };
+            if (uS2) {
+                uS2.addEventListener('paste', handleUPaste);
+                uS2.addEventListener('input', (e) => {
+                    if (e.target.value.includes('SWID') || e.target.value.includes('espn_s2') || e.target.value.includes('{')) handleUPaste({ target: e.target });
+                });
+            }
+            if (uSwid) {
+                uSwid.addEventListener('paste', handleUPaste);
+                uSwid.addEventListener('input', (e) => {
+                    if (e.target.value.includes('SWID') || e.target.value.includes('espn_s2') || e.target.value.includes('{')) handleUPaste({ target: e.target });
+                });
+            }
+
+            document.getElementById('btn-copy-espn-script-u')?.addEventListener('click', () => {
+                const btn = document.getElementById('btn-copy-espn-script-u');
+                const snippet = `(() => { const v = document.cookie; const s2 = (v.match(/espn_s2=([^;]+)/) || [])[1]; const sw = (v.match(/SWID=([^;]+)/i) || [])[1]; if (s2 && sw) { prompt("Copy your ESPN Credentials:", "espn_s2: " + s2 + "\\nSWID: " + sw); } else { alert("Make sure you are logged into fantasy.espn.com."); } })();`;
+                navigator.clipboard.writeText(snippet).then(() => {
+                    if (btn) {
+                        const orig = btn.textContent;
+                        btn.textContent = '✓ Copied!';
+                        setTimeout(() => { btn.textContent = orig; }, 2000);
+                    }
+                }).catch(() => {
+                    prompt("Copy this snippet and paste in browser console at fantasy.espn.com:", snippet);
+                });
+            });
 
             // Form Submit -> Fetch ESPN Data
             const form = document.getElementById('universal-import-form');

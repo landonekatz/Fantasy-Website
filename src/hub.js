@@ -79,7 +79,7 @@ let currentLeagueCreds = null;
 
   // Header 6-Character Join Code Processing
   if (headerJoinCodeForm && inputHeaderCode) {
-    headerJoinCodeForm.addEventListener('submit', (e) => {
+    headerJoinCodeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const code = inputHeaderCode.value.trim().toUpperCase();
       if (!code) return;
@@ -95,14 +95,14 @@ let currentLeagueCreds = null;
       }
 
       if (typeof window.startManagerClaimFlow === 'function') {
-        window.startManagerClaimFlow(code, () => {
-          const res = AuthEngine.processJoinCode(code);
+        window.startManagerClaimFlow(code, async () => {
+          const res = await AuthEngine.resolveJoinCode(code);
           if (res.success) {
             window.location.href = res.league.path + `?join=${code}`;
           }
         });
       } else {
-        const res = AuthEngine.processJoinCode(code);
+        const res = await AuthEngine.resolveJoinCode(code);
         if (res.success) {
           alert(`Joining ${res.league.name}... Directing to league archive.`);
           window.location.href = res.league.path + `?join=${code}`;
@@ -562,20 +562,20 @@ let currentLeagueCreds = null;
   const selectJoinProfile = document.getElementById('select-join-profile');
   
   if (btnVerifyJoinCode && inputJoinCode) {
-    btnVerifyJoinCode.addEventListener('click', () => {
+    btnVerifyJoinCode.addEventListener('click', async () => {
       const code = inputJoinCode.value.trim().toUpperCase();
       if (!code) {
         alert("Please enter a join code");
         return;
       }
       
-      const result = AuthEngine.processJoinCode(code);
+      const result = await AuthEngine.resolveJoinCode(code);
       if (result.success) {
         // Populate manager dropdown
         if (selectJoinProfile) {
           selectJoinProfile.innerHTML = '<option value="" disabled selected>Select your profile...</option>';
           result.league.managers.forEach(mgr => {
-            selectJoinProfile.innerHTML += `<option value="${mgr.id}">${mgr.name}</option>`;
+            selectJoinProfile.innerHTML += `<option value="${mgr.id}">${mgr.canonical_name || mgr.name}</option>`;
           });
         }
         if (profileSelectWrapper) profileSelectWrapper.style.display = 'block';
@@ -674,6 +674,71 @@ let currentLeagueCreds = null;
         groupPlatformsMultiple.style.display = 'none';
       }
       updateEspnFields();
+    });
+  }
+
+  // Smart ESPN Credential Paste & Copy Script Handler
+  function attachSmartEspnPaste(s2El, swidEl, feedbackEl) {
+    if (!s2El || !swidEl) return;
+    const handlePaste = (e) => {
+      const text = (e.clipboardData || window.clipboardData)?.getData('text') || e.target?.value || '';
+      if (!text) return;
+
+      let foundS2 = null;
+      let foundSwid = null;
+
+      const s2Match = text.match(/espn_s2[:=]\s*([^\s;]+)/i);
+      if (s2Match) foundS2 = s2Match[1].trim();
+
+      const swidMatch = text.match(/swid[:=]\s*([^\s;]+)/i);
+      if (swidMatch) foundSwid = swidMatch[1].trim();
+
+      if (!foundSwid && text.includes('{') && text.includes('}')) {
+        const rawSwid = text.match(/\{[a-f0-9-]+\}/i);
+        if (rawSwid) foundSwid = rawSwid[0];
+      }
+
+      if (foundS2 || foundSwid) {
+        if (foundS2) s2El.value = foundS2;
+        if (foundSwid) swidEl.value = foundSwid;
+        if (feedbackEl) {
+          feedbackEl.style.display = 'block';
+          setTimeout(() => { if (feedbackEl) feedbackEl.style.display = 'none'; }, 4000);
+        }
+      }
+    };
+
+    s2El.addEventListener('paste', handlePaste);
+    s2El.addEventListener('input', (e) => {
+      if (e.target.value.includes('SWID') || e.target.value.includes('espn_s2') || e.target.value.includes('{')) {
+        handlePaste({ target: e.target });
+      }
+    });
+
+    swidEl.addEventListener('paste', handlePaste);
+    swidEl.addEventListener('input', (e) => {
+      if (e.target.value.includes('SWID') || e.target.value.includes('espn_s2') || e.target.value.includes('{')) {
+        handlePaste({ target: e.target });
+      }
+    });
+  }
+
+  const s2ModalInput = document.getElementById('modal-espn-s2');
+  const swidModalInput = document.getElementById('modal-espn-swid');
+  const espnPasteFeedback = document.getElementById('espn-smart-paste-feedback');
+  attachSmartEspnPaste(s2ModalInput, swidModalInput, espnPasteFeedback);
+
+  const btnCopyEspnScriptHub = document.getElementById('btn-copy-espn-script-hub');
+  if (btnCopyEspnScriptHub) {
+    btnCopyEspnScriptHub.addEventListener('click', () => {
+      const snippet = `(() => { const v = document.cookie; const s2 = (v.match(/espn_s2=([^;]+)/) || [])[1]; const sw = (v.match(/SWID=([^;]+)/i) || [])[1]; if (s2 && sw) { prompt("Copy your ESPN Credentials:", "espn_s2: " + s2 + "\\nSWID: " + sw); } else { alert("Make sure you are logged into fantasy.espn.com."); } })();`;
+      navigator.clipboard.writeText(snippet).then(() => {
+        const orig = btnCopyEspnScriptHub.textContent;
+        btnCopyEspnScriptHub.textContent = '✓ Copied!';
+        setTimeout(() => { btnCopyEspnScriptHub.textContent = orig; }, 2000);
+      }).catch(() => {
+        prompt("Copy this snippet and paste in browser console at fantasy.espn.com:", snippet);
+      });
     });
   }
 

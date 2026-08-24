@@ -542,9 +542,12 @@ class FantasyApp {
             }
         }
 
-        const pathSlug = window.location.pathname.substring(1).replace(/\/$/, "");
+        let pathSlug = urlParams.get('league') || urlParams.get('slug') || window.location.pathname.replace(/^\/|\/$/g, "");
+        if (pathSlug === 'vault.html' || pathSlug === 'vault' || !pathSlug) {
+            pathSlug = urlParams.get('league') || urlParams.get('slug') || sessionStorage.getItem('vault_nav_slug') || localStorage.getItem('vault_last_league') || '';
+        }
         this.leagueSlug = pathSlug;
-        if (pathSlug) {
+        if (pathSlug && pathSlug !== 'vault.html' && pathSlug !== 'vault') {
             localStorage.setItem('vault_last_league', pathSlug);
         }
 
@@ -751,7 +754,12 @@ class FantasyApp {
     }
 
     async loadData() {
-        const slug = window.location.pathname.substring(1).replace(/\/$/, "");
+        const urlParams = new URLSearchParams(window.location.search);
+        let slug = this.leagueSlug || urlParams.get('league') || urlParams.get('slug') || window.location.pathname.replace(/^\/|\/$/g, "");
+        if (slug === 'vault.html' || slug === 'vault' || !slug) {
+            slug = urlParams.get('league') || urlParams.get('slug') || sessionStorage.getItem('vault_nav_slug') || localStorage.getItem('vault_last_league') || '';
+        }
+        this.leagueSlug = slug;
         
         let bundleData = null;
         try {

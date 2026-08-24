@@ -8,11 +8,15 @@ const PERSONA_KEY = 'vault_active_persona';
 
 // Registered League Join Codes (6-character uppercase alphanumeric)
 const JOIN_CODES = {
-  'D8M4S2': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/', managers: [{id: 'mgr_dms_1', name: 'Landon'}, {id: 'mgr_dms_2', name: 'Madoc'}, {id: 'mgr_dms_3', name: 'Jordan'}] },
-  'K9Z15A': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy/', managers: [{id: 'mgr_katz_1', name: 'Landon'}, {id: 'mgr_katz_2', name: 'Doug'}, {id: 'mgr_katz_3', name: 'Mike'}] },
+  'DNFUAM': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
+  'Y6CW7J': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] },
   // Legacy aliases
-  'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/', managers: [{id: 'mgr_dms_1', name: 'Landon'}, {id: 'mgr_dms_2', name: 'Madoc'}, {id: 'mgr_dms_3', name: 'Jordan'}] },
-  'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy/', managers: [{id: 'mgr_katz_1', name: 'Landon'}, {id: 'mgr_katz_2', name: 'Doug'}, {id: 'mgr_katz_3', name: 'Mike'}] }
+  'D8M4S2': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
+  'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
+  'DMSFANTASY': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
+  'K9Z15A': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] },
+  'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] },
+  'GAYWOODFANTASY': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] }
 };
 
 // Session Management
@@ -104,10 +108,71 @@ const AuthEngine = {
   },
 
   // 6-Character Join Code Processing (Validation & Lookup)
+  async resolveJoinCode(code) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      return { success: false, message: "Please enter a 6-character Join Code." };
+    }
+
+    if (JOIN_CODES[cleanCode]) {
+      const league = { ...JOIN_CODES[cleanCode] };
+      if (window.app && window.app.leagueSlug === league.leagueId) {
+        league.managers = window.app.members || window.app.managers || league.managers;
+      }
+      return { success: true, league };
+    }
+
+    // Check dynamic active app instance
+    if (window.app && window.app.leagueSlug) {
+      const appCode = (window.app.leagueSettings?.join_code || '').toUpperCase();
+      if (cleanCode === appCode || cleanCode === window.app.leagueSlug.toUpperCase()) {
+        const info = {
+          leagueId: window.app.leagueSlug,
+          name: window.app.leagueSettings?.name || 'Fantasy Football League',
+          path: `/${window.app.leagueSlug}`,
+          managers: window.app.members || window.app.managers || []
+        };
+        JOIN_CODES[cleanCode] = info;
+        return { success: true, league: info };
+      }
+    }
+
+    // Check Firebase Realtime Database leagues
+    if (database) {
+      try {
+        const leaguesSnap = await rtdbGet(dbRef(database, 'leagues'));
+        if (leaguesSnap.exists()) {
+          const allLeagues = leaguesSnap.val();
+          for (const [slug, lData] of Object.entries(allLeagues)) {
+            const lCode = (lData?.league_settings?.join_code || '').toUpperCase();
+            if (cleanCode === lCode || cleanCode === slug.toUpperCase()) {
+              const info = {
+                leagueId: slug,
+                name: lData?.league_settings?.name || `${slug} Vault`,
+                path: `/${slug}`,
+                managers: lData?.members || lData?.managers || []
+              };
+              JOIN_CODES[cleanCode] = info;
+              return { success: true, league: info };
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Database join code lookup warning:", e);
+      }
+    }
+
+    return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
+  },
+
   processJoinCode(code) {
     const cleanCode = (code || '').trim().toUpperCase();
     if (JOIN_CODES[cleanCode]) {
-      return { success: true, league: JOIN_CODES[cleanCode] };
+      const league = { ...JOIN_CODES[cleanCode] };
+      if (window.app && window.app.leagueSlug === league.leagueId) {
+        league.managers = window.app.members || window.app.managers || league.managers;
+      }
+      return { success: true, league };
     }
 
     // Check dynamic active app instance if present
@@ -117,7 +182,7 @@ const AuthEngine = {
         const info = {
           leagueId: window.app.leagueSlug,
           name: window.app.leagueSettings?.name || 'Fantasy Football League',
-          path: `/${window.app.leagueSlug}/`,
+          path: `/${window.app.leagueSlug}`,
           managers: window.app.members || window.app.managers || []
         };
         JOIN_CODES[cleanCode] = info;
@@ -132,7 +197,7 @@ const AuthEngine = {
     const cleanCode = (code || '').trim().toUpperCase();
     let info = JOIN_CODES[cleanCode];
     if (!info) {
-      const check = this.processJoinCode(code);
+      const check = await this.resolveJoinCode(code);
       if (check.success) info = check.league;
     }
     if (!info) return { success: false, message: "Invalid code" };
