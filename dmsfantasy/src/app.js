@@ -209,7 +209,11 @@ class FantasyApp {
     }
 
     async init() {
-        localStorage.setItem('vault_last_league', 'dmsfantasy');
+        if (window.AuthEngine && typeof window.AuthEngine.recordActiveLeague === 'function') {
+            window.AuthEngine.recordActiveLeague('dmsfantasy');
+        } else {
+            localStorage.setItem('vault_last_league', 'dmsfantasy');
+        }
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('building')) {

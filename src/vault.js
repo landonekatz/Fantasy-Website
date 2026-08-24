@@ -549,7 +549,11 @@ class FantasyApp {
         }
         this.leagueSlug = pathSlug;
         if (pathSlug && pathSlug !== 'vault.html' && pathSlug !== 'vault') {
-            localStorage.setItem('vault_last_league', pathSlug);
+            if (window.AuthEngine && typeof window.AuthEngine.recordActiveLeague === 'function') {
+                window.AuthEngine.recordActiveLeague(pathSlug);
+            } else {
+                localStorage.setItem('vault_last_league', pathSlug);
+            }
         }
 
         // 1. Immediately wire navigation, theme, and admin tab visibility on frame 0

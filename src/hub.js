@@ -1,3 +1,6 @@
+import { database } from './firebase.js';
+import { ref as dbRef, get } from 'firebase/database';
+
 let currentLeagueCreds = null;
 // The Fantasy Vault, as Editorial Light Hub Script & Auth Integration
 // Elements
@@ -608,22 +611,60 @@ let currentLeagueCreds = null;
       return;
     }
 
-    // Auto-redirect off the marketing landing page to the user's active/owned league
-    const session = AuthEngine.getSession();
-    const lastLeague = localStorage.getItem('vault_last_league');
-    
+    // Auto-redirect off marketing landing page to the last league associated with user's account
+    let session = AuthEngine.getSession();
+    if (session && database && session.uid) {
+      try {
+        const userSnap = await get(dbRef(database, `users/${session.uid}`));
+        if (userSnap.exists()) {
+          const uVal = userSnap.val();
+          if (uVal.last_league) session.last_league = uVal.last_league;
+          if (uVal.joinedLeagues) session.joinedLeagues = Array.isArray(uVal.joinedLeagues) ? uVal.joinedLeagues : Object.keys(uVal.joinedLeagues);
+          if (uVal.adminLeagues) session.adminLeagues = Array.isArray(uVal.adminLeagues) ? uVal.adminLeagues : Object.keys(uVal.adminLeagues);
+          if (uVal.claims) session.claims = { ...session.claims, ...uVal.claims };
+        }
+      } catch (e) {
+        console.warn("Could not sync user profile on login:", e);
+      }
+    }
+
+    const dbLastLeague = session?.last_league;
+    const localLastLeague = localStorage.getItem('vault_last_league');
+
     let targetSlug = null;
-    if (lastLeague && (session?.joinedLeagues?.includes(lastLeague) || session?.adminLeagues?.includes(lastLeague) || session?.isFounder)) {
-      targetSlug = lastLeague;
+    if (dbLastLeague && (
+      session?.joinedLeagues?.includes(dbLastLeague) || 
+      session?.adminLeagues?.includes(dbLastLeague) || 
+      session?.claims?.[dbLastLeague] ||
+      session?.isFounder
+    )) {
+      targetSlug = dbLastLeague;
+    } else if (localLastLeague && (
+      session?.joinedLeagues?.includes(localLastLeague) || 
+      session?.adminLeagues?.includes(localLastLeague) || 
+      session?.claims?.[localLastLeague]
+    )) {
+      targetSlug = localLastLeague;
+    } else if (session?.isFounder) {
+      // For founder account, default to gaywoodfantasy or dmsfantasy
+      if (localLastLeague === 'gaywoodfantasy' || localLastLeague === 'dmsfantasy') {
+        targetSlug = localLastLeague;
+      } else {
+        targetSlug = 'dmsfantasy';
+      }
     } else if (session?.joinedLeagues && session.joinedLeagues.length > 0) {
-      targetSlug = session.joinedLeagues[session.joinedLeagues.length - 1];
+      targetSlug = session.joinedLeagues[0];
     } else if (session?.adminLeagues && session.adminLeagues.length > 0) {
-      targetSlug = session.adminLeagues[session.adminLeagues.length - 1];
+      targetSlug = session.adminLeagues[0];
     }
 
     if (targetSlug) {
-      const info = typeof JOIN_CODES !== 'undefined' ? Object.values(JOIN_CODES).find(l => l.leagueId === targetSlug) : null;
-      const targetPath = (session?.leagueDetails?.[targetSlug]?.path) || (info ? info.path : `/${targetSlug}/`);
+      if (typeof AuthEngine.recordActiveLeague === 'function') {
+        AuthEngine.recordActiveLeague(targetSlug);
+      }
+      const targetPath = typeof AuthEngine.resolveLeaguePath === 'function'
+        ? AuthEngine.resolveLeaguePath(targetSlug)
+        : (targetSlug === 'dmsfantasy' ? '/dmsfantasy/' : (targetSlug === 'gaywoodfantasy' ? '/gaywoodfantasy/' : `/vault.html?league=${encodeURIComponent(targetSlug)}`));
       window.location.href = targetPath;
       return;
     }

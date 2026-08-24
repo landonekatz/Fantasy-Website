@@ -75,6 +75,42 @@ const AuthEngine = {
     return session && session.email === 'landonekatz@gmail.com';
   },
 
+  resolveLeaguePath(slug) {
+    if (!slug) return '/';
+    const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (cleanSlug === 'dmsfantasy') return '/dmsfantasy/';
+    if (cleanSlug === 'gaywoodfantasy') return '/gaywoodfantasy/';
+    return `/vault.html?league=${encodeURIComponent(cleanSlug)}`;
+  },
+
+  async recordActiveLeague(leagueSlug) {
+    if (!leagueSlug) return;
+    const cleanSlug = String(leagueSlug).trim().toLowerCase();
+    try {
+      localStorage.setItem('vault_last_league', cleanSlug);
+    } catch (e) {}
+
+    const session = this.getSession();
+    if (session) {
+      session.last_league = cleanSlug;
+      if (currentSession) currentSession.last_league = cleanSlug;
+      try {
+        localStorage.setItem('vault_cached_session', JSON.stringify(session));
+      } catch (e) {}
+
+      if (database && session.uid) {
+        try {
+          const userLastLeagueRef = dbRef(database, `users/${session.uid}/last_league`);
+          await rtdbSet(userLastLeagueRef, cleanSlug);
+          const userLastActiveRef = dbRef(database, `users/${session.uid}/last_active_at`);
+          await rtdbSet(userLastActiveRef, Date.now());
+        } catch (dbErr) {
+          console.warn("Could not save last_league to database:", dbErr);
+        }
+      }
+    }
+  },
+
   // Authentication Actions
   async loginWithGoogle() {
     const provider = new GoogleAuthProvider();
@@ -402,11 +438,13 @@ onAuthStateChanged(auth, async (user) => {
     };
     let claims = currentSession?.claims || {};
     try {
-      ['dmsfantasy', 'gaywoodfantasy', 'fbofantasy'].forEach(slug => {
+      ['dmsfantasy', 'gaywoodfantasy'].forEach(slug => {
         const stored = localStorage.getItem(`vault_claim_${slug}`);
         if (stored && !claims[slug]) claims[slug] = stored;
       });
     } catch (e) {}
+
+    let lastLeague = currentSession?.last_league || localStorage.getItem('vault_last_league') || (isFounder ? 'dmsfantasy' : null);
     
     currentSession = {
       uid: user.uid,
@@ -416,7 +454,8 @@ onAuthStateChanged(auth, async (user) => {
       joinedLeagues: joinedLeagues,
       adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
       leagueDetails: leagueDetails,
-      claims: claims
+      claims: claims,
+      last_league: lastLeague
     };
 
     try {
@@ -439,11 +478,13 @@ onAuthStateChanged(auth, async (user) => {
             email: user.email,
             name: user.displayName || user.email.split('@')[0],
             joinedLeagues: joinedLeagues,
-            adminLeagues: adminLeagues
+            adminLeagues: adminLeagues,
+            last_league: lastLeague
           };
           await setDoc(userRef, userData);
         } else {
           userData = userDoc.data();
+          if (userData.last_league) lastLeague = userData.last_league;
         }
         
         if (Array.isArray(userData.joinedLeagues)) {
@@ -454,6 +495,13 @@ onAuthStateChanged(auth, async (user) => {
         }
 
         if (database) {
+          // Check user's RTDB root profile
+          const userRootSnap = await rtdbGet(dbRef(database, `users/${user.uid}`));
+          if (userRootSnap.exists()) {
+            const uRoot = userRootSnap.val();
+            if (uRoot.last_league) lastLeague = uRoot.last_league;
+          }
+
           // Check user's RTDB registered leagues
           const userLeaguesSnap = await rtdbGet(dbRef(database, `users/${user.uid}/leagues`));
           if (userLeaguesSnap.exists()) {
@@ -492,10 +540,12 @@ onAuthStateChanged(auth, async (user) => {
           joinedLeagues: joinedLeagues,
           adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
           leagueDetails: leagueDetails,
-          claims: claims
+          claims: claims,
+          last_league: lastLeague
         };
         try {
           localStorage.setItem('vault_cached_session', JSON.stringify(currentSession));
+          if (lastLeague) localStorage.setItem('vault_last_league', lastLeague);
         } catch (e) {}
         window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: currentSession }));
       } catch (bgErr) {

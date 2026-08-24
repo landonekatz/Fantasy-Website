@@ -276,7 +276,11 @@ class FantasyApp {
     }
 
     async init() {
-        localStorage.setItem('vault_last_league', 'gaywoodfantasy');
+        if (window.AuthEngine && typeof window.AuthEngine.recordActiveLeague === 'function') {
+            window.AuthEngine.recordActiveLeague('gaywoodfantasy');
+        } else {
+            localStorage.setItem('vault_last_league', 'gaywoodfantasy');
+        }
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('building')) {
