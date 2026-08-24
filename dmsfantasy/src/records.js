@@ -89,15 +89,34 @@ Object.assign(TargetApp.prototype, {
             const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
             const fullName = String(mgr.full_name || '').toLowerCase().trim();
             const dispName = String(mgr.display_name || '').toLowerCase().trim();
+            const espnId = String(mgr.espn_id || '').toLowerCase().trim();
             return (id && (id === searchId || id === searchFallback)) ||
                    (name && (name === searchId || name === searchFallback)) ||
                    (fullName && (fullName === searchId || fullName === searchFallback)) ||
-                   (dispName && (dispName === searchId || dispName === searchFallback));
+                   (dispName && (dispName === searchId || dispName === searchFallback)) ||
+                   (espnId && (espnId === searchId || espnId === searchFallback));
         });
 
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
-        const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
-        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || (winAppClaims && winAppClaims[m?.id || managerId]?.nickname) || '';
+        const winApp = typeof window !== 'undefined' ? (window.app || window.appInstance) : null;
+        const winAppClaims = winApp?.claims;
+        const session = typeof window !== 'undefined' && window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const currentLeagueSlug = this.leagueSlug || (winApp?.leagueSlug) || 'dmsfantasy';
+        const sessionNick = session?.managerNicknames ? session.managerNicknames[currentLeagueSlug] : '';
+
+        let nick = m?.nickname || 
+                   (this.claims && (this.claims[m?.id]?.nickname || this.claims[m?.espn_id]?.nickname || this.claims[managerId]?.nickname)) || 
+                   (winAppClaims && (winAppClaims[m?.id]?.nickname || winAppClaims[m?.espn_id]?.nickname || winAppClaims[managerId]?.nickname)) || 
+                   '';
+
+        if (!nick && session && m) {
+            const isUserClaim = (session.claims && session.claims[currentLeagueSlug] === m.id) ||
+                                (this.claims && this.claims[m.id]?.userId === session.uid) ||
+                                (winAppClaims && winAppClaims[m.id]?.userId === session.uid);
+            if (isUserClaim && sessionNick) {
+                nick = sessionNick;
+            }
+        }
 
         if (m) {
             const baseName = m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name;
@@ -316,7 +335,7 @@ Object.assign(TargetApp.prototype, {
             if (!this.isManagerIncluded(mid, filterObj, m.status)) continue;
             managerStatsMap[mid] = {
                 manager_id: mid,
-                manager_name: m.name || m.manager_name || mid,
+                manager_name: this.getManagerName(mid, m.name || m.manager_name || mid),
                 wins: 0,
                 losses: 0,
                 ties: 0,
@@ -335,7 +354,7 @@ Object.assign(TargetApp.prototype, {
             if (!managerStatsMap[mid]) {
                 managerStatsMap[mid] = {
                     manager_id: mid,
-                    manager_name: s.manager_name || this.getManagerName(mid),
+                    manager_name: this.getManagerName(mid, s.manager_name),
                     wins: 0,
                     losses: 0,
                     ties: 0,
@@ -432,7 +451,7 @@ Object.assign(TargetApp.prototype, {
                 if (!champMap[mid]) {
                     champMap[mid] = {
                         manager_id: mid,
-                        manager_name: s.manager_name || this.getManagerName(mid),
+                        manager_name: this.getManagerName(mid, s.manager_name),
                         total: 0,
                         seasons: []
                     };
@@ -488,7 +507,7 @@ Object.assign(TargetApp.prototype, {
                 if (!toiletMap[mid]) {
                     toiletMap[mid] = {
                         manager_id: mid,
-                        manager_name: s.manager_name || this.getManagerName(mid),
+                        manager_name: this.getManagerName(mid, s.manager_name),
                         total: 0,
                         seasons: []
                     };
@@ -647,10 +666,10 @@ Object.assign(TargetApp.prototype, {
                     team_id: m.team_1_id,
                     team_name: m.team_1_name || 'Team 1',
                     manager_id: m.team_1_manager_id,
-                    manager_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
+                    manager_name: this.getManagerName(m.team_1_manager_id, m.team_1_manager_name),
                     score: Number(m.team_1_actual_points) || 0,
                     opponent_id: m.team_2_id,
-                    opponent_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id, 'Opponent'),
+                    opponent_name: this.getManagerName(m.team_2_manager_id, m.team_2_manager_name || 'Opponent'),
                     opponent_score: Number(m.team_2_actual_points) || 0,
                     is_playoffs: !!m.is_playoffs
                 });
@@ -662,10 +681,10 @@ Object.assign(TargetApp.prototype, {
                     team_id: m.team_2_id,
                     team_name: m.team_2_name || 'Team 2',
                     manager_id: m.team_2_manager_id,
-                    manager_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
+                    manager_name: this.getManagerName(m.team_2_manager_id, m.team_2_manager_name),
                     score: Number(m.team_2_actual_points) || 0,
                     opponent_id: m.team_1_id,
-                    opponent_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id, 'Opponent'),
+                    opponent_name: this.getManagerName(m.team_1_manager_id, m.team_1_manager_name || 'Opponent'),
                     opponent_score: Number(m.team_1_actual_points) || 0,
                     is_playoffs: !!m.is_playoffs
                 });
@@ -701,7 +720,7 @@ Object.assign(TargetApp.prototype, {
                     team_id: p.team_id,
                     team_name: p.team_name,
                     manager_id: p.manager_id,
-                    manager_name: p.manager_name || this.getManagerName(p.manager_id),
+                    manager_name: this.getManagerName(p.manager_id, p.manager_name),
                     opponent_id: p.opponent_team_id || 0,
                     opponent_name: this.getManagerName(p.opponent_manager_id, 'Opponent'),
                     bench_points: 0,
@@ -949,7 +968,7 @@ Object.assign(TargetApp.prototype, {
                 if (current && current.length > 0) {
                     multiStreaks.push({
                         manager_id: managerId,
-                        manager_name: managerName || this.getManagerName(managerId),
+                        manager_name: this.getManagerName(managerId, managerName),
                         type: current.type,
                         length: current.length,
                         startSeason: current.startSeason,
@@ -988,7 +1007,7 @@ Object.assign(TargetApp.prototype, {
                 if (current && current.length > 0) {
                     singleSeasonStreaks.push({
                         manager_id: managerId,
-                        manager_name: managerName || this.getManagerName(managerId),
+                        manager_name: this.getManagerName(managerId, managerName),
                         type: current.type,
                         length: current.length,
                         startSeason: current.season,
@@ -1167,7 +1186,7 @@ Object.assign(TargetApp.prototype, {
             if (!this.isManagerIncluded(mid, filterObj, m.status)) continue;
             playoffStatsMap[mid] = {
                 manager_id: mid,
-                manager_name: m.name || m.manager_name || mid,
+                manager_name: this.getManagerName(mid, m.name || m.manager_name || mid),
                 wins: 0,
                 losses: 0,
                 points_for: 0,
@@ -1191,7 +1210,7 @@ Object.assign(TargetApp.prototype, {
                 if (!playoffStatsMap[t1Mid]) {
                     playoffStatsMap[t1Mid] = {
                         manager_id: t1Mid,
-                        manager_name: m.team_1_manager_name || this.getManagerName(t1Mid),
+                        manager_name: this.getManagerName(t1Mid, m.team_1_manager_name),
                         wins: 0, losses: 0, points_for: 0, points_against: 0, games_count: 0
                     };
                 }
@@ -1206,7 +1225,7 @@ Object.assign(TargetApp.prototype, {
                 if (!playoffStatsMap[t2Mid]) {
                     playoffStatsMap[t2Mid] = {
                         manager_id: t2Mid,
-                        manager_name: m.team_2_manager_name || this.getManagerName(t2Mid),
+                        manager_name: this.getManagerName(t2Mid, m.team_2_manager_name),
                         wins: 0, losses: 0, points_for: 0, points_against: 0, games_count: 0
                     };
                 }
@@ -1293,7 +1312,7 @@ Object.assign(TargetApp.prototype, {
             if (!mgrPlayoffMap[mid]) {
                 mgrPlayoffMap[mid] = {
                     manager_id: mid,
-                    manager_name: s.manager_name || this.getManagerName(mid),
+                    manager_name: this.getManagerName(mid, s.manager_name),
                     appearances: 0,
                     total_seasons: 0,
                     seasons_made: [],
@@ -1426,26 +1445,26 @@ Object.assign(TargetApp.prototype, {
                 playoffSingleGames.push({
                     season: m.season, week: m.week, team_id: m.team_1_id,
                     playoff_round: roundName,
-                    manager_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
+                    manager_name: this.getManagerName(m.team_1_manager_id, m.team_1_manager_name),
                     score: s1, opponent_id: m.team_2_id,
-                    opponent_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id, 'Opponent')
+                    opponent_name: this.getManagerName(m.team_2_manager_id, m.team_2_manager_name || 'Opponent')
                 });
             }
             if (t2Inc) {
                 playoffSingleGames.push({
                     season: m.season, week: m.week, team_id: m.team_2_id,
                     playoff_round: roundName,
-                    manager_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
+                    manager_name: this.getManagerName(m.team_2_manager_id, m.team_2_manager_name),
                     score: s2, opponent_id: m.team_1_id,
-                    opponent_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id, 'Opponent')
+                    opponent_name: this.getManagerName(m.team_1_manager_id, m.team_1_manager_name || 'Opponent')
                 });
             }
 
             playoffMatchups.push({
                 season: m.season, week: m.week, team_1_id: m.team_1_id, team_2_id: m.team_2_id,
                 playoff_round: roundName,
-                team_1_manager: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
-                team_2_manager: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
+                team_1_manager: this.getManagerName(m.team_1_manager_id, m.team_1_manager_name),
+                team_2_manager: this.getManagerName(m.team_2_manager_id, m.team_2_manager_name),
                 score_1: s1, score_2: s2,
                 combined: s1 + s2
             });
@@ -1456,7 +1475,7 @@ Object.assign(TargetApp.prototype, {
                 if (!playoffRunsMap[k]) {
                     playoffRunsMap[k] = {
                         season: m.season, manager_id: m.team_1_manager_id,
-                        manager_name: m.team_1_manager_name || this.getManagerName(m.team_1_manager_id),
+                        manager_name: this.getManagerName(m.team_1_manager_id, m.team_1_manager_name),
                         games: 0, total_points: 0, wins: 0, losses: 0
                     };
                 }
@@ -1470,7 +1489,7 @@ Object.assign(TargetApp.prototype, {
                 if (!playoffRunsMap[k]) {
                     playoffRunsMap[k] = {
                         season: m.season, manager_id: m.team_2_manager_id,
-                        manager_name: m.team_2_manager_name || this.getManagerName(m.team_2_manager_id),
+                        manager_name: this.getManagerName(m.team_2_manager_id, m.team_2_manager_name),
                         games: 0, total_points: 0, wins: 0, losses: 0
                     };
                 }

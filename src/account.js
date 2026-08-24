@@ -1016,14 +1016,20 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                             app.claims[managerId] = { ...(app.claims[managerId] || {}), nickname: newNick };
                         }
                         if (app.members) {
-                            const m = app.members.find(x => x.id === managerId);
-                            if (m) m.nickname = newNick;
+                            const m = app.members.find(x => x.id === managerId || x.espn_id === managerId || String(x.id).toLowerCase() === String(managerId).toLowerCase() || String(x.espn_id).toLowerCase() === String(managerId).toLowerCase());
+                            if (m) {
+                                m.nickname = newNick;
+                                if (app.claims) app.claims[m.id] = { ...(app.claims[m.id] || {}), nickname: newNick };
+                            }
                             const allMemRef = dbRef(database, `leagues/${leagueId}/members`);
                             await set(allMemRef, app.members).catch(() => {});
                         }
                         if (app.managers) {
-                            const m = app.managers.find(x => x.id === managerId);
-                            if (m) m.nickname = newNick;
+                            const m = app.managers.find(x => x.id === managerId || x.espn_id === managerId || String(x.id).toLowerCase() === String(managerId).toLowerCase() || String(x.espn_id).toLowerCase() === String(managerId).toLowerCase());
+                            if (m) {
+                                m.nickname = newNick;
+                                if (app.claims) app.claims[m.id] = { ...(app.claims[m.id] || {}), nickname: newNick };
+                            }
                             const allMgrRef = dbRef(database, `leagues/${leagueId}/managers`);
                             await set(allMgrRef, app.managers).catch(() => {});
                         }

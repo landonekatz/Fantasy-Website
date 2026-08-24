@@ -13,10 +13,13 @@ export function formatManagerDisplayName(baseName, nickname, allowNicknames = tr
     const cleanBase = String(baseName).trim();
     if (!cleanBase) return '';
     
-    const cleanNick = (nickname || '').trim().slice(0, 20);
+    let cleanNick = (nickname || '').trim().slice(0, 20);
     if (!cleanNick || allowNicknames === false) {
         return cleanBase;
     }
+    // Strip accidental outer quotes if entered by user
+    cleanNick = cleanNick.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+    if (!cleanNick) return cleanBase;
 
     const parts = cleanBase.split(/\s+/);
     if (parts.length === 1) {

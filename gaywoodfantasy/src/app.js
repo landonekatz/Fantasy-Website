@@ -341,6 +341,17 @@ class FantasyApp {
             }
         }
 
+        window.addEventListener('vault_nickname_updated', (e) => {
+            const { managerId, nickname } = e.detail || {};
+            if (!this.claims) this.claims = {};
+            if (managerId) {
+                this.claims[managerId] = { ...(this.claims[managerId] || {}), nickname };
+                const mgr = (this.managers || []).find(m => m.id === managerId || m.espn_id === managerId || String(m.id).toLowerCase() === String(managerId).toLowerCase() || String(m.espn_id).toLowerCase() === String(managerId).toLowerCase());
+                if (mgr) mgr.nickname = nickname;
+            }
+            this.refreshNicknamesUI();
+        });
+
         const founderBar = document.getElementById('founder-control-bar');
         if (founderBar) founderBar.remove();
         this.initPowerRankings();
@@ -730,9 +741,10 @@ class FantasyApp {
                     this.claims = snapshot.exists() ? (snapshot.val() || {}) : {};
                     Object.entries(this.claims).forEach(([mId, cVal]) => {
                         const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
-                        const target = this.managers.find(m => m.id === mId);
+                        const target = this.managers.find(m => m.id === mId || m.espn_id === mId || String(m.id).toLowerCase() === String(mId).toLowerCase() || String(m.espn_id).toLowerCase() === String(mId).toLowerCase());
                         if (target) target.nickname = nick || '';
                     });
+                    this.refreshNicknamesUI();
                 });
             } catch (e) {}
         } catch (e) {
@@ -756,6 +768,25 @@ class FantasyApp {
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
     }
 
+    refreshNicknamesUI() {
+        if (typeof this.initPowerRankings === 'function') this.initPowerRankings();
+        if (typeof this.setupH2HControls === 'function') this.setupH2HControls();
+        if (typeof this.renderH2H === 'function') this.renderH2H();
+        if (typeof this.renderRecords === 'function') this.renderRecords();
+        if (typeof this.renderRivalryWeek === 'function') this.renderRivalryWeek();
+        if (this.draftEngine) {
+            this.draftEngine.updateData({
+                managers: this.managers || this.members,
+                draftResults: this.draftResults,
+                leagueSettings: this.leagueSettings,
+                scoringSettings: this.scoringSettings || this.leagueSettings
+            });
+            if (this.activeTab === 'draft' || this.activeTab === 'draft-hub') {
+                this.draftEngine.render();
+            }
+        }
+    }
+
     getManagerDisplayName(managerId, fallbackName = '') {
         if (!managerId && !fallbackName) return 'Unknown';
         const searchId = String(managerId || '').toLowerCase().trim();
@@ -775,7 +806,23 @@ class FantasyApp {
         });
 
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
-        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || '';
+        const session = typeof window.AuthEngine !== 'undefined' ? window.AuthEngine.getSession() : null;
+        const currentLeagueSlug = this.leagueSlug || 'gaywoodfantasy';
+        const sessionNick = (session?.managerNicknames && session.managerNicknames[currentLeagueSlug]) || '';
+        const isCurrentSessionUser = session && m && (
+            (session.claims && (session.claims[currentLeagueSlug] === m.id || session.claims[currentLeagueSlug] === m.espn_id)) ||
+            (this.claims && (this.claims[m.id]?.userId === session.uid || this.claims[m.espn_id]?.userId === session.uid)) ||
+            (this.claims && (this.claims[m.id]?.email?.toLowerCase() === session.email?.toLowerCase() || this.claims[m.espn_id]?.email?.toLowerCase() === session.email?.toLowerCase()))
+        );
+
+        let nick = m?.nickname || 
+                   (this.claims && (this.claims[m?.id]?.nickname || this.claims[m?.espn_id]?.nickname || this.claims[managerId]?.nickname)) || 
+                   '';
+
+        if (!nick && isCurrentSessionUser && sessionNick) {
+            nick = sessionNick;
+        }
+
         const baseName = m ? (m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
 
         return formatManagerDisplayName(baseName, nick, allowNicknames);

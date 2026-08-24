@@ -84,8 +84,25 @@ Object.assign(TargetApp.prototype, {
         });
 
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
-        const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
-        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || (winAppClaims && winAppClaims[m?.id || managerId]?.nickname) || '';
+        const winApp = typeof window !== 'undefined' ? (window.app || window.appInstance) : null;
+        const winAppClaims = winApp?.claims;
+        const session = typeof window !== 'undefined' && window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const currentLeagueSlug = this.leagueSlug || (winApp?.leagueSlug) || 'gaywoodfantasy';
+        const sessionNick = session?.managerNicknames ? session.managerNicknames[currentLeagueSlug] : '';
+
+        let nick = m?.nickname || 
+                   (this.claims && (this.claims[m?.id]?.nickname || this.claims[m?.espn_id]?.nickname || this.claims[managerId]?.nickname)) || 
+                   (winAppClaims && (winAppClaims[m?.id]?.nickname || winAppClaims[m?.espn_id]?.nickname || winAppClaims[managerId]?.nickname)) || 
+                   '';
+
+        if (!nick && session && m) {
+            const isUserClaim = (session.claims && (session.claims[currentLeagueSlug] === m.id || session.claims[currentLeagueSlug] === m.espn_id)) ||
+                                (this.claims && (this.claims[m.id]?.userId === session.uid || this.claims[m.espn_id]?.userId === session.uid)) ||
+                                (winAppClaims && (winAppClaims[m.id]?.userId === session.uid || winAppClaims[m.espn_id]?.userId === session.uid));
+            if (isUserClaim && sessionNick) {
+                nick = sessionNick;
+            }
+        }
 
         if (m) {
             const baseName = m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name;
