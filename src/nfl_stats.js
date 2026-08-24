@@ -63,7 +63,10 @@ class NFLStatsService {
 
         this.loadingPromises['players'] = (async () => {
             try {
-                const res = await fetch('https://api.sleeper.app/v1/players/nfl');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const res = await fetch('https://api.sleeper.app/v1/players/nfl', { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const players = await res.json();
                 this.playersCache = players;
@@ -112,7 +115,10 @@ class NFLStatsService {
 
         this.loadingPromises[`stats_${yr}`] = (async () => {
             try {
-                const res = await fetch(`https://api.sleeper.app/v1/stats/nfl/regular/${yr}`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+                const res = await fetch(`https://api.sleeper.app/v1/stats/nfl/regular/${yr}`, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const stats = await res.json();
                 this.seasonStatsCache[yr] = stats;
@@ -145,6 +151,18 @@ class NFLStatsService {
         }
     }
 
+    async preloadAllSeasons(years = []) {
+        try {
+            await this.loadPlayers();
+            const yrList = Array.isArray(years) && years.length > 0
+                ? years
+                : [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+            await Promise.allSettled(yrList.map(yr => this.loadSeasonStats(yr)));
+        } catch (e) {
+            console.warn('[NFLStatsService] Preload all seasons failed:', e);
+        }
+    }
+
     findPlayerId(name, pos = '') {
         if (!this.nameToIdMap) return null;
         const norm = this.normalizeName(name);
@@ -158,28 +176,27 @@ class NFLStatsService {
 
         // Common Nicknames & Aliases
         const aliases = {
-            'gabriel davis': 'gabe davis',
-            'gabe davis': 'gabriel davis',
-            'mitchell trubisky': 'mitch trubisky',
+            'hollywood brown': 'marquise brown',
+            'robby anderson': 'robbie chosen',
+            'robbie anderson': 'robbie chosen',
+            'chosen anderson': 'robbie chosen',
             'mitch trubisky': 'mitchell trubisky',
-            'joshua palmer': 'josh palmer',
+            'gabriel davis': 'gabe davis',
             'josh palmer': 'joshua palmer',
-            'marquise brown': 'hollywood brown',
-            'chig okonkwo': 'chigoziem okonkwo',
             'chigoziem okonkwo': 'chig okonkwo',
-            'kenneth walker': 'ken walker',
             'ken walker': 'kenneth walker',
-            'travis etienne': 'travis etienne',
             'deandre swift': 'dandre swift',
-            'dandre swift': 'deandre swift',
-            'cam akers': 'cam akers',
             'cameron akers': 'cam akers',
-            'matthew stafford': 'matt stafford',
             'matt stafford': 'matthew stafford',
             'christopher godwin': 'chris godwin',
-            'chris godwin': 'christopher godwin',
-            'william fuller': 'will fuller',
-            'will fuller': 'william fuller'
+            'will fuller': 'william fuller',
+            'kenneth gainwell': 'kenny gainwell',
+            'jeffrey wilson': 'jeff wilson',
+            'jeffery wilson': 'jeff wilson',
+            'ben watson': 'benjamin watson',
+            'eli mitchell': 'elijah mitchell',
+            'nyheim hines': 'nyheim millerhines',
+            'travis etienne': 'travis etienne'
         };
 
         if (aliases[norm] && this.nameToIdMap[aliases[norm]]) {
@@ -235,9 +252,11 @@ class NFLStatsService {
         const missedGames = (gp !== null && !isDefOrK) ? Math.max(0, regularSeasonLength - gp) : 0;
 
         const posRank = posRankNum && pos ? `${pos}${posRankNum}` : (posRankNum ? `#${posRankNum}` : null);
+        const playerTeam = (this.playersCache && this.playersCache[pId]?.team) || raw.team || '';
 
         return {
             playerId: pId,
+            team: playerTeam,
             gp: gp,
             gamesPlayed: gp,
             missedGames: missedGames,

@@ -29,6 +29,9 @@ try {
 let authReadyResolve;
 const authReadyPromise = new Promise((resolve) => {
   authReadyResolve = resolve;
+  if (currentSession) {
+    resolve(currentSession);
+  }
 });
 
 const AuthEngine = {
@@ -38,6 +41,7 @@ const AuthEngine = {
   },
 
   ready() {
+    if (currentSession) return Promise.resolve(currentSession);
     return authReadyPromise;
   },
 
@@ -149,98 +153,83 @@ const AuthEngine = {
 
   async claimManagerProfile(leagueId, managerId, managerName) {
     const session = this.getSession();
-    if (!session) return;
+    if (!session) return { success: false, message: "Not signed in" };
+    if (!database) return { success: false, message: "Database not connected" };
+
     try {
-      const claimData = {
+      const claimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
+      await rtdbSet(claimRef, {
         userId: session.uid,
         email: session.email,
-        name: managerName || session.name || session.email.split('@')[0],
-        claimedAt: new Date().toISOString()
-      };
+        name: managerName || session.name,
+        claimedAt: Date.now()
+      });
 
-      // 1. Write to Firestore
-      try {
-        const claimRef = doc(db, 'leagues', leagueId, 'claims', managerId);
-        await setDoc(claimRef, claimData);
-      } catch (err) {
-        console.warn("Firestore claim write warning:", err);
-      }
+      const userClaimRef = dbRef(database, `users/${session.uid}/claims/${leagueId}`);
+      await rtdbSet(userClaimRef, {
+        managerId: managerId,
+        claimedAt: Date.now()
+      });
 
-      // 2. Write to Firebase RTDB for instantaneous reactive sync
-      if (database) {
-        try {
-          const rtdbClaimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
-          await rtdbSet(rtdbClaimRef, claimData);
-        } catch (err) {
-          console.warn("RTDB claim write warning:", err);
-        }
-      }
-
-      if (!session.claims) session.claims = {};
-      session.claims[leagueId] = managerId;
-      try {
-        localStorage.setItem('vault_cached_session', JSON.stringify(session));
-        localStorage.setItem(`vault_claims_${leagueId}`, JSON.stringify({ [managerId]: claimData }));
-      } catch (e) {}
+      return { success: true };
     } catch (e) {
-      console.error("Claim error", e);
+      console.error("Claim profile error:", e);
+      return { success: false, message: "Failed to claim profile in database." };
     }
   },
 
-  async linkUserLeague(slug, role = 'member', leagueName = '') {
+  async linkUserLeague(leagueSlug, role = 'member', leagueName = '') {
     const session = this.getSession();
-    if (!session) return;
-    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    if (!cleanSlug) return;
+    if (!session) return { success: false, message: "Not signed in" };
 
-    if (!session.joinedLeagues) session.joinedLeagues = [];
-    if (!session.joinedLeagues.includes(cleanSlug)) session.joinedLeagues.push(cleanSlug);
-
-    if (role === 'admin') {
-      if (!session.adminLeagues) session.adminLeagues = [];
-      if (!session.adminLeagues.includes(cleanSlug)) session.adminLeagues.push(cleanSlug);
-    }
-
-    if (!session.leagueDetails) session.leagueDetails = {};
-    if (leagueName) {
-      session.leagueDetails[cleanSlug] = { name: leagueName, path: `/${cleanSlug}/` };
-      try {
-        localStorage.setItem(`vault_league_name_${cleanSlug}`, leagueName);
-      } catch (e) {}
-    }
-
-    localStorage.setItem('vault_last_league', cleanSlug);
-
-    // Save to Firestore
+    const userRef = doc(db, 'users', session.uid);
+    const fieldToUpdate = role === 'admin' ? 'adminLeagues' : 'joinedLeagues';
+    
     try {
-      const userRef = doc(db, 'users', session.uid);
-      const updateData = {
-        joinedLeagues: arrayUnion(cleanSlug)
-      };
-      if (role === 'admin') {
-        updateData.adminLeagues = arrayUnion(cleanSlug);
-      }
-      await updateDoc(userRef, updateData);
-    } catch (err) {
-      console.warn("Firestore user league update error:", err);
+      await updateDoc(userRef, {
+        [fieldToUpdate]: arrayUnion(leagueSlug)
+      });
+    } catch (e) {
+      await setDoc(userRef, {
+        email: session.email,
+        name: session.name,
+        [fieldToUpdate]: [leagueSlug]
+      }, { merge: true });
     }
 
-    // Save to RTDB
     if (database) {
       try {
-        const userRtdbRef = dbRef(database, `users/${session.uid}/leagues/${cleanSlug}`);
-        await rtdbSet(userRtdbRef, {
+        const userLeaguesRef = dbRef(database, `users/${session.uid}/leagues/${leagueSlug}`);
+        await rtdbSet(userLeaguesRef, {
           role: role,
-          name: leagueName || cleanSlug,
-          updatedAt: Date.now()
+          name: leagueName || leagueSlug,
+          joinedAt: Date.now()
         });
-      } catch (err) {
-        console.warn("RTDB user league update error:", err);
+      } catch (rtdbErr) {
+        console.warn("RTDB league registration warning:", rtdbErr);
       }
     }
+
+    if (!session.joinedLeagues.includes(leagueSlug)) {
+      session.joinedLeagues.push(leagueSlug);
+    }
+    if (role === 'admin' && !session.adminLeagues.includes(leagueSlug)) {
+      session.adminLeagues.push(leagueSlug);
+    }
+    if (leagueName) {
+      if (!session.leagueDetails) session.leagueDetails = {};
+      session.leagueDetails[leagueSlug] = { name: leagueName, path: `/${leagueSlug}/` };
+      try {
+        localStorage.setItem(`vault_league_name_${leagueSlug}`, leagueName);
+      } catch(e){}
+    }
+
     try {
       localStorage.setItem('vault_cached_session', JSON.stringify(session));
     } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
+    return { success: true };
   },
 
   async joinAsGuest(leagueSlug) {
@@ -276,26 +265,39 @@ const AuthEngine = {
   },
 
   async transferAdminRole(leagueSlug, targetEmail) {
-    const session = this.getSession();
-    if (!session) return { success: false, message: "Not signed in" };
-    const cleanSlug = leagueSlug.toLowerCase().replace(/[^a-z0-9_-]/g, '');
     const cleanEmail = (targetEmail || '').trim().toLowerCase();
+    const cleanSlug = (leagueSlug || '').trim();
+    if (!cleanEmail || !cleanSlug) {
+      return { success: false, message: "Missing email or league slug." };
+    }
 
-    if (!cleanEmail) {
-      return { success: false, message: "Please provide a valid recipient email address." };
+    const session = this.getSession();
+    if (!session) {
+      return { success: false, message: "You must be signed in to transfer admin status." };
+    }
+
+    const isCurrentAdmin = Boolean(
+      session.isFounder || 
+      (session.adminLeagues && session.adminLeagues.includes(cleanSlug))
+    );
+
+    if (!isCurrentAdmin) {
+      return { success: false, message: "Only the current commissioner or founder can transfer admin privileges." };
     }
 
     try {
-      // 1. Update league settings in RTDB if available
       if (database) {
-        const adminRef = dbRef(database, `leagues/${cleanSlug}/league_settings/admin_email`);
-        await rtdbSet(adminRef, cleanEmail);
+        const leagueSettingsRef = dbRef(database, `leagues/${cleanSlug}/league_settings/admin_email`);
+        await rtdbSet(leagueSettingsRef, cleanEmail);
       }
 
-      // 2. Update local state
+      const userRef = doc(db, 'users', session.uid);
       if (session.adminLeagues && !session.isFounder) {
-        session.adminLeagues = session.adminLeagues.filter(s => s !== cleanSlug);
+        const updatedAdmin = session.adminLeagues.filter(s => s !== cleanSlug);
+        session.adminLeagues = updatedAdmin;
+        await setDoc(userRef, { adminLeagues: updatedAdmin }, { merge: true });
       }
+
       try {
         localStorage.setItem('vault_cached_session', JSON.stringify(session));
       } catch (e) {}
@@ -312,125 +314,102 @@ const AuthEngine = {
 // Set up listener for real-time auth state changes
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // 1. Sync to Firestore Users collection
-    const userRef = doc(db, 'users', user.uid);
-    let userDoc = await getDoc(userRef);
-    let userData = {};
-    
-    if (!userDoc.exists()) {
-      userData = {
-        email: user.email,
-        name: user.displayName || user.email.split('@')[0],
-        joinedLeagues: [],
-        adminLeagues: []
-      };
-      await setDoc(userRef, userData);
-    } else {
-      userData = userDoc.data();
-    }
-    
     const isFounder = user.email === 'landonekatz@gmail.com';
-    let joinedLeagues = Array.isArray(userData.joinedLeagues) ? [...userData.joinedLeagues] : [];
-    let adminLeagues = Array.isArray(userData.adminLeagues) ? [...userData.adminLeagues] : [];
-    const leagueDetails = {
+    let joinedLeagues = currentSession?.joinedLeagues || (isFounder ? ['dmsfantasy', 'gaywoodfantasy'] : []);
+    let adminLeagues = currentSession?.adminLeagues || (isFounder ? ['dmsfantasy', 'gaywoodfantasy'] : []);
+    let leagueDetails = currentSession?.leagueDetails || {
       'dmsfantasy': { name: 'The Dumbarton League', path: '/dmsfantasy/' },
       'gaywoodfantasy': { name: 'Gaywood / Katz League', path: '/gaywoodfantasy/' }
     };
     
-    // Give founder implicit access to all test leagues
-    if (isFounder) {
-      if (!joinedLeagues.includes('dmsfantasy')) joinedLeagues.push('dmsfantasy');
-      if (!joinedLeagues.includes('gaywoodfantasy')) joinedLeagues.push('gaywoodfantasy');
-      if (!adminLeagues.includes('dmsfantasy')) adminLeagues.push('dmsfantasy');
-      if (!adminLeagues.includes('gaywoodfantasy')) adminLeagues.push('gaywoodfantasy');
-    }
-
-    // 2. Discover dynamically created/administered leagues from RTDB
-    if (database) {
-      try {
-        // A. Check user's RTDB registered leagues
-        const userLeaguesSnap = await rtdbGet(dbRef(database, `users/${user.uid}/leagues`));
-        if (userLeaguesSnap.exists()) {
-          const userLeagues = userLeaguesSnap.val();
-          Object.keys(userLeagues).forEach(slug => {
-            if (!joinedLeagues.includes(slug)) joinedLeagues.push(slug);
-            if (userLeagues[slug]?.role === 'admin' && !adminLeagues.includes(slug)) {
-              adminLeagues.push(slug);
-            }
-            if (userLeagues[slug]?.name) {
-              leagueDetails[slug] = { name: userLeagues[slug].name, path: `/${slug}/` };
-              try { localStorage.setItem(`vault_league_name_${slug}`, userLeagues[slug].name); } catch(e){}
-            }
-          });
-        }
-
-        // B. Query all RTDB leagues for matching admin_email or member claims
-        const allLeaguesSnap = await rtdbGet(dbRef(database, 'leagues'));
-        if (allLeaguesSnap.exists()) {
-          const allLeagues = allLeaguesSnap.val();
-          const userEmailLower = (user.email || '').toLowerCase();
-          
-          Object.keys(allLeagues).forEach(slug => {
-            const leagueData = allLeagues[slug];
-            const adminEmail = leagueData?.league_settings?.admin_email;
-            const leagueName = leagueData?.league_settings?.name || slug;
-
-            leagueDetails[slug] = { name: leagueName, path: `/${slug}/` };
-            try { localStorage.setItem(`vault_league_name_${slug}`, leagueName); } catch(e){}
-
-            // Check if user is admin
-            if (adminEmail && adminEmail.toLowerCase() === userEmailLower) {
-              if (!joinedLeagues.includes(slug)) joinedLeagues.push(slug);
-              if (!adminLeagues.includes(slug)) adminLeagues.push(slug);
-            }
-
-            // Check if user has claims
-            if (leagueData?.claims) {
-              Object.values(leagueData.claims).forEach(claim => {
-                if (claim.userId === user.uid || (claim.email && claim.email.toLowerCase() === userEmailLower)) {
-                  if (!joinedLeagues.includes(slug)) joinedLeagues.push(slug);
-                }
-              });
-            }
-          });
-        }
-
-        // C. Sync any newly discovered leagues back to Firestore doc
-        if (joinedLeagues.length !== (userData.joinedLeagues || []).length ||
-            adminLeagues.length !== (userData.adminLeagues || []).length) {
-          await setDoc(userRef, {
-            joinedLeagues: joinedLeagues,
-            adminLeagues: adminLeagues
-          }, { merge: true });
-        }
-      } catch (rtdbErr) {
-        console.warn("RTDB league discovery error:", rtdbErr);
-      }
-    }
-    
     currentSession = {
       uid: user.uid,
       email: user.email,
-      name: userData.name || user.displayName || user.email.split('@')[0],
+      name: currentSession?.name || user.displayName || user.email.split('@')[0],
       isFounder: isFounder,
       joinedLeagues: joinedLeagues,
       adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
       leagueDetails: leagueDetails
     };
+
     try {
       localStorage.setItem('vault_cached_session', JSON.stringify(currentSession));
     } catch (e) {}
     AuthEngine.setPersona(currentSession.isFounder ? 'founder' : 'member');
+    
+    authReadyResolve(currentSession);
+    window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: currentSession }));
+
+    // Run background Firestore and RTDB league discovery without blocking UI
+    (async () => {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        let userDoc = await getDoc(userRef);
+        let userData = {};
+        
+        if (!userDoc.exists()) {
+          userData = {
+            email: user.email,
+            name: user.displayName || user.email.split('@')[0],
+            joinedLeagues: joinedLeagues,
+            adminLeagues: adminLeagues
+          };
+          await setDoc(userRef, userData);
+        } else {
+          userData = userDoc.data();
+        }
+        
+        if (Array.isArray(userData.joinedLeagues)) {
+          userData.joinedLeagues.forEach(l => { if (!joinedLeagues.includes(l)) joinedLeagues.push(l); });
+        }
+        if (Array.isArray(userData.adminLeagues)) {
+          userData.adminLeagues.forEach(l => { if (!adminLeagues.includes(l)) adminLeagues.push(l); });
+        }
+
+        if (database) {
+          // Check user's RTDB registered leagues
+          const userLeaguesSnap = await rtdbGet(dbRef(database, `users/${user.uid}/leagues`));
+          if (userLeaguesSnap.exists()) {
+            const userLeagues = userLeaguesSnap.val();
+            Object.keys(userLeagues).forEach(slug => {
+              if (!joinedLeagues.includes(slug)) joinedLeagues.push(slug);
+              if (userLeagues[slug]?.role === 'admin' && !adminLeagues.includes(slug)) {
+                adminLeagues.push(slug);
+              }
+              if (userLeagues[slug]?.name) {
+                leagueDetails[slug] = { name: userLeagues[slug].name, path: `/${slug}/` };
+                try { localStorage.setItem(`vault_league_name_${slug}`, userLeagues[slug].name); } catch(e){}
+              }
+            });
+          }
+        }
+
+        currentSession = {
+          uid: user.uid,
+          email: user.email,
+          name: userData.name || user.displayName || user.email.split('@')[0],
+          isFounder: isFounder,
+          joinedLeagues: joinedLeagues,
+          adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
+          leagueDetails: leagueDetails
+        };
+        try {
+          localStorage.setItem('vault_cached_session', JSON.stringify(currentSession));
+        } catch (e) {}
+        window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: currentSession }));
+      } catch (bgErr) {
+        console.warn("Background auth sync warning:", bgErr);
+      }
+    })();
   } else {
     currentSession = null;
     try {
       localStorage.removeItem('vault_cached_session');
     } catch (e) {}
     AuthEngine.setPersona('public');
+    authReadyResolve(null);
+    window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: null }));
   }
-  
-  authReadyResolve(currentSession);
-  window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: currentSession }));
 });
 
 window.AuthEngine = AuthEngine;

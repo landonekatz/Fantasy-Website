@@ -23,19 +23,25 @@ function normalizePosition(rawPos, playerName = '') {
 export class VaultDraftEngine {
     constructor(options = {}) {
         this.containerId = options.containerId || 'view-draft';
-        this.draftResults = options.draftResults || [];
-        this.weeklyPlayerStats = options.weeklyPlayerStats || [];
-        this.transactions = options.transactions || [];
-        this.managers = options.managers || [];
+        this.draftResults = this.normalizeDraftResults(options.draftResults);
+        this.weeklyPlayerStats = this.normalizeWeeklyStats(options.weeklyPlayerStats);
+        this.transactions = Array.isArray(options.transactions) ? options.transactions : (options.transactions?.transactions || []);
+        this.managers = this.normalizeManagers(options.managers);
         this.leagueSettings = options.leagueSettings || {};
         this.scoringSettings = options.scoringSettings || {};
         
+        this.subTab = 'yearly'; // 'yearly' | 'overall' | 'team'
         this.nameMode = 'manager'; // 'manager' | 'team'
         this.displayGrouping = 'round'; // 'round' | 'manager'
         this.selectedYear = null;
+        this.selectedManagerId = null;
+        this.showLeagueAvg = true; // Toggle for solo team graph comparison line
+        this.overallYearFilter = 'all'; // 'all' or specific year
+        this.overallIncludeRetired = false; // toggle to include retired managers in overall
+        this.soloYearFilter = 'all'; // 'all' or specific year
+        this.soloIncludeRetired = false; // toggle to show retired managers in solo profile
         this.seasons = [];
         this.playerTruePositions = {};
-        this.showTuningPanel = false;
         
         // Listen to LDI tuning changes for live instant re-render
         this.unsubscribeLdi = ldiEngine.subscribe(() => {
@@ -43,6 +49,77 @@ export class VaultDraftEngine {
         });
 
         this.init();
+    }
+
+    normalizeDraftResults(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (Array.isArray(raw.draft_results)) return raw.draft_results;
+        if (Array.isArray(raw.picks)) return raw.picks;
+        if (Array.isArray(raw.drafts)) return raw.drafts;
+        if (typeof raw === 'object') {
+            const flattened = [];
+            Object.entries(raw).forEach(([yrKey, val]) => {
+                if (Array.isArray(val)) {
+                    val.forEach(p => {
+                        flattened.push({
+                            ...p,
+                            year: p.year || p.season || (isNaN(Number(yrKey)) ? undefined : Number(yrKey))
+                        });
+                    });
+                }
+            });
+            if (flattened.length > 0) return flattened;
+        }
+        return [];
+    }
+
+    normalizeWeeklyStats(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (Array.isArray(raw.weekly_player_stats)) return raw.weekly_player_stats;
+        if (Array.isArray(raw.stats)) return raw.stats;
+        if (Array.isArray(raw.player_stats)) return raw.player_stats;
+        return [];
+    }
+
+    normalizeManagers(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (Array.isArray(raw.managers)) return raw.managers;
+        if (Array.isArray(raw.members)) return raw.members;
+        return [];
+    }
+
+    updateData(options = {}) {
+        if (options.draftResults !== undefined) {
+            this.draftResults = this.normalizeDraftResults(options.draftResults);
+        }
+        if (options.weeklyPlayerStats !== undefined) {
+            this.weeklyPlayerStats = this.normalizeWeeklyStats(options.weeklyPlayerStats);
+        }
+        if (options.transactions !== undefined) {
+            this.transactions = Array.isArray(options.transactions) ? options.transactions : (options.transactions?.transactions || []);
+        }
+        if (options.managers !== undefined) {
+            this.managers = this.normalizeManagers(options.managers);
+        }
+        if (options.leagueSettings !== undefined) {
+            this.leagueSettings = options.leagueSettings || {};
+        }
+        if (options.scoringSettings !== undefined) {
+            this.scoringSettings = options.scoringSettings || {};
+        }
+        this.init();
+    }
+
+    setSubTab(tab, managerId = null) {
+        this.subTab = tab;
+        if (managerId) {
+            this.selectedManagerId = managerId;
+            this.soloYearFilter = 'all';
+        }
+        this.render();
     }
 
     setDisplayGrouping(grouping) {
@@ -59,25 +136,82 @@ export class VaultDraftEngine {
         
         this.seasons = Array.from(yearsSet).sort((a, b) => b - a);
         if (this.seasons.length > 0) {
-            this.selectedYear = this.seasons[0];
-            const nflYear = this.getNflYear(this.selectedYear);
-            nflStats.preloadSeason(nflYear).then(() => {
+            if (!this.selectedYear || !this.seasons.includes(this.selectedYear)) {
+                this.selectedYear = this.seasons[0];
+            }
+            const allNflYears = this.seasons.map(yr => this.getNflYear(yr));
+            nflStats.preloadAllSeasons(allNflYears).then(() => {
                 if (typeof document !== 'undefined') {
                     const container = document.getElementById(this.containerId);
-                    if (container) {
+                    if (container && (container.classList.contains('active') || container.offsetParent !== null)) {
                         this.render();
                     }
                 }
-            });
+            }).catch(() => {});
         }
 
         this.buildTruePositionMap();
+
+        // Default selected manager for solo profile (prioritizing active managers)
+        const mgrList = this.getManagerList();
+        const activeMgrs = mgrList.filter(m => !m.isRetired);
+        if (activeMgrs.length > 0 && !this.selectedManagerId) {
+            this.selectedManagerId = activeMgrs[0].id;
+        } else if (mgrList.length > 0 && !this.selectedManagerId) {
+            this.selectedManagerId = mgrList[0].id;
+        }
     }
 
     destroy() {
         if (this.unsubscribeLdi) {
             this.unsubscribeLdi();
         }
+    }
+
+    getManagerList() {
+        const mgrs = Array.isArray(this.managers) ? this.managers : (this.managers?.managers || []);
+        const found = [];
+        const seen = new Set();
+        mgrs.forEach(m => {
+            const id = String(m.id || m.manager_id || '');
+            if (id && !seen.has(id)) {
+                seen.add(id);
+                const isRetired = m.is_retired === true || 
+                                  m.isActive === false || 
+                                  (m.status || '').toLowerCase() === 'retired' || 
+                                  m.status_group === 'Retired Managers';
+                found.push({
+                    id,
+                    name: m.name || m.manager_name || id,
+                    team: m.team || m.team_name || m.name || id,
+                    isRetired,
+                    status: m.status || (isRetired ? 'retired' : 'active'),
+                    statusGroup: isRetired ? 'Retired Managers' : 'Current Managers'
+                });
+            }
+        });
+        // Also extract from drafts if not in managers list
+        (this.draftResults || []).forEach(p => {
+            const id = String(p.manager_id || p.managerId || '');
+            if (id && !seen.has(id)) {
+                seen.add(id);
+                found.push({
+                    id,
+                    name: p.manager_name || p.managerName || id,
+                    team: p.team_name || p.teamName || p.manager_name || id,
+                    isRetired: false,
+                    status: 'active',
+                    statusGroup: 'Current Managers'
+                });
+            }
+        });
+        return found;
+    }
+
+    isManagerRetired(managerId) {
+        if (!managerId) return false;
+        const mgr = this.getManagerList().find(m => String(m.id).toLowerCase() === String(managerId).toLowerCase());
+        return !!(mgr && mgr.isRetired);
     }
 
     buildTruePositionMap() {
@@ -135,18 +269,23 @@ export class VaultDraftEngine {
         const yr = Number(year);
         const leagueName = (this.leagueSettings?.name || '').toLowerCase();
         const isDms = leagueName.includes('dumbarton') || leagueName.includes('dms') || 
-                      (typeof window !== 'undefined' && window.location.pathname.includes('dmsfantasy')) ||
+                      Boolean(typeof window !== 'undefined' && window?.location?.pathname?.includes('dmsfantasy')) ||
                       Boolean(this.leagueSettings?.is_dms || this.leagueSettings?.year_offset === -1);
         return isDms ? (yr - 1) : yr;
     }
 
-    async setYear(year) {
+    setYear(year) {
         this.selectedYear = Number(year);
+        this.render();
         const nflYear = this.getNflYear(this.selectedYear);
         if (!nflStats.isSeasonLoaded(nflYear)) {
-            await nflStats.preloadSeason(nflYear);
+            nflStats.preloadSeason(nflYear).then(() => {
+                const container = document.getElementById(this.containerId);
+                if (container && (container.classList.contains('active') || container.offsetParent !== null)) {
+                    this.render();
+                }
+            }).catch(() => {});
         }
-        this.render();
     }
 
     setNameMode(mode) {
@@ -154,9 +293,61 @@ export class VaultDraftEngine {
         this.render();
     }
 
-    toggleTuningPanel() {
-        this.showTuningPanel = !this.showTuningPanel;
+    setSelectedManager(mId) {
+        this.selectedManagerId = mId;
         this.render();
+    }
+
+    toggleLeagueAvgComparison() {
+        this.showLeagueAvg = !this.showLeagueAvg;
+        this.render();
+    }
+
+    getPositionalPaceRank(pos, pacePts, year, scoringFormat = '', posGrouped = null) {
+        if (!pos || !pacePts || pacePts <= 0) return '';
+        const normPos = String(pos).toUpperCase();
+        const nflYear = this.getNflYear(year);
+
+        // 1. Try NFL global stats first if loaded
+        let paceRank = nflStats.getPositionalPaceRank(normPos, pacePts, nflYear, scoringFormat);
+        if (paceRank) return paceRank;
+
+        // 2. Try local league season totals
+        if (posGrouped && posGrouped[normPos] && posGrouped[normPos].length > 0) {
+            const scores = posGrouped[normPos].map(p => p.totalPts || 0);
+            let higherCount = 0;
+            for (let i = 0; i < scores.length; i++) {
+                if (scores[i] > pacePts) higherCount++;
+                else break;
+            }
+            return `${normPos}${higherCount + 1}`;
+        }
+
+        // 3. Fallback to weekly_logs_cache from precompiled model data for this nflYear
+        const weeklyLogsCache = ldiEngine.weeklyLogsCache || {};
+        const posSeasonTotals = [];
+        Object.entries(weeklyLogsCache).forEach(([key, data]) => {
+            const parts = key.split('_');
+            const logYear = Number(parts[parts.length - 1]);
+            if (logYear === nflYear && data && data.A_pts > 0) {
+                const pName = parts.slice(0, -1).join(' ');
+                const pPos = this.playerTruePositions[pName] || this.playerTruePositions[key] || data.position;
+                if (pPos === normPos) {
+                    posSeasonTotals.push(data.A_pts);
+                }
+            }
+        });
+        if (posSeasonTotals.length > 0) {
+            posSeasonTotals.sort((a, b) => b - a);
+            let higherCount = 0;
+            for (let i = 0; i < posSeasonTotals.length; i++) {
+                if (posSeasonTotals[i] > pacePts) higherCount++;
+                else break;
+            }
+            return `${normPos}${higherCount + 1}`;
+        }
+
+        return '';
     }
 
     getScoringFormat(year) {
@@ -164,7 +355,7 @@ export class VaultDraftEngine {
             return this.leagueSettings.scoring_format;
         }
         const leagueName = (this.leagueSettings?.name || '').toLowerCase();
-        if (leagueName.includes('dumbarton') || leagueName.includes('dms') || (typeof window !== 'undefined' && window.location.pathname.includes('dmsfantasy'))) {
+        if (leagueName.includes('dumbarton') || leagueName.includes('dms') || (typeof window !== 'undefined' && window?.location?.pathname?.includes('dmsfantasy'))) {
             return 'Half-PPR (0.5)';
         }
 
@@ -184,9 +375,10 @@ export class VaultDraftEngine {
     getLeagueSeasonSettings(year) {
         const leagueName = (this.leagueSettings?.name || '').toLowerCase();
         const isDms = leagueName.includes('dumbarton') || leagueName.includes('dms') || 
-                      (typeof window !== 'undefined' && window.location.pathname.includes('dmsfantasy'));
+                      Boolean(typeof window !== 'undefined' && window?.location?.pathname?.includes('dmsfantasy'));
         const yr = Number(year);
         const nflYear = this.getNflYear(yr);
+        
         const totalWeeks = nflYear >= 2021 ? 17 : 16;
         
         let numTeams = 12;
@@ -203,8 +395,11 @@ export class VaultDraftEngine {
             startersFlex = 0;
         }
 
+        const tracksStartingLineups = isDms ? true : (yr >= 2018);
+
         return {
             league_id: isDms ? 'dms' : 'gaywood',
+            nfl_year: nflYear,
             season_year: yr,
             num_teams: numTeams,
             starters_qb: startersQb,
@@ -212,7 +407,8 @@ export class VaultDraftEngine {
             starters_wr: startersWr,
             starters_te: startersTe,
             starters_flex: startersFlex,
-            total_season_weeks: totalWeeks
+            total_season_weeks: totalWeeks,
+            tracks_starting_lineups: tracksStartingLineups
         };
     }
 
@@ -227,6 +423,17 @@ export class VaultDraftEngine {
         const nflYear = this.getNflYear(year);
         const leagueSeasonSettings = this.getLeagueSeasonSettings(year);
         const maxRegularSeasonGames = leagueSeasonSettings.total_season_weeks;
+
+        // Check if this season draft has occurred but is unplayed (0 total stats recorded)
+        let totalGamesPlayedInSeason = 0;
+        yearStats.forEach(st => {
+            if ((st.fantasy_points !== undefined && st.fantasy_points > 0) || (st.fantasyPoints !== undefined && st.fantasyPoints > 0)) {
+                totalGamesPlayedInSeason++;
+            }
+        });
+
+        // If no weekly stats or 0 points/games played, it's an unplayed season
+        const isUnplayedSeason = (yearStats.length === 0 && totalGamesPlayedInSeason === 0);
 
         // Group player weekly stats for transaction and roster tracking
         const playerSeasonTotals = {};
@@ -285,7 +492,7 @@ export class VaultDraftEngine {
             });
         });
 
-        // 1. Process Draft Picks: compute Positional Ranks
+        // Process Draft Picks: compute Positional Ranks
         const draftedPosCounts = {};
         const enrichedPicks = [];
         const managerPicksMap = {};
@@ -301,7 +508,8 @@ export class VaultDraftEngine {
             const pos = this.resolvePlayerPosition(pId, pName, pick.position);
             const nflTeam = pick.nfl_team || pick.nflTeam || '';
             const mgrId = pick.manager_id || pick.managerId || '';
-            const mgrName = pick.manager_name || pick.managerName || (this.managers.find(m => m.id === mgrId)?.name || 'Manager');
+            const mgrList = this.getManagerList();
+            const mgrName = pick.manager_name || pick.managerName || (mgrList.find(m => String(m.id).toLowerCase() === String(mgrId).toLowerCase())?.name || 'Manager');
             const teamName = pick.team_name || pick.teamName || mgrName;
 
             // Positional draft rank
@@ -312,43 +520,74 @@ export class VaultDraftEngine {
 
             // Resolve finish rank for display
             const scoringFormat = this.getScoringFormat(year);
-            const nflInfo = nflStats.getPlayerStats(pName, nflYear, pos, scoringFormat);
-            const finalInfo = playerFinalRanks[String(pId)] || playerFinalRanks[pName.toLowerCase()] || null;
+            const nflInfo = !isUnplayedSeason ? nflStats.getPlayerStats(pName, nflYear, pos, scoringFormat) : null;
+            const finalInfo = !isUnplayedSeason ? (playerFinalRanks[String(pId)] || playerFinalRanks[pName.toLowerCase()] || null) : null;
+            const ldiLogs = !isUnplayedSeason ? ldiEngine.getPlayerWeeklyLogs(pName, nflYear) : null;
 
-            let finishPosRank = 'Unranked';
+            let finishPosRank = isUnplayedSeason ? 'Pending' : 'Unranked';
             let finishPosNum = null;
             let totalPoints = 0;
             let gamesPlayed = 0;
             let gamesMissed = 0;
 
-            if (nflInfo) {
-                finishPosRank = nflInfo.posRank || 'Unranked';
-                finishPosNum = nflInfo.posRankNum || null;
-                totalPoints = nflInfo.totalPts || 0;
-                gamesPlayed = nflInfo.gp !== null && nflInfo.gp !== undefined ? nflInfo.gp : 0;
-                gamesMissed = nflInfo.missedGames !== undefined ? nflInfo.missedGames : Math.max(0, maxRegularSeasonGames - gamesPlayed);
-            } else if (finalInfo) {
-                finishPosRank = finalInfo.finishPosRank;
-                finishPosNum = finalInfo.finishRankNum;
-                totalPoints = finalInfo.totalPts;
-                gamesPlayed = finalInfo.weeksPlayed || 0;
-                gamesMissed = Math.max(0, maxRegularSeasonGames - gamesPlayed);
+            if (!isUnplayedSeason) {
+                if (nflInfo) {
+                    finishPosRank = nflInfo.posRank || 'Unranked';
+                    finishPosNum = nflInfo.posRankNum || null;
+                    totalPoints = nflInfo.totalPts || 0;
+                    gamesPlayed = nflInfo.gp !== null && nflInfo.gp !== undefined ? nflInfo.gp : 0;
+                    gamesMissed = nflInfo.missedGames !== undefined ? nflInfo.missedGames : Math.max(0, maxRegularSeasonGames - gamesPlayed);
+                } else if (finalInfo) {
+                    finishPosRank = finalInfo.finishPosRank;
+                    finishPosNum = finalInfo.finishRankNum;
+                    totalPoints = finalInfo.totalPts;
+                    gamesPlayed = finalInfo.weeksPlayed || 0;
+                    gamesMissed = Math.max(0, maxRegularSeasonGames - gamesPlayed);
+                } else if (ldiLogs) {
+                    totalPoints = ldiLogs.A_pts || 0;
+                    gamesPlayed = ldiLogs.games_played || 0;
+                    gamesMissed = ldiLogs.games_missed || 0;
+                }
             }
 
-            // Score pick using LDI Engine (Section 4)
-            const pickInput = {
-                season_year: year,
-                player_name: pName,
-                player_id: pId,
-                position: pos,
-                overall_pick_number: overallPick,
-                positional_draft_rank: draftedPosNum,
-                total_points: totalPoints,
-                games_played: gamesPlayed,
-                games_missed: gamesMissed
-            };
+            // Resolve accurate NFL team
+            let resolvedNflTeam = '';
+            if (nflInfo?.team) {
+                resolvedNflTeam = nflInfo.team;
+            } else if (nflInfo?.playerId && nflStats.playersCache?.[nflInfo.playerId]?.team) {
+                resolvedNflTeam = nflStats.playersCache[nflInfo.playerId].team;
+            } else {
+                const sleeperId = nflStats.findPlayerId(pName, pos);
+                if (sleeperId && nflStats.playersCache?.[sleeperId]?.team) {
+                    resolvedNflTeam = nflStats.playersCache[sleeperId].team;
+                } else if (nflTeam && nflTeam.length <= 4) {
+                    resolvedNflTeam = nflTeam;
+                }
+            }
 
-            const ldiResult = ldiEngine.scorePick(pickInput, leagueSeasonSettings);
+            // Score pick using pure LDI Engine
+            let ldiResult = null;
+            if (!isUnplayedSeason) {
+                const pickInput = {
+                    season_year: year,
+                    player_name: pName,
+                    player_id: pId,
+                    position: pos,
+                    overall_pick_number: overallPick,
+                    positional_draft_rank: draftedPosNum,
+                    total_points: totalPoints,
+                    games_played: gamesPlayed,
+                    games_missed: gamesMissed
+                };
+                ldiResult = ldiEngine.scorePick(pickInput, leagueSeasonSettings);
+            } else {
+                ldiResult = {
+                    isScored: false,
+                    reason: 'Season pending start',
+                    position: pos,
+                    overallPickNumber: overallPick
+                };
+            }
 
             // Transaction / Destination Tag
             let destinationTag = 'Retained All Season';
@@ -365,8 +604,8 @@ export class VaultDraftEngine {
                     const firstWeekMoved = otherMgrs[0][0];
                     const rawTarget = otherMgrs[0][1];
                     const targetMgrId = typeof rawTarget === 'object' ? (rawTarget?.managerId || rawTarget?.manager_id) : rawTarget;
-                    const targetMgrName = this.managers.find(m => String(m.id).toLowerCase() === String(targetMgrId).toLowerCase())?.name ||
-                                          this.managers.find(m => String(m.manager_id).toLowerCase() === String(targetMgrId).toLowerCase())?.name ||
+                    const mgrList = this.getManagerList();
+                    const targetMgrName = mgrList.find(m => String(m.id).toLowerCase() === String(targetMgrId).toLowerCase())?.name ||
                                           targetMgrId;
                     destinationTag = `Moved to ${targetMgrName} (Wk ${firstWeekMoved})`;
                     tagType = 'traded';
@@ -397,7 +636,7 @@ export class VaultDraftEngine {
                 playerId: pId,
                 playerName: pName,
                 position: pos,
-                nflTeam: nflTeam,
+                nflTeam: resolvedNflTeam,
                 managerId: mgrId,
                 managerName: mgrName,
                 teamName: teamName,
@@ -406,8 +645,8 @@ export class VaultDraftEngine {
                 finishPosRank,
                 finishPosNum,
                 totalPoints,
-                gamesPlayed: (nflInfo && nflInfo.gp !== null) ? nflInfo.gp : (ldiResult.gamesPlayed ?? gamesPlayed),
-                gamesMissed: (nflInfo && nflInfo.missedGames !== undefined) ? nflInfo.missedGames : (ldiResult.gamesMissed ?? gamesMissed),
+                gamesPlayed: (nflInfo && nflInfo.gp !== null) ? nflInfo.gp : (ldiResult?.gamesPlayed ?? gamesPlayed),
+                gamesMissed: (nflInfo && nflInfo.missedGames !== undefined) ? nflInfo.missedGames : (ldiResult?.gamesMissed ?? gamesMissed),
                 ldiResult,
                 destinationTag,
                 tagType,
@@ -429,8 +668,28 @@ export class VaultDraftEngine {
             }
         });
 
-        // 2. Manager-Level Rollup & Empirical Percentile Grade (Sections 5 & 6)
+        // Manager-Level Rollup & Standardized 1-100 Grade
         const managerLeaderboard = Object.values(managerPicksMap).map(mObj => {
+            if (isUnplayedSeason) {
+                return {
+                    managerId: mObj.managerId,
+                    managerName: mObj.managerName,
+                    teamName: mObj.teamName,
+                    totalPicks: mObj.picks.length,
+                    scoredPicksCount: 0,
+                    LDI_manager_season: null,
+                    compositeLdi: null,
+                    meanLdi: null,
+                    draftIndex: null,
+                    isPending: true,
+                    gradeInfo: { grade: 'Pending', tier: 'pending', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.3)' },
+                    hits: 0,
+                    busts: 0,
+                    steals: 0,
+                    picks: mObj.picks
+                };
+            }
+
             const scoredPicks = mObj.picks.map(p => p.ldiResult).filter(r => r && r.isScored);
             const rollup = ldiEngine.computeManagerRollup(scoredPicks);
 
@@ -444,25 +703,45 @@ export class VaultDraftEngine {
                 teamName: mObj.teamName,
                 totalPicks: mObj.picks.length,
                 scoredPicksCount: rollup.scoredPicksCount,
-                meanLdiRaw: rollup.meanLdiRaw,
+                LDI_manager_season: rollup.LDI_manager_season,
+                compositeLdi: rollup.compositeLdi,
+                meanLdi: rollup.meanLdi,
                 draftIndex: rollup.managerDisplayScore,
                 gradeInfo: LDIEngine.getScoreGrade(rollup.managerDisplayScore),
+                isPending: false,
                 hits,
                 busts,
                 steals,
                 picks: mObj.picks
             };
-        }).sort((a, b) => b.draftIndex - a.draftIndex);
+        }).sort((a, b) => (b.draftIndex ?? 0) - (a.draftIndex ?? 0));
 
-        // Best Steal & Biggest Bust (Sections 4 & 6)
-        const validSkillPicks = enrichedPicks.filter(p => p.ldiResult?.isScored && p.playerName && !p.playerName.startsWith('Player #-1'));
-        const bestSteal = [...validSkillPicks].sort((a, b) => (b.ldiResult.LDI_raw || 0) - (a.ldiResult.LDI_raw || 0))[0] || null;
-        
-        const earlyPicks = validSkillPicks.filter(p => p.round <= 4);
-        const biggestBust = [...earlyPicks].sort((a, b) => (a.ldiResult.LDI_raw || 0) - (b.ldiResult.LDI_raw || 0))[0] || null;
+        // Best Steal, Worst Draft, What If, Bust
+        let bestSteal = null;
+        let biggestWhatIf = null;
+        let biggestBust = null;
+        let worstDraft = null;
+
+        if (!isUnplayedSeason) {
+            const validSkillPicks = enrichedPicks.filter(p => p.ldiResult?.isScored && p.playerName && !p.playerName.startsWith('Player #-1'));
+            const stealCandidates = validSkillPicks.filter(p => p.finishPosNum !== null && p.finishPosNum !== undefined && p.finishPosNum <= p.draftedPosNum);
+            bestSteal = [...stealCandidates].sort((a, b) => (b.ldiResult.LDI_pick || 0) - (a.ldiResult.LDI_pick || 0))[0] || null;
+            
+            const whatIfCandidates = validSkillPicks.filter(p => (p.finishPosNum === null || p.finishPosNum === undefined || p.finishPosNum > p.draftedPosNum) && (p.ldiResult?.LDI_pick || 0) > 0.2);
+            biggestWhatIf = [...whatIfCandidates].sort((a, b) => (b.ldiResult.LDI_pick || 0) - (a.ldiResult.LDI_pick || 0))[0] || null;
+
+            const earlyPicks = validSkillPicks.filter(p => p.round <= 4);
+            biggestBust = [...earlyPicks].sort((a, b) => (a.ldiResult.LDI_pick || 0) - (b.ldiResult.LDI_pick || 0))[0] || null;
+
+            // Worst draft hero card (lowest scoring manager in the draft class)
+            if (managerLeaderboard.length > 0) {
+                worstDraft = managerLeaderboard[managerLeaderboard.length - 1];
+            }
+        }
 
         return {
             year,
+            isUnplayedSeason,
             maxWeeksInSeason: maxRegularSeasonGames,
             scoringFormat: this.getScoringFormat(year),
             totalPicks: enrichedPicks.length,
@@ -470,8 +749,158 @@ export class VaultDraftEngine {
             managerPicksMap,
             managerLeaderboard,
             bestSteal,
+            biggestWhatIf,
             biggestBust,
+            worstDraft,
+            posGrouped,
             tuningParams: ldiEngine.params
+        };
+    }
+
+    /**
+     * Compute All-Time Macro Analytics across every completed draft season with year & retired manager filtering
+     */
+    computeAllTimeAnalytics(yearFilter = this.overallYearFilter, includeRetired = this.overallIncludeRetired) {
+        const seasonAnalyticsMap = {};
+        const managerAllPicks = {};
+        const managerSeasonRollups = {};
+        const allScoredPicks = [];
+        const allManagerSeasons = [];
+
+        const targetSeasons = (yearFilter && yearFilter !== 'all') 
+            ? this.seasons.filter(yr => String(yr) === String(yearFilter)) 
+            : this.seasons;
+
+        targetSeasons.forEach(yr => {
+            const a = this.computeSeasonAnalytics(yr);
+            seasonAnalyticsMap[yr] = a;
+
+            // Skip unplayed seasons from all-time historical leaderboard
+            if (a.isUnplayedSeason) return;
+
+            a.picks.forEach(p => {
+                if (p.ldiResult?.isScored) {
+                    const mId = p.managerId;
+                    if (!includeRetired && this.isManagerRetired(mId)) {
+                        return; // filter out retired manager
+                    }
+                    allScoredPicks.push({ ...p, seasonYear: yr });
+                    if (mId) {
+                        if (!managerAllPicks[mId]) managerAllPicks[mId] = [];
+                        managerAllPicks[mId].push({ ...p, seasonYear: yr });
+                    }
+                }
+            });
+
+            a.managerLeaderboard.forEach(m => {
+                if (!m.isPending && m.draftIndex !== null) {
+                    const mId = m.managerId;
+                    if (!includeRetired && this.isManagerRetired(mId)) {
+                        return; // filter out retired manager
+                    }
+                    allManagerSeasons.push({ ...m, seasonYear: yr });
+                    if (mId) {
+                        if (!managerSeasonRollups[mId]) managerSeasonRollups[mId] = [];
+                        managerSeasonRollups[mId].push({ ...m, seasonYear: yr });
+                    }
+                }
+            });
+        });
+
+        // 1. All-Time Manager Leaderboard with Statistically Sound Composite LDI
+        const managerCompositeList = Object.entries(managerAllPicks).map(([mId, picks]) => {
+            const seasonRollups = managerSeasonRollups[mId] || [];
+            const mgrObj = this.getManagerList().find(m => String(m.id).toLowerCase() === String(mId).toLowerCase());
+            const managerName = mgrObj?.name || picks[0]?.managerName || mId;
+            const teamName = mgrObj?.team || picks[0]?.teamName || managerName;
+            const isRetired = this.isManagerRetired(mId);
+
+            const composite = ldiEngine.computeCareerComposite(picks, seasonRollups);
+
+            // Best and Worst draft year
+            let bestYear = null;
+            let bestYearScore = -1;
+            let worstYear = null;
+            let worstYearScore = 999;
+
+            seasonRollups.forEach(sr => {
+                if (sr.draftIndex > bestYearScore) {
+                    bestYearScore = sr.draftIndex;
+                    bestYear = sr.seasonYear;
+                }
+                if (sr.draftIndex < worstYearScore) {
+                    worstYearScore = sr.draftIndex;
+                    worstYear = sr.seasonYear;
+                }
+            });
+
+            const stealsCount = picks.filter(p => (p.finishPosNum !== null && p.finishPosNum <= p.draftedPosNum) && (p.ldiResult?.LDI_pick || 0) >= 0.8).length;
+
+            return {
+                managerId: mId,
+                managerName,
+                teamName,
+                isRetired,
+                compositeScore: composite.compositeScore,
+                gradeInfo: composite.gradeInfo,
+                careerMeanLdi: composite.careerMeanLdi,
+                shrunkLdi: composite.shrunkLdi,
+                totalPicks: composite.totalPicks,
+                seasonsCount: composite.seasonsCount,
+                hitCount: composite.hitCount,
+                hitRate: composite.hitRate,
+                bustCount: composite.bustCount,
+                bustRate: composite.bustRate,
+                seasonStdDev: composite.seasonStdDev,
+                bestYear,
+                bestYearScore: bestYearScore >= 0 ? bestYearScore : null,
+                worstYear,
+                worstYearScore: worstYearScore <= 100 ? worstYearScore : null,
+                stealsCount,
+                picks,
+                seasonRollups
+            };
+        }).sort((a, b) => b.compositeScore - a.compositeScore || b.careerMeanLdi - a.careerMeanLdi);
+
+        // 2. Top 5 Best Drafts of All Time (Single-Season Manager Draft Classes)
+        const top5BestDrafts = [...allManagerSeasons]
+            .sort((a, b) => (b.draftIndex - a.draftIndex) || (b.LDI_manager_season - a.LDI_manager_season))
+            .slice(0, 5);
+
+        // 3. Top 5 Worst Drafts of All Time
+        const top5WorstDrafts = [...allManagerSeasons]
+            .sort((a, b) => (a.draftIndex - b.draftIndex) || (a.LDI_manager_season - b.LDI_manager_season))
+            .slice(0, 5);
+
+        // 4. Top 5 Best Picks / Greatest Steals of All Time
+        const top5BestPicks = [...allScoredPicks]
+            .filter(p => p.playerName && !p.playerName.startsWith('Player #-1'))
+            .sort((a, b) => (b.ldiResult?.LDI_pick || 0) - (a.ldiResult?.LDI_pick || 0))
+            .slice(0, 5);
+
+        // 5. Top 5 Biggest Busts of All Time (Rounds 1-4 high capital misses)
+        const top5BiggestBusts = [...allScoredPicks]
+            .filter(p => p.round <= 4 && p.playerName && !p.playerName.startsWith('Player #-1'))
+            .sort((a, b) => (a.ldiResult?.LDI_pick || 0) - (b.ldiResult?.LDI_pick || 0))
+            .slice(0, 5);
+
+        // 6. Top 5 Biggest "What Ifs" of All Time (Prorated high performers limited by games missed)
+        const top5WhatIfs = [...allScoredPicks]
+            .filter(p => p.gamesMissed >= 4 && (p.ldiResult?.LDI_pick || 0) > 0.3)
+            .sort((a, b) => (b.ldiResult?.LDI_pick || 0) - (a.ldiResult?.LDI_pick || 0))
+            .slice(0, 5);
+
+        return {
+            seasonAnalyticsMap,
+            managerCompositeList,
+            top5BestDrafts,
+            top5WorstDrafts,
+            top5BestPicks,
+            top5BiggestBusts,
+            top5WhatIfs,
+            allScoredPicks,
+            yearFilter,
+            includeRetired
         };
     }
 
@@ -486,7 +915,7 @@ export class VaultDraftEngine {
         if (!this.selectedYear) {
             container.innerHTML = `
                 <div class="view-header">
-                    <h1>Draft Archive</h1>
+                    <h1>Draft Central</h1>
                     <p>No historical draft records found.</p>
                 </div>
             `;
@@ -495,14 +924,71 @@ export class VaultDraftEngine {
 
         const nflYear = this.getNflYear(this.selectedYear);
         if (!nflStats.isSeasonLoaded(nflYear)) {
-            await nflStats.preloadSeason(nflYear);
+            nflStats.preloadSeason(nflYear).then(() => {
+                const c = document.getElementById(this.containerId);
+                if (c && (c.classList.contains('active') || c.offsetParent !== null)) {
+                    this.render();
+                }
+            }).catch(() => {});
         }
 
+        // Render based on selected sub-tab
+        if (this.subTab === 'overall') {
+            this.renderOverallView(container);
+        } else if (this.subTab === 'team') {
+            this.renderTeamView(container);
+        } else {
+            this.renderYearlyView(container);
+        }
+    }
+
+    /**
+     * Render Top Sub-Navigation Bar inside Draft Central
+     */
+    renderSubNavHTML() {
+        return `
+            <div class="draft-subnav-bar">
+                <div class="draft-subnav-group">
+                    <button class="draft-subnav-btn ${this.subTab === 'yearly' ? 'active' : ''}" id="btn-subnav-yearly">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:5px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        Yearly Draft Room
+                    </button>
+                    <button class="draft-subnav-btn ${this.subTab === 'overall' ? 'active' : ''}" id="btn-subnav-overall">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:5px;"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+                        Draft Overall (All-Time)
+                    </button>
+                    <button class="draft-subnav-btn ${this.subTab === 'team' ? 'active' : ''}" id="btn-subnav-team">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:5px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                        Solo Team Profile
+                    </button>
+                </div>
+
+                <div class="draft-subnav-right">
+                    <button id="btn-open-ldi-info" class="ldi-info-trigger-btn" title="Learn what makes the Landon Draft Index different">
+                        <span class="ldi-info-icon">?</span>
+                        <span class="ldi-info-text">What is LDI?</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * View 1: Yearly Archive Draft Room
+     */
+    renderYearlyView(container) {
         const analytics = this.computeSeasonAnalytics(this.selectedYear);
         const maxWeeks = analytics.maxWeeksInSeason || (this.selectedYear >= 2021 ? 17 : 16);
         const defaultPossibleG = Math.max(1, maxWeeks - 1);
         const managerPicksMap = analytics.managerPicksMap || {};
         const managerLeaderboard = analytics.managerLeaderboard || [];
+        const isUnplayed = analytics.isUnplayedSeason;
+
+        const formatLdiVal = (val, showPlus = true) => {
+            const num = Number(val);
+            if (isNaN(num)) return '0.0';
+            return (showPlus && num >= 0 ? '+' : '') + num.toFixed(1);
+        };
 
         // Group picks by round
         const roundsMap = {};
@@ -520,53 +1006,139 @@ export class VaultDraftEngine {
             </button>
         `).join('');
 
-        // Top Summary Hero Cards HTML
-        const topDraftChampion = managerLeaderboard[0] || null;
-        const stealHTML = analytics.bestSteal ? `
-            <div class="draft-hero-card gold-glow">
-                <div class="draft-card-tag" style="color: #10b981; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">Steal of the Draft</div>
-                <div class="draft-card-main-val">${analytics.bestSteal.playerName}</div>
-                <div class="draft-card-sub">
-                    <strong>${analytics.bestSteal.position}</strong> · Rd ${analytics.bestSteal.round} (Pick #${analytics.bestSteal.overallPick}) · <em>${analytics.bestSteal.managerName}</em>
+        // Top Summary Hero Cards HTML (Yearly view)
+        let heroCardsHTML = '';
+        if (isUnplayed) {
+            heroCardsHTML = `
+                <div class="draft-unplayed-banner">
+                    <div class="draft-unplayed-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </div>
+                    <div class="draft-unplayed-content">
+                        <h3>${this.selectedYear} Draft Completed · Season Pending Kickoff</h3>
+                        <p>Weekly game statistics have not started yet for this season. The <strong>Landon Draft Index (LDI)</strong> will automatically populate starting in Week 1 as weekly game data is recorded, dialing in continuously as the season progresses.</p>
+                    </div>
                 </div>
-                <div class="draft-metric-pill green" title="Landon Draft Index Pick Score & Raw Performance">
-                    ${analytics.bestSteal.draftedPosRank} &rarr; ${analytics.bestSteal.finishPosRank} <span style="font-weight:800; margin-left:4px;">(${analytics.bestSteal.ldiResult.pickDisplayScore} LDI · +${analytics.bestSteal.ldiResult.LDI_raw >= 0 ? analytics.bestSteal.ldiResult.LDI_raw.toFixed(2) : analytics.bestSteal.ldiResult.LDI_raw} Raw)</span>
-                </div>
-            </div>
-        ` : '';
+            `;
+        } else {
+            const topDraftChampion = managerLeaderboard[0] || null;
+            const worstDraftObj = analytics.worstDraft || null;
 
-        const bustHTML = analytics.biggestBust ? `
-            <div class="draft-hero-card red-glow">
-                <div class="draft-card-tag" style="color: #ef4444; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">Biggest Bust</div>
-                <div class="draft-card-main-val">${analytics.biggestBust.playerName}</div>
-                <div class="draft-card-sub">
-                    <strong>${analytics.biggestBust.position}</strong> · Rd ${analytics.biggestBust.round} (Pick #${analytics.biggestBust.overallPick}) · <em>${analytics.biggestBust.managerName}</em>
-                </div>
-                <div class="draft-metric-pill red" title="Landon Draft Index Pick Score & Raw Performance">
-                    ${analytics.biggestBust.draftedPosRank} &rarr; ${analytics.biggestBust.finishPosRank} <span style="font-weight:800; margin-left:4px;">(${analytics.biggestBust.ldiResult.pickDisplayScore} LDI · ${analytics.biggestBust.ldiResult.LDI_raw.toFixed(2)} Raw)</span>
-                </div>
-            </div>
-        ` : '';
+            const champScore = topDraftChampion ? (topDraftChampion.LDI_manager_season ?? 0) : 0;
+            const champGrade = topDraftChampion ? (topDraftChampion.gradeInfo || { grade: 'A+', color: '#10b981' }) : { grade: 'A+', color: '#10b981' };
 
-        const champGrade = topDraftChampion ? topDraftChampion.gradeInfo : { grade: 'A+', color: '#10b981' };
-        const champHTML = topDraftChampion ? `
-            <div class="draft-hero-card">
-                <div class="draft-card-tag" style="color: var(--accent-gold); font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;">Draft Class Champion</div>
-                <div class="draft-card-main-val">${this.nameMode === 'team' ? topDraftChampion.teamName : topDraftChampion.managerName}</div>
-                <div class="draft-card-sub">
-                    Landon Draft Index: <strong style="color: ${champGrade.color}; font-size: 1.15rem;">${topDraftChampion.draftIndex} / 100 (${champGrade.grade})</strong>
+            const worstScore = worstDraftObj ? (worstDraftObj.LDI_manager_season ?? 0) : 0;
+            const worstGrade = worstDraftObj ? (worstDraftObj.gradeInfo || { grade: 'F', color: '#ef4444' }) : { grade: 'F', color: '#ef4444' };
+
+            const stealScore = analytics.bestSteal ? (analytics.bestSteal.ldiResult?.LDI_pick ?? 0) : 0;
+            const whatIfScore = analytics.biggestWhatIf ? (analytics.biggestWhatIf.ldiResult?.LDI_pick ?? 0) : 0;
+            const bustScore = analytics.biggestBust ? (analytics.biggestBust.ldiResult?.LDI_pick ?? 0) : 0;
+            const champHTML = topDraftChampion ? `
+                <div class="draft-hero-card champion-glow">
+                    <div class="draft-card-tag champion-tag">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
+                        <span>Draft Class Champion</span>
+                    </div>
+                    <div class="draft-card-main-val clickable-mgr champion-name" data-mgr-id="${topDraftChampion.managerId}">${this.nameMode === 'team' ? topDraftChampion.teamName : topDraftChampion.managerName}</div>
+                    <div class="draft-card-sub">
+                        Landon Draft Index: <strong style="color: ${champGrade.color}; font-size: 1.15rem;">${topDraftChampion.draftIndex} / 100 (${champGrade.grade})</strong>
+                    </div>
+                    <div class="draft-metric-pill gold-crown" title="Average Manager LDI & Scoring Hits">
+                        ${formatLdiVal(champScore, true)} Mean LDI (${topDraftChampion.hits} Hits)
+                    </div>
                 </div>
-                <div class="draft-metric-pill gold" title="Mean LDI Raw Value & Scoring Hits">
-                    ${topDraftChampion.meanLdiRaw >= 0 ? '+' : ''}${topDraftChampion.meanLdiRaw.toFixed(2)} Mean LDI Raw (${topDraftChampion.hits} Hits)
+            ` : '';
+
+            const worstHTML = worstDraftObj ? `
+                <div class="draft-hero-card worst-draft-glow">
+                    <div class="draft-card-tag worst-draft-tag">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                        <span>Worst Draft of the Year</span>
+                    </div>
+                    <div class="draft-card-main-val clickable-mgr" data-mgr-id="${worstDraftObj.managerId}">${this.nameMode === 'team' ? worstDraftObj.teamName : worstDraftObj.managerName}</div>
+                    <div class="draft-card-sub">
+                        Landon Draft Index: <strong style="color: ${worstGrade.color}; font-size: 1.15rem;">${worstDraftObj.draftIndex} / 100 (${worstGrade.grade})</strong>
+                    </div>
+                    <div class="draft-metric-pill doom-crimson" title="Average Manager LDI & Scoring Busts">
+                        ${formatLdiVal(worstScore, false)} Mean LDI (${worstDraftObj.busts} Busts)
+                    </div>
                 </div>
-            </div>
-        ` : '';
+            ` : '';
+
+            const stealHTML = analytics.bestSteal ? `
+                <div class="draft-hero-card steal-glow">
+                    <div class="draft-card-tag steal-tag">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="6 3 18 3 22 9 12 22 2 9 6 3"></polygon></svg>
+                        <span>Steal of the Draft</span>
+                    </div>
+                    <div class="draft-card-main-val">${analytics.bestSteal.playerName}</div>
+                    <div class="draft-card-sub">
+                        <strong>${analytics.bestSteal.position}</strong> · Rd ${analytics.bestSteal.round} (Pick #${analytics.bestSteal.overallPick}) · <em class="clickable-mgr" data-mgr-id="${analytics.bestSteal.managerId}">${analytics.bestSteal.managerName}</em>
+                    </div>
+                    <div class="draft-metric-pill green-gem" title="Landon Draft Index Pick Score & LDI Raw Output">
+                        ${analytics.bestSteal.draftedPosRank} &rarr; ${analytics.bestSteal.finishPosRank} <span style="font-weight:800; margin-left:4px;">(${analytics.bestSteal.ldiResult?.pickDisplayScore ?? 50} LDI · ${formatLdiVal(stealScore, true)} LDI Raw)</span>
+                    </div>
+                </div>
+            ` : '';
+
+            const whatIfHTML = analytics.biggestWhatIf ? `
+                <div class="draft-hero-card whatif-glow">
+                    <div class="draft-card-tag whatif-tag">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        <span>Biggest What If</span>
+                    </div>
+                    <div class="draft-card-main-val">${analytics.biggestWhatIf.playerName}</div>
+                    <div class="draft-card-sub">
+                        <strong>${analytics.biggestWhatIf.position}</strong> · Rd ${analytics.biggestWhatIf.round} (Pick #${analytics.biggestWhatIf.overallPick}) · <em class="clickable-mgr" data-mgr-id="${analytics.biggestWhatIf.managerId}">${analytics.biggestWhatIf.managerName}</em>
+                    </div>
+                    <div class="draft-metric-pill purple-cosmic" title="Pace-Adjusted LDI Pick Score: elite production per game despite missed time preventing positional finish leap">
+                        ${analytics.biggestWhatIf.draftedPosRank} &rarr; ${analytics.biggestWhatIf.finishPosRank} <span style="font-weight:800; margin-left:4px;">(${analytics.biggestWhatIf.ldiResult?.pickDisplayScore ?? 50} LDI · ${formatLdiVal(whatIfScore, true)} LDI Raw)</span>
+                    </div>
+                </div>
+            ` : '';
+
+            const bustHTML = analytics.biggestBust ? `
+                <div class="draft-hero-card bust-glow">
+                    <div class="draft-card-tag bust-tag">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                        <span>Biggest Bust</span>
+                    </div>
+                    <div class="draft-card-main-val">${analytics.biggestBust.playerName}</div>
+                    <div class="draft-card-sub">
+                        <strong>${analytics.biggestBust.position}</strong> · Rd ${analytics.biggestBust.round} (Pick #${analytics.biggestBust.overallPick}) · <em class="clickable-mgr" data-mgr-id="${analytics.biggestBust.managerId}">${analytics.biggestBust.managerName}</em>
+                    </div>
+                    <div class="draft-metric-pill flame-amber" title="Landon Draft Index Pick Score & LDI Raw Output">
+                        ${analytics.biggestBust.draftedPosRank} &rarr; ${analytics.biggestBust.finishPosRank} <span style="font-weight:800; margin-left:4px;">(${analytics.biggestBust.ldiResult?.pickDisplayScore ?? 50} LDI · ${formatLdiVal(bustScore, false)} LDI Raw)</span>
+                    </div>
+                </div>
+            ` : '';
+
+            heroCardsHTML = `
+                <div class="draft-analytics-grid five-cards">
+                    ${champHTML}
+                    ${worstHTML}
+                    ${stealHTML}
+                    ${whatIfHTML}
+                    ${bustHTML}
+                </div>
+            `;
+        }
 
         // Manager Leaderboard Table/Chips
         const managerChipsHTML = managerLeaderboard.map((m, idx) => {
-            const g = m.gradeInfo;
+            if (isUnplayed) {
+                return `
+                    <div class="draft-mgr-chip clickable-mgr" data-mgr-id="${m.managerId}" style="border-left: 3px solid #94a3b8;" title="Season Pending">
+                        <span class="draft-chip-rank">#${idx + 1}</span>
+                        <span class="draft-chip-name">${this.nameMode === 'team' ? m.teamName : m.managerName}</span>
+                        <span class="draft-chip-score" style="color: #94a3b8; font-weight: 600;">Pending</span>
+                    </div>
+                `;
+            }
+            const g = m.gradeInfo || { grade: 'B', color: '#10b981' };
+            const compScore = Number(m.LDI_manager_season ?? 0);
             return `
-                <div class="draft-mgr-chip" style="border-left: 3px solid ${g.color};" title="Draft Grade: ${m.draftIndex}/100 (${g.grade}) • Mean LDI: ${m.meanLdiRaw >= 0 ? '+' : ''}${m.meanLdiRaw.toFixed(3)} • Hits: ${m.hits} • Busts: ${m.busts}">
+                <div class="draft-mgr-chip clickable-mgr" data-mgr-id="${m.managerId}" style="border-left: 3px solid ${g.color};" title="Draft Grade: ${m.draftIndex}/100 (${g.grade}) • Mean LDI: ${compScore >= 0 ? '+' : ''}${compScore.toFixed(2)} • Hits: ${m.hits} • Busts: ${m.busts}">
                     <span class="draft-chip-rank">#${idx + 1}</span>
                     <span class="draft-chip-name">${this.nameMode === 'team' ? m.teamName : m.managerName}</span>
                     <span class="draft-chip-score" style="color: ${g.color}; font-weight: 800;">
@@ -576,122 +1148,41 @@ export class VaultDraftEngine {
             `;
         }).join('');
 
-        // Founder Tuning Panel HTML (Section 8)
-        const p = analytics.tuningParams;
-        const tuningPanelHTML = `
-            <div class="ldi-tuning-panel ${this.showTuningPanel ? 'open' : 'collapsed'}">
-                <div class="ldi-tuning-header">
-                    <div class="ldi-tuning-title-group">
-                        <span class="ldi-tuning-badge">Founder Tuning Panel</span>
-                        <h3>Live Model Calibration</h3>
-                        <p>Adjust scoring parameters in real time. Changes instantly recalculate all picks, pills, and manager percentiles across the platform.</p>
-                    </div>
-                    <div class="ldi-tuning-actions">
-                        <button id="btn-reset-tuning" class="ldi-btn-secondary">Reset Defaults</button>
-                        <button id="btn-close-tuning" class="ldi-btn-icon" title="Close Panel">✕</button>
-                    </div>
-                </div>
-
-                <div class="ldi-sliders-grid">
-                    <!-- Lambda (Miss Dampening) -->
-                    <div class="ldi-slider-card">
-                        <div class="ldi-slider-label-row">
-                            <span class="ldi-slider-title">Miss Dampening (λ)</span>
-                            <span class="ldi-slider-val" id="val-lambda">${Number(p.lambda).toFixed(2)}</span>
-                        </div>
-                        <p class="ldi-slider-desc">
-                            <strong>Meaning:</strong> Penalizes underperforming picks (busts) relative to hits.<br>
-                            <strong>Adjusting:</strong> Lower values forgive missed picks to reward draft steals; higher values enforce strict penalties for busts.
-                        </p>
-                        <input type="range" class="ldi-range-slider" id="slider-lambda" min="0.00" max="1.00" step="0.05" value="${p.lambda}">
-                    </div>
-
-                    <!-- Alpha (VORP Blend Weight) -->
-                    <div class="ldi-slider-card">
-                        <div class="ldi-slider-label-row">
-                            <span class="ldi-slider-title">VORP Blend Weight (α)</span>
-                            <span class="ldi-slider-val" id="val-alpha">${Number(p.alpha).toFixed(2)}</span>
-                        </div>
-                        <p class="ldi-slider-desc">
-                            <strong>Meaning:</strong> Balance between positional performance (α) and overall draft slot VORP (1-α).<br>
-                            <strong>Adjusting:</strong> Higher values emphasize positional rank vs expectation; lower values reward early-round positional scarcity.
-                        </p>
-                        <input type="range" class="ldi-range-slider" id="slider-alpha" min="0.50" max="1.00" step="0.05" value="${p.alpha}">
-                    </div>
-
-                    <!-- Winsorization Cap Percentile -->
-                    <div class="ldi-slider-card">
-                        <div class="ldi-slider-label-row">
-                            <span class="ldi-slider-title">Winsorization Cap Percentile</span>
-                            <span class="ldi-slider-val" id="val-winsor">${Math.round(p.winsor_percentile * 100)}th</span>
-                        </div>
-                        <p class="ldi-slider-desc">
-                            <strong>Meaning:</strong> Upper weekly scoring ceiling per position to trim extreme single-week outlier spikes.<br>
-                            <strong>Adjusting:</strong> Lower percentiles compress massive outlier games; higher percentiles preserve full raw spike weeks.
-                        </p>
-                        <input type="range" class="ldi-range-slider" id="slider-winsor" min="0.70" max="0.99" step="0.05" value="${p.winsor_percentile}">
-                    </div>
-
-                    <!-- Inconsistency Threshold T_bust -->
-                    <div class="ldi-slider-card">
-                        <div class="ldi-slider-label-row">
-                            <span class="ldi-slider-title">Inconsistency Threshold (T_bust)</span>
-                            <span class="ldi-slider-val" id="val-tbust">${Number(p.t_bust).toFixed(2)}</span>
-                        </div>
-                        <p class="ldi-slider-desc">
-                            <strong>Meaning:</strong> Share of points scored in top 25% best games needed to trigger the diagnostic pill.<br>
-                            <strong>Adjusting:</strong> Lower values flag more boom-or-bust players; higher values restrict the pill to extreme single-week wonders.
-                        </p>
-                        <input type="range" class="ldi-range-slider" id="slider-tbust" min="0.30" max="0.70" step="0.05" value="${p.t_bust}">
-                    </div>
-
-                    <!-- Games Missed Threshold -->
-                    <div class="ldi-slider-card">
-                        <div class="ldi-slider-label-row">
-                            <span class="ldi-slider-title">Games-Missed Threshold</span>
-                            <span class="ldi-slider-val" id="val-gmissed">${p.games_missed_threshold} Games</span>
-                        </div>
-                        <p class="ldi-slider-desc">
-                            <strong>Meaning:</strong> Absence cutoff before injury proration lowers a player's baseline expectation.<br>
-                            <strong>Adjusting:</strong> Lower thresholds prorate short 1-2 game absences; higher thresholds require prolonged multi-week injuries.
-                        </p>
-                        <input type="range" class="ldi-range-slider" id="slider-gmissed" min="1" max="8" step="1" value="${p.games_missed_threshold}">
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Pick Row Renderer (shared across By Round and By Team/Manager views)
+        // Pick Row Renderer
         const renderPickRow = (p) => {
             const displayName = this.nameMode === 'team' ? p.teamName : p.managerName;
             const isDefOrK = (p.position === 'DEF' || p.position === 'D/ST' || p.position === 'K');
             const ldi = p.ldiResult;
 
-            // LDI Pick Score Badge (Sections 4.8 & 6.1)
+            // LDI Pick Score Badge
             let scoreBadge = '';
-            if (isDefOrK) {
-                scoreBadge = `<span class="pick-val-badge omitted" title="Kickers and Defenses are excluded from LDI scoring">K / DEF</span>`;
+            if (isUnplayed) {
+                scoreBadge = `<span class="pick-val-badge pending" title="Weekly games pending">Pending</span>`;
+            } else if (isDefOrK) {
+                scoreBadge = `<span class="pick-val-badge omitted" title="Kickers and Defenses are unrated in LDI">K / DEF</span>`;
             } else if (ldi && ldi.isScored) {
-                const grade = LDIEngine.getScoreGrade(ldi.pickDisplayScore);
+                const gradeInfo = LDIEngine.getScoreGrade(ldi.pickDisplayScore);
                 scoreBadge = `
-                    <span class="pick-val-badge" style="background: ${grade.bg}; color: ${grade.color}; border: 1px solid ${grade.border};" title="LDI Pick Score: ${ldi.pickDisplayScore} / 100 (${grade.grade}) • Raw: ${ldi.LDI_raw >= 0 ? '+' : ''}${ldi.LDI_raw.toFixed(2)} • Residual: ${ldi.residual >= 0 ? '+' : ''}${ldi.residual.toFixed(1)} pts">
-                        ${ldi.pickDisplayScore} <small style="font-size: 0.75em; opacity: 0.9;">LDI</small>
+                    <span class="pick-val-badge ${gradeInfo.tier}" style="background: ${gradeInfo.bg}; color: ${gradeInfo.color}; border: 1px solid ${gradeInfo.border};" title="LDI Pick Score: ${ldi.pickDisplayScore} / 100 (${gradeInfo.grade}) · LDI Raw: ${ldi.LDI_pick >= 0 ? '+' : ''}${ldi.LDI_pick.toFixed(2)} · Residual: ${ldi.Residual >= 0 ? '+' : ''}${ldi.Residual.toFixed(1)} pts vs ${ldi.E_adj} exp (${ldi.eRate} PPG)">
+                        <strong>${ldi.pickDisplayScore}</strong> <small style="font-size: 0.72em; opacity: 0.9; margin-left: 2px; font-weight: 700;">LDI</small>
                     </span>
                 `;
             }
 
-            // Diagnostic Pills (Section 7)
+            // Missed Games Badge
             let injuryBadge = '';
-            if (!isDefOrK && p.gamesMissed >= 4) {
-                const missedCount = p.gamesMissed;
-                const possibleG = ldi?.possibleGames || defaultPossibleG;
-                if (p.gamesPlayed > 0 && p.totalPoints > 0) {
-                    const pacePts = ldi?.fullSeasonPace ? ldi.fullSeasonPace : ((p.totalPoints / Math.max(1, p.gamesPlayed)) * possibleG);
-                    const posPaceRank = nflStats.getPositionalPaceRank(p.position, pacePts, nflYear, analytics.scoringFormat);
-                    const paceDisplay = posPaceRank ? `${posPaceRank} Pace` : `${Math.round(pacePts)} Pts Pace`;
+            const missedCount = (p.gamesMissed !== undefined && p.gamesMissed !== null) ? p.gamesMissed : (ldi?.gamesMissed ?? 0);
+            const possibleG = (p.possibleGames !== undefined && p.possibleGames !== null) ? p.possibleGames : (ldi?.possibleGames ?? defaultPossibleG);
+            const gamesPlayed = (p.gamesPlayed !== undefined && p.gamesPlayed !== null) ? p.gamesPlayed : (ldi?.gamesPlayed ?? 0);
+
+            if (!isUnplayed && missedCount >= 4) {
+                if (gamesPlayed > 0 && p.totalPoints > 0) {
+                    const pacePts = ((p.totalPoints / Math.max(1, gamesPlayed)) * possibleG);
+                    const posPaceRank = this.getPositionalPaceRank(p.position, pacePts, this.selectedYear, analytics.scoringFormat, analytics.posGrouped);
+                    const paceDisplay = posPaceRank ? ` (${posPaceRank} Pace)` : '';
                     const adjExpVal = ldi?.E_adj !== undefined ? `${ldi.E_adj} adj exp` : 'prorated expected';
                     injuryBadge = `
-                        <span class="pick-sub-tag injury" title="Missed ${missedCount} regular season games (Paced for ${pacePts.toFixed(1)} pts = ${posPaceRank || 'pace'} over ${possibleG} games vs ${adjExpVal})">Missed ${missedCount} Games (${paceDisplay})</span>
+                        <span class="pick-sub-tag injury" title="Missed ${missedCount} regular season games (Paced for ${pacePts.toFixed(1)} pts = ${posPaceRank || 'pace'} over ${possibleG} games vs ${adjExpVal})">Missed ${missedCount} Games${paceDisplay}</span>
                     `;
                 } else {
                     injuryBadge = `
@@ -700,17 +1191,21 @@ export class VaultDraftEngine {
                 }
             }
 
-            // Inconsistent Producer Pill (Section 7.2)
-            let inconsistentBadge = '';
-            if (ldi && ldi.inconsistentProducer) {
-                inconsistentBadge = `
-                    <span class="pick-sub-tag boom-bust" title="${ldi.inconsistentTooltip}">Inconsistent Producer</span>
+            // Consistency Pills
+            let tailPillBadge = '';
+            if (!isUnplayed && ldi && ldi.consistentBooms) {
+                tailPillBadge = `
+                    <span class="pick-sub-tag consistent-booms consistent-with-booms" title="${ldi.consistentBoomsTooltip}">Consistent with Booms</span>
+                `;
+            } else if (!isUnplayed && ldi && ldi.inconsistentProducer) {
+                tailPillBadge = `
+                    <span class="pick-sub-tag inconsistent-producer boom-bust" title="${ldi.inconsistentTooltip}">Inconsistent Producer</span>
                 `;
             }
 
-            // Low Confidence Warning (Section 10)
+            // Low Confidence Warning
             let lowConfBadge = '';
-            if (ldi && ldi.isLowConfidence) {
+            if (!isUnplayed && ldi && ldi.isLowConfidence) {
                 lowConfBadge = `
                     <span class="pick-sub-tag low-conf" title="Draft rank exceeded historical training sample depth (evaluated via conservative extrapolation)">Extrapolated Slot</span>
                 `;
@@ -740,7 +1235,7 @@ export class VaultDraftEngine {
                         </div>
                         
                         <div class="pick-owner-line">
-                            <span class="pick-owner-name">${displayName}</span>
+                            <span class="pick-owner-name clickable-mgr" data-mgr-id="${p.managerId}">${displayName}</span>
                         </div>
 
                         <div class="pick-ranks-line">
@@ -750,10 +1245,10 @@ export class VaultDraftEngine {
                             ${scoreBadge}
                         </div>
 
-                        ${(injuryBadge || inconsistentBadge || lowConfBadge || txBadge) ? `
+                        ${(injuryBadge || tailPillBadge || lowConfBadge || txBadge) ? `
                             <div class="pick-tags-line">
                                 ${injuryBadge}
-                                ${inconsistentBadge}
+                                ${tailPillBadge}
                                 ${lowConfBadge}
                                 ${txBadge}
                             </div>
@@ -781,7 +1276,7 @@ export class VaultDraftEngine {
             `;
         }).join('');
 
-        // 3-Column Manager/Team Cards Grid HTML (Ordered by Round 1 draft slot)
+        // 3-Column Manager/Team Cards Grid HTML
         const managerOrderList = [];
         const seenMgrIds = new Set();
         (roundsMap[1] || []).forEach(p => {
@@ -809,11 +1304,11 @@ export class VaultDraftEngine {
                 <div class="draft-round-card">
                     <div class="draft-round-header">
                         <div>
-                            <span class="round-title">${mTitle}</span>
+                            <span class="round-title clickable-mgr" data-mgr-id="${mId}">${mTitle}</span>
                             <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-left: 6px;">Slot #${slotIdx + 1}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            ${mRollup ? `<span class="draft-chip-score" style="color: ${mRollup.gradeInfo?.color || '#10b981'}; font-weight: 800;" title="LDI Draft Efficiency Grade">${mRollup.draftIndex} / 100 (${mRollup.gradeInfo?.grade || 'B'})</span>` : ''}
+                            ${mRollup && !isUnplayed ? `<span class="draft-chip-score" style="color: ${mRollup.gradeInfo?.color || '#10b981'}; font-weight: 800;" title="LDI Draft Efficiency Grade">${mRollup.draftIndex} / 100 (${mRollup.gradeInfo?.grade || 'B'})</span>` : ''}
                             <span class="round-pick-count">${mPicks.length} Picks</span>
                         </div>
                     </div>
@@ -826,26 +1321,22 @@ export class VaultDraftEngine {
 
         container.innerHTML = `
             <div class="draft-view-wrapper">
+                <!-- Sub-navigation Bar -->
+                ${this.renderSubNavHTML()}
+
                 <!-- Draft Hero Banner -->
                 <div class="draft-hero-banner">
                     <div class="draft-hero-title-group">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                             <div>
-                                <span class="draft-hero-subtitle">Historical Draft Archive</span>
+                                <span class="draft-hero-subtitle">Historical Draft Room</span>
                                 <h1>${this.selectedYear} League Draft</h1>
                             </div>
-                            <button id="btn-toggle-tuning" class="ldi-btn-tuning ${this.showTuningPanel ? 'active' : ''}">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                                Tuning Panel
-                            </button>
                         </div>
                         <p class="draft-hero-desc">
-                            Complete round-by-round draft results with drafted positional ranks, final season positional finishes, injury indicators, and the <strong>Landon Draft Index (LDI)</strong>.
+                            Complete round-by-round draft results with drafted positional ranks, season-end positional finishes, injury indicators, and the <strong>Landon Draft Index (LDI)</strong>.
                         </p>
                     </div>
-
-                    <!-- Founder Tuning Panel Container -->
-                    ${tuningPanelHTML}
 
                     <!-- Year Selector Toolbar -->
                     <div class="draft-toolbar-row">
@@ -870,16 +1361,12 @@ export class VaultDraftEngine {
                     </div>
                 </div>
 
-                <!-- Landon Draft Index Summary Cards -->
-                <div class="draft-analytics-grid">
-                    ${champHTML}
-                    ${stealHTML}
-                    ${bustHTML}
-                </div>
+                <!-- Hero Cards -->
+                ${heroCardsHTML}
 
-                <!-- Manager Draft Class Leaderboard -->
+                <!-- Manager Leaderboard Chip Bar -->
                 <div class="draft-leaderboard-bar">
-                    <div class="draft-leaderboard-title">Draft Efficiency Standings (LDI):</div>
+                    <div class="draft-leaderboard-title">${isUnplayed ? 'Draft Class Slots:' : 'Draft Efficiency Standings (LDI):'}</div>
                     <div class="draft-chips-scroll">
                         ${managerChipsHTML}
                     </div>
@@ -892,86 +1379,1015 @@ export class VaultDraftEngine {
             </div>
         `;
 
-        // Attach Year Click Listeners
-        container.querySelectorAll('.season-pill-btn').forEach(btn => {
+        this.attachCommonListeners(container, analytics);
+    }
+
+    /**
+     * View 2: Draft Overall (All-Time Macro Leaderboard & Top 5 Records)
+     */
+    renderOverallView(container) {
+        const allTime = this.computeAllTimeAnalytics(this.overallYearFilter, this.overallIncludeRetired);
+        const managerLeaderboard = allTime.managerCompositeList;
+        const isYearFiltered = this.overallYearFilter && this.overallYearFilter !== 'all';
+
+        const formatLdiVal = (val, showPlus = true) => {
+            const num = Number(val);
+            if (isNaN(num)) return '0.0';
+            return (showPlus && num >= 0 ? '+' : '') + num.toFixed(2);
+        };
+
+        // Manager Leaderboard Rows
+        const managerRowsHTML = managerLeaderboard.map((m, idx) => {
+            const g = m.gradeInfo || { grade: 'B', color: '#10b981' };
+            const rankClass = idx === 0 ? 'gold' : (idx === 1 ? 'silver' : (idx === 2 ? 'bronze' : ''));
+
+            return `
+                <tr class="draft-alltime-row clickable-mgr" data-mgr-id="${m.managerId}" title="Click to view ${m.managerName}'s complete solo draft scorecard">
+                    <td class="col-rank"><span class="rank-badge ${rankClass}">#${idx + 1}</span></td>
+                    <td class="col-manager">
+                        <div class="mgr-cell-name">
+                            <strong>${m.managerName}</strong> ${m.isRetired ? '<span class="retired-pill-badge">Retired</span>' : ''}
+                            <small class="text-muted">${m.teamName}</small>
+                        </div>
+                    </td>
+                    <td class="col-center"><span class="stat-bubble">${m.seasonsCount}</span></td>
+                    <td class="col-center">${m.totalPicks}</td>
+                    <td class="col-composite">
+                        <div class="composite-grade-pill" style="border-color: ${g.border}; background: ${g.bg}; color: ${g.color};">
+                            <span class="comp-score">${m.compositeScore}</span>
+                            <span class="comp-grade">(${g.grade})</span>
+                        </div>
+                    </td>
+                    <td class="col-mean" style="font-weight: 700; color: ${m.careerMeanLdi >= 0 ? '#10b981' : '#ef4444'};">
+                        ${formatLdiVal(m.careerMeanLdi, true)}
+                    </td>
+                    <td class="col-center"><span class="hit-rate-text">${m.hitRate}%</span></td>
+                    <td class="col-center"><span class="bust-rate-text">${m.bustRate}%</span></td>
+                    <td class="col-center">
+                        ${m.bestYear ? `<span class="best-year-badge">${m.bestYear} (${m.bestYearScore})</span>` : 'N/A'}
+                    </td>
+                    <td class="col-center"><span class="steal-count-badge">${m.stealsCount}</span></td>
+                </tr>
+            `;
+        }).join('');
+
+        // Top 5 Best Drafts Cards
+        const bestDraftsHTML = allTime.top5BestDrafts.map((d, i) => `
+            <div class="top5-item-row">
+                <span class="top5-rank">#${i + 1}</span>
+                <div class="top5-info">
+                    <div class="top5-title clickable-mgr" data-mgr-id="${d.managerId}">${d.managerName} <small>(${d.seasonYear})</small></div>
+                    <div class="top5-sub">${d.teamName} · ${d.hits} Hits</div>
+                </div>
+                <div class="top5-score-badge" style="color: ${d.gradeInfo?.color || '#10b981'};">
+                    ${d.draftIndex} <small>(${d.gradeInfo?.grade || 'A+'})</small>
+                </div>
+            </div>
+        `).join('');
+
+        // Top 5 Worst Drafts Cards
+        const worstDraftsHTML = allTime.top5WorstDrafts.map((d, i) => `
+            <div class="top5-item-row">
+                <span class="top5-rank">#${i + 1}</span>
+                <div class="top5-info">
+                    <div class="top5-title clickable-mgr" data-mgr-id="${d.managerId}">${d.managerName} <small>(${d.seasonYear})</small></div>
+                    <div class="top5-sub">${d.teamName} · ${d.busts} Busts</div>
+                </div>
+                <div class="top5-score-badge" style="color: ${d.gradeInfo?.color || '#ef4444'};">
+                    ${d.draftIndex} <small>(${d.gradeInfo?.grade || 'F'})</small>
+                </div>
+            </div>
+        `).join('');
+
+        // Top 5 Best Picks Cards
+        const bestPicksHTML = allTime.top5BestPicks.map((p, i) => `
+            <div class="top5-item-row">
+                <span class="top5-rank">#${i + 1}</span>
+                <div class="top5-info">
+                    <div class="top5-title">${p.playerName} <small>(${p.seasonYear})</small></div>
+                    <div class="top5-sub">${p.position} · Rd ${p.round} (#${p.overallPick}) · <span class="clickable-mgr" data-mgr-id="${p.managerId}">${p.managerName}</span></div>
+                </div>
+                <div class="top5-score-badge" style="color: #10b981;">
+                    ${p.ldiResult?.pickDisplayScore ?? 99} <small style="font-size:0.7em;">(${formatLdiVal(p.ldiResult?.LDI_pick ?? 0, true)})</small>
+                </div>
+            </div>
+        `).join('');
+
+        // Top 5 Biggest Busts Cards
+        const biggestBustsHTML = allTime.top5BiggestBusts.map((p, i) => `
+            <div class="top5-item-row">
+                <span class="top5-rank">#${i + 1}</span>
+                <div class="top5-info">
+                    <div class="top5-title">${p.playerName} <small>(${p.seasonYear})</small></div>
+                    <div class="top5-sub">${p.position} · Rd ${p.round} (#${p.overallPick}) · <span class="clickable-mgr" data-mgr-id="${p.managerId}">${p.managerName}</span></div>
+                </div>
+                <div class="top5-score-badge" style="color: #ef4444;">
+                    ${p.ldiResult?.pickDisplayScore ?? 1} <small style="font-size:0.7em;">(${formatLdiVal(p.ldiResult?.LDI_pick ?? 0, false)})</small>
+                </div>
+            </div>
+        `).join('');
+
+        // Top 5 Biggest What Ifs Cards
+        const whatIfsHTML = allTime.top5WhatIfs.map((p, i) => `
+            <div class="top5-item-row">
+                <span class="top5-rank">#${i + 1}</span>
+                <div class="top5-info">
+                    <div class="top5-title">${p.playerName} <small>(${p.seasonYear})</small></div>
+                    <div class="top5-sub">${p.position} · Missed ${p.gamesMissed} Games · <span class="clickable-mgr" data-mgr-id="${p.managerId}">${p.managerName}</span></div>
+                </div>
+                <div class="top5-score-badge" style="color: #a855f7;">
+                    ${p.ldiResult?.pickDisplayScore ?? 75} <small style="font-size:0.7em;">(${formatLdiVal(p.ldiResult?.LDI_pick ?? 0, true)})</small>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = `
+            <div class="draft-view-wrapper">
+                <!-- Sub-navigation Bar -->
+                ${this.renderSubNavHTML()}
+
+                <!-- Draft Overall Hero Banner -->
+                <div class="draft-hero-banner">
+                    <div class="draft-hero-title-group">
+                        <span class="draft-hero-subtitle">${isYearFiltered ? `${this.overallYearFilter} Season Analytics` : 'All-Time League Compilation'}</span>
+                        <h1>${isYearFiltered ? `${this.overallYearFilter} Draft Leaderboard & Records` : 'All-Time Draft Leaderboard & Records'}</h1>
+                        <p class="draft-hero-desc">
+                            ${isYearFiltered 
+                                ? `Single-season comparative evaluation for the ${this.overallYearFilter} draft class based on empirical rate scoring, games-missed proration, and positional scarcity.`
+                                : 'Macro analysis of every draft pick and manager performance across league history. Ranked by the <strong>Statistically Shrunk Composite LDI</strong>, accounting for career sample size, positional scarcity, and consistency.'}
+                        </p>
+                    </div>
+
+                    <!-- Filter Controls Bar -->
+                    <div class="draft-toolbar-row">
+                        <div class="draft-filters-bar">
+                            <div class="draft-filter-item">
+                                <span class="draft-filter-label">Season Filter:</span>
+                                <select id="overall-filter-year" class="draft-filter-select">
+                                    <option value="all" ${this.overallYearFilter === 'all' ? 'selected' : ''}>All Seasons (All-Time Macro)</option>
+                                    ${this.seasons.map(yr => `
+                                        <option value="${yr}" ${String(this.overallYearFilter) === String(yr) ? 'selected' : ''}>${yr} Season</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+
+                            <div class="draft-filter-item">
+                                <label class="draft-toggle-label" title="Toggle retired managers in historical rankings">
+                                    <input type="checkbox" id="overall-toggle-retired" class="draft-toggle-checkbox" ${this.overallIncludeRetired ? 'checked' : ''}>
+                                    <span>Include Retired Managers</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All-Time / Filtered Leaderboard Section -->
+                <div class="draft-overall-section">
+                    <div class="section-header-row">
+                        <h2>${isYearFiltered ? `${this.overallYearFilter} Season Draft Leaderboard` : 'All-Time Manager Draft Leaderboard'}</h2>
+                        <span class="section-tag-badge">${isYearFiltered ? `Ranked by ${this.overallYearFilter} Draft Score` : 'Ranked by Career Composite LDI'} (${managerLeaderboard.length} Managers)</span>
+                    </div>
+
+                    <div class="table-container draft-table-card">
+                        <table class="data-table draft-alltime-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-rank">Rank</th>
+                                    <th class="col-manager">Manager / Team</th>
+                                    <th class="col-center" title="Total seasons drafted in filter">Seasons</th>
+                                    <th class="col-center" title="Total skill picks evaluated">Picks</th>
+                                    <th class="col-composite" title="Sample-size adjusted 1-99 Composite Grade">${isYearFiltered ? `${this.overallYearFilter} Score` : 'Composite LDI'}</th>
+                                    <th class="col-mean" title="Career unweighted mean LDI per pick">Mean LDI</th>
+                                    <th class="col-center" title="% of picks scoring >= 75 LDI">Hit Rate</th>
+                                    <th class="col-center" title="% of picks scoring <= 25 LDI">Bust Rate</th>
+                                    <th class="col-center" title="Best single-season draft score">Best Year</th>
+                                    <th class="col-center" title="Steal picks">Steals</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${managerRowsHTML.length > 0 ? managerRowsHTML : '<tr><td colspan="10" class="text-muted" style="text-align:center; padding: 24px;">No managers match the selected filter.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Top 5 Record Modules Grid -->
+                <div class="draft-top5-grid">
+                    <!-- Top 5 Best Drafts -->
+                    <div class="top5-card gold-border">
+                        <div class="top5-header">
+                            <span class="top5-header-tag" style="color: #10b981;">Draft Class Mastery</span>
+                            <h3>Top 5 Best Drafts of All Time</h3>
+                        </div>
+                        <div class="top5-list">
+                            ${bestDraftsHTML || '<div class="top5-empty">No entries found</div>'}
+                        </div>
+                    </div>
+
+                    <!-- Top 5 Worst Drafts -->
+                    <div class="top5-card red-border">
+                        <div class="top5-header">
+                            <span class="top5-header-tag" style="color: #ef4444;">Draft Day Disasters</span>
+                            <h3>Top 5 Worst Drafts of All Time</h3>
+                        </div>
+                        <div class="top5-list">
+                            ${worstDraftsHTML || '<div class="top5-empty">No entries found</div>'}
+                        </div>
+                    </div>
+
+                    <!-- Top 5 Best Picks / Steals -->
+                    <div class="top5-card emerald-border">
+                        <div class="top5-header">
+                            <span class="top5-header-tag" style="color: #34d399;">Greatest Value Finds</span>
+                            <h3>Top 5 Best Picks of All Time</h3>
+                        </div>
+                        <div class="top5-list">
+                            ${bestPicksHTML || '<div class="top5-empty">No entries found</div>'}
+                        </div>
+                    </div>
+
+                    <!-- Top 5 Biggest Busts -->
+                    <div class="top5-card crimson-border">
+                        <div class="top5-header">
+                            <span class="top5-header-tag" style="color: #f87171;">Early Round Regrets</span>
+                            <h3>Top 5 Biggest Busts of All Time</h3>
+                        </div>
+                        <div class="top5-list">
+                            ${biggestBustsHTML || '<div class="top5-empty">No entries found</div>'}
+                        </div>
+                    </div>
+
+                    <!-- Top 5 Biggest What Ifs -->
+                    <div class="top5-card purple-border">
+                        <div class="top5-header">
+                            <span class="top5-header-tag" style="color: #c084fc;">Injury-Derailed Ceilings</span>
+                            <h3>Top 5 Biggest What Ifs of All Time</h3>
+                        </div>
+                        <div class="top5-list">
+                            ${whatIfsHTML || '<div class="top5-empty">No entries found</div>'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.attachCommonListeners(container);
+    }
+
+    /**
+     * View 3: Solo Team / Manager Draft Profile Tab with Year & Retired Filtering
+     */
+    renderTeamView(container) {
+        const allTime = this.computeAllTimeAnalytics('all', true);
+        const mgrList = this.getManagerList();
+        
+        const activeMgrs = mgrList.filter(m => !m.isRetired);
+        const retiredMgrs = mgrList.filter(m => m.isRetired);
+        const availableMgrs = this.soloIncludeRetired ? mgrList : activeMgrs;
+
+        // If currently selected manager is retired and soloIncludeRetired is false, fallback to first active manager
+        if (!this.soloIncludeRetired && this.selectedManagerId && this.isManagerRetired(this.selectedManagerId)) {
+            if (activeMgrs.length > 0) {
+                this.selectedManagerId = activeMgrs[0].id;
+            }
+        } else if (!this.selectedManagerId && availableMgrs.length > 0) {
+            this.selectedManagerId = availableMgrs[0].id;
+        }
+
+        const mgrComposite = allTime.managerCompositeList.find(m => String(m.managerId).toLowerCase() === String(this.selectedManagerId).toLowerCase()) || 
+                             allTime.managerCompositeList[0] || null;
+        
+        const mId = mgrComposite?.managerId || this.selectedManagerId;
+        const managerName = mgrComposite?.managerName || 'Manager';
+        const teamName = mgrComposite?.teamName || managerName;
+        const isRetired = this.isManagerRetired(mId);
+
+        const allSeasonRollups = mgrComposite?.seasonRollups || [];
+        const allPicks = mgrComposite?.picks || [];
+        const sortedAllSeasons = [...allSeasonRollups].sort((a, b) => b.seasonYear - a.seasonYear);
+
+        // Check if soloYearFilter is active and matches a season for this manager
+        const isYearFiltered = this.soloYearFilter && this.soloYearFilter !== 'all';
+        const targetSeasonRollup = isYearFiltered 
+            ? sortedAllSeasons.find(s => String(s.seasonYear) === String(this.soloYearFilter))
+            : null;
+
+        const targetPicks = isYearFiltered
+            ? allPicks.filter(p => String(p.seasonYear) === String(this.soloYearFilter))
+            : allPicks;
+
+        const formatLdiVal = (val, showPlus = true) => {
+            const num = Number(val);
+            if (isNaN(num)) return '0.0';
+            return (showPlus && num >= 0 ? '+' : '') + num.toFixed(2);
+        };
+
+        // Scorecard metrics based on whether single season or all seasons are selected
+        let displayScore = 50;
+        let gradeInfo = { grade: 'B', color: '#10b981' };
+        let displayMeanLdi = 0;
+        let totalPicksCount = targetPicks.length;
+        let seasonsCount = isYearFiltered ? 1 : (mgrComposite?.seasonsCount ?? sortedAllSeasons.length);
+        let hitCount = targetPicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) >= 75).length;
+        let bustCount = targetPicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) < 30).length;
+        let hitRate = totalPicksCount > 0 ? Math.round((hitCount / totalPicksCount) * 100) : 0;
+        let bustRate = totalPicksCount > 0 ? Math.round((bustCount / totalPicksCount) * 100) : 0;
+        let peakTitle = isYearFiltered ? `${this.soloYearFilter} Class Score` : 'Peak Performance';
+        let peakVal = isYearFiltered ? `${targetSeasonRollup?.draftIndex ?? displayScore} / 100` : (mgrComposite?.bestYear ?? 'N/A');
+        let peakSub = isYearFiltered ? `Season Grade: ${targetSeasonRollup?.gradeInfo?.grade || 'B'}` : `Best Score: ${mgrComposite?.bestYearScore ?? 'N/A'} / 100`;
+
+        if (targetSeasonRollup) {
+            displayScore = targetSeasonRollup.draftIndex;
+            gradeInfo = targetSeasonRollup.gradeInfo || LDIEngine.getScoreGrade(displayScore);
+            displayMeanLdi = targetSeasonRollup.LDI_manager_season ?? targetSeasonRollup.meanLdi ?? 0;
+            hitCount = targetSeasonRollup.hits;
+            bustCount = targetSeasonRollup.busts;
+            totalPicksCount = targetSeasonRollup.scoredPicksCount;
+            hitRate = totalPicksCount > 0 ? Math.round((hitCount / totalPicksCount) * 100) : 0;
+            bustRate = totalPicksCount > 0 ? Math.round((bustCount / totalPicksCount) * 100) : 0;
+        } else if (mgrComposite) {
+            displayScore = mgrComposite.compositeScore;
+            gradeInfo = mgrComposite.gradeInfo;
+            displayMeanLdi = mgrComposite.careerMeanLdi;
+            hitCount = mgrComposite.hitCount;
+            bustCount = mgrComposite.bustCount;
+            hitRate = mgrComposite.hitRate;
+            bustRate = mgrComposite.bustRate;
+            totalPicksCount = mgrComposite.totalPicks;
+            seasonsCount = mgrComposite.seasonsCount;
+        }
+
+        // Manager Dropdown Options
+        const activeOptions = activeMgrs.map(m => `<option value="${m.id}" ${String(m.id).toLowerCase() === String(mId).toLowerCase() ? 'selected' : ''}>${m.name} (${m.team})</option>`).join('');
+        const retiredOptions = retiredMgrs.map(m => `<option value="${m.id}" ${String(m.id).toLowerCase() === String(mId).toLowerCase() ? 'selected' : ''}>${m.name} [Retired] (${m.team})</option>`).join('');
+
+        // Manager Selector Pills HTML (Visible managers only)
+        const mgrSelectorButtonsHTML = availableMgrs.map(m => `
+            <button class="season-pill-btn ${String(m.id).toLowerCase() === String(mId).toLowerCase() ? 'active' : ''} ${m.isRetired ? 'retired-pill' : ''}" data-mgr-select="${m.id}">
+                ${m.name} ${m.isRetired ? '<small>(Ret)</small>' : ''}
+            </button>
+        `).join('');
+
+        // Compute Round-by-Round Efficiency on targetPicks
+        const earlyPicks = targetPicks.filter(p => p.round <= 4);
+        const midPicks = targetPicks.filter(p => p.round >= 5 && p.round <= 8);
+        const latePicks = targetPicks.filter(p => p.round >= 9);
+
+        const earlyHits = earlyPicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) >= 75).length;
+        const midHits = midPicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) >= 75).length;
+        const lateHits = latePicks.filter(p => (p.ldiResult?.pickDisplayScore ?? 50) >= 75).length;
+
+        const earlyHitRate = earlyPicks.length > 0 ? Math.round((earlyHits / earlyPicks.length) * 100) : 0;
+        const midHitRate = midPicks.length > 0 ? Math.round((midHits / midPicks.length) * 100) : 0;
+        const lateHitRate = latePicks.length > 0 ? Math.round((lateHits / latePicks.length) * 100) : 0;
+
+        // Top 5 Best Picks
+        const bestPicks = [...targetPicks]
+            .filter(p => p.playerName && !p.playerName.startsWith('Player #-1'))
+            .sort((a, b) => (b.ldiResult?.LDI_pick ?? 0) - (a.ldiResult?.LDI_pick ?? 0))
+            .slice(0, 5);
+
+        // Top 5 Worst Picks
+        const worstPicks = [...targetPicks]
+            .filter(p => p.playerName && !p.playerName.startsWith('Player #-1'))
+            .sort((a, b) => (a.ldiResult?.LDI_pick ?? 0) - (b.ldiResult?.LDI_pick ?? 0))
+            .slice(0, 5);
+
+        const bestPicksRowsHTML = bestPicks.map((p, i) => `
+            <tr>
+                <td class="col-rank">#${i + 1}</td>
+                <td><strong>${p.playerName}</strong> <small class="text-muted">(${p.seasonYear})</small></td>
+                <td><span class="pick-pos-pill pos-${(p.position || '').toLowerCase()}">${p.position}</span></td>
+                <td>Rd ${p.round} (#${p.overallPick})</td>
+                <td>${p.draftedPosRank} &rarr; ${p.finishPosRank}</td>
+                <td style="font-weight: 800; color: #10b981;">${p.ldiResult?.pickDisplayScore ?? 99} <small style="font-size:0.75em;">(${formatLdiVal(p.ldiResult?.LDI_pick ?? 0, true)})</small></td>
+            </tr>
+        `).join('');
+
+        const worstPicksRowsHTML = worstPicks.map((p, i) => `
+            <tr>
+                <td class="col-rank">#${i + 1}</td>
+                <td><strong>${p.playerName}</strong> <small class="text-muted">(${p.seasonYear})</small></td>
+                <td><span class="pick-pos-pill pos-${(p.position || '').toLowerCase()}">${p.position}</span></td>
+                <td>Rd ${p.round} (#${p.overallPick})</td>
+                <td>${p.draftedPosRank} &rarr; ${p.finishPosRank}</td>
+                <td style="font-weight: 800; color: #ef4444;">${p.ldiResult?.pickDisplayScore ?? 1} <small style="font-size:0.75em;">(${formatLdiVal(p.ldiResult?.LDI_pick ?? 0, false)})</small></td>
+            </tr>
+        `).join('');
+
+        // Season History Cards
+        const seasonCardsHTML = sortedAllSeasons.map(s => {
+            const sGrade = s.gradeInfo || { grade: 'B', color: '#10b981' };
+            const isCardSelected = String(this.soloYearFilter) === String(s.seasonYear);
+            return `
+                <div class="solo-season-card ${isCardSelected ? 'card-selected-highlight' : ''}">
+                    <div class="solo-season-header">
+                        <div>
+                            <span class="solo-season-year">${s.seasonYear} Draft</span>
+                            <span class="solo-season-team">${s.teamName}</span>
+                        </div>
+                        <div class="solo-season-grade" style="color: ${sGrade.color};">
+                            ${s.draftIndex} / 100 <small>(${sGrade.grade})</small>
+                        </div>
+                    </div>
+                    <div class="solo-season-stats">
+                        <div class="solo-stat-item">
+                            <span class="stat-lbl">Mean LDI</span>
+                            <span class="stat-val">${formatLdiVal(s.LDI_manager_season ?? s.meanLdi ?? 0, true)}</span>
+                        </div>
+                        <div class="solo-stat-item">
+                            <span class="stat-lbl">Hits / Busts</span>
+                            <span class="stat-val">${s.hits} / ${s.busts}</span>
+                        </div>
+                        <div class="solo-stat-item">
+                            <span class="stat-lbl">Picks Scored</span>
+                            <span class="stat-val">${s.scoredPicksCount}</span>
+                        </div>
+                    </div>
+                    <div class="solo-season-actions">
+                        <button class="btn-jump-year" data-year="${s.seasonYear}">View ${s.seasonYear} Board &rarr;</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Generate SVG History Graph
+        const chartSVG = this.generateManagerLdiTrendSVG(sortedAllSeasons, allTime);
+
+        container.innerHTML = `
+            <div class="draft-view-wrapper">
+                <!-- Sub-navigation Bar -->
+                ${this.renderSubNavHTML()}
+
+                <!-- Solo Profile Hero Header -->
+                <div class="draft-hero-banner">
+                    <div class="draft-hero-title-group">
+                        <span class="draft-hero-subtitle">Solo Team Draft Profile ${isRetired ? '<span class="retired-pill-badge">Retired Manager</span>' : ''}</span>
+                        <h1>${managerName}'s Draft History</h1>
+                        <p class="draft-hero-desc">
+                            ${isYearFiltered 
+                                ? `Single-season draft scorecard and round efficiency breakdown for ${managerName}'s <strong>${this.soloYearFilter} Draft Class</strong>.`
+                                : `Career draft scorecard, year-over-year LDI performance trends, round efficiency, and historical draft class archives for ${managerName}.`}
+                        </p>
+                    </div>
+
+                    <!-- Filter Controls Bar -->
+                    <div class="draft-toolbar-row">
+                        <div class="draft-filters-bar">
+                            <div class="draft-filter-item">
+                                <span class="draft-filter-label">Manager:</span>
+                                <select id="solo-mgr-select" class="draft-filter-select">
+                                    <optgroup label="Active Managers">
+                                        ${activeOptions}
+                                    </optgroup>
+                                    ${this.soloIncludeRetired && retiredMgrs.length > 0 ? `
+                                        <optgroup label="Retired Managers">
+                                            ${retiredOptions}
+                                        </optgroup>
+                                    ` : ''}
+                                </select>
+                            </div>
+
+                            <div class="draft-filter-item">
+                                <span class="draft-filter-label">Draft Class Filter:</span>
+                                <select id="solo-filter-year" class="draft-filter-select">
+                                    <option value="all" ${this.soloYearFilter === 'all' ? 'selected' : ''}>All Draft Classes (${sortedAllSeasons.length} Seasons)</option>
+                                    ${sortedAllSeasons.map(s => `
+                                        <option value="${s.seasonYear}" ${String(this.soloYearFilter) === String(s.seasonYear) ? 'selected' : ''}>${s.seasonYear} Draft Class (${s.draftIndex}/100)</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+
+                            <div class="draft-filter-item">
+                                <label class="draft-toggle-label" title="Toggle retired managers in manager list">
+                                    <input type="checkbox" id="solo-toggle-retired" class="draft-toggle-checkbox" ${this.soloIncludeRetired ? 'checked' : ''}>
+                                    <span>Show Retired Managers</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Click Manager Pills -->
+                    <div class="draft-toolbar-row" style="margin-top: 4px;">
+                        <div class="draft-seasons-scroll">
+                            ${mgrSelectorButtonsHTML}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Career / Single-Season Scorecard Grid -->
+                <div class="solo-scorecard-grid">
+                    <div class="solo-score-card main-grade">
+                        <div class="solo-score-tag">${isYearFiltered ? `${this.soloYearFilter} Draft Grade` : 'Composite Draft Grade'}</div>
+                        <div class="solo-score-val" style="color: ${gradeInfo.color};">
+                            ${displayScore} <small>(${gradeInfo.grade})</small>
+                        </div>
+                        <div class="solo-score-sub">
+                            ${isYearFiltered ? 'Season' : 'Career'} Mean LDI: <strong>${formatLdiVal(displayMeanLdi, true)}</strong>
+                        </div>
+                    </div>
+
+                    <div class="solo-score-card">
+                        <div class="solo-score-tag">${isYearFiltered ? 'Class Size' : 'Draft Experience'}</div>
+                        <div class="solo-score-val">${seasonsCount} <small style="font-size:0.9rem; color:var(--text-muted);">${seasonsCount === 1 ? 'Season' : 'Seasons'}</small></div>
+                        <div class="solo-score-sub">Total Skill Picks: <strong>${totalPicksCount}</strong></div>
+                    </div>
+
+                    <div class="solo-score-card">
+                        <div class="solo-score-tag">Hit vs Bust Rate</div>
+                        <div class="solo-score-val" style="color: #10b981;">
+                            ${hitRate}% <small style="color: #ef4444; font-size: 0.9rem; margin-left: 4px;">/ ${bustRate}%</small>
+                        </div>
+                        <div class="solo-score-sub">${hitCount} Hits · ${bustCount} Busts</div>
+                    </div>
+
+                    <div class="solo-score-card">
+                        <div class="solo-score-tag">${peakTitle}</div>
+                        <div class="solo-score-val">${peakVal}</div>
+                        <div class="solo-score-sub">${peakSub}</div>
+                    </div>
+                </div>
+
+                <!-- Interactive Multi-Year LDI Trend Graph Section -->
+                <div class="draft-chart-section">
+                    <div class="chart-header-row">
+                        <div>
+                            <h2>Landon Draft Index History</h2>
+                            <p class="text-muted">Season-by-season draft efficiency progression (${sortedAllSeasons.length} Draft Classes)${isYearFiltered ? ` · Highlighting ${this.soloYearFilter} Season` : ''}</p>
+                        </div>
+                        <div class="chart-controls">
+                            <button id="btn-toggle-league-avg" class="chart-toggle-btn ${this.showLeagueAvg ? 'active' : ''}">
+                                <span class="toggle-indicator ${this.showLeagueAvg ? 'on' : 'off'}"></span>
+                                Compare with League Benchmark
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-svg-container">
+                        ${chartSVG}
+                    </div>
+                </div>
+
+                <!-- Round Efficiency Breakdown -->
+                <div class="draft-round-efficiency-grid">
+                    <div class="efficiency-card">
+                        <div class="efficiency-header">
+                            <span class="efficiency-title">Early Rounds (1–4)</span>
+                            <span class="efficiency-count">${earlyPicks.length} Picks</span>
+                        </div>
+                        <div class="efficiency-rate-bar">
+                            <div class="rate-fill green" style="width: ${earlyHitRate}%;"></div>
+                        </div>
+                        <div class="efficiency-footer">
+                            <span>Hit Rate: <strong>${earlyHitRate}%</strong></span>
+                            <span>${earlyHits} Elite Hits</span>
+                        </div>
+                    </div>
+
+                    <div class="efficiency-card">
+                        <div class="efficiency-header">
+                            <span class="efficiency-title">Middle Rounds (5–8)</span>
+                            <span class="efficiency-count">${midPicks.length} Picks</span>
+                        </div>
+                        <div class="efficiency-rate-bar">
+                            <div class="rate-fill blue" style="width: ${midHitRate}%;"></div>
+                        </div>
+                        <div class="efficiency-footer">
+                            <span>Hit Rate: <strong>${midHitRate}%</strong></span>
+                            <span>${midHits} Hits</span>
+                        </div>
+                    </div>
+
+                    <div class="efficiency-card">
+                        <div class="efficiency-header">
+                            <span class="efficiency-title">Late Rounds (9+)</span>
+                            <span class="efficiency-count">${latePicks.length} Picks</span>
+                        </div>
+                        <div class="efficiency-rate-bar">
+                            <div class="rate-fill purple" style="width: ${lateHitRate}%;"></div>
+                        </div>
+                        <div class="efficiency-footer">
+                            <span>Hit Rate: <strong>${lateHitRate}%</strong></span>
+                            <span>${lateHits} Late Steals</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Best & Worst Career / Season Picks Tables Grid -->
+                <div class="solo-picks-grid">
+                    <div class="solo-table-card">
+                        <div class="solo-table-header">
+                            <h3 style="color: #10b981;">${isYearFiltered ? `Top ${this.soloYearFilter} Picks` : 'Top 5 Greatest Career Picks'}</h3>
+                            <span class="text-muted">Highest LDI value generated</span>
+                        </div>
+                        <table class="data-table solo-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-rank">#</th>
+                                    <th>Player</th>
+                                    <th>Pos</th>
+                                    <th>Pick</th>
+                                    <th>Movement</th>
+                                    <th>LDI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${bestPicksRowsHTML || '<tr><td colspan="6" class="text-muted" style="text-align:center;">No picks found.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="solo-table-card">
+                        <div class="solo-table-header">
+                            <h3 style="color: #ef4444;">${isYearFiltered ? `Worst ${this.soloYearFilter} Busts` : 'Top 5 Worst Career Busts'}</h3>
+                            <span class="text-muted">Lowest LDI relative to draft slot</span>
+                        </div>
+                        <table class="data-table solo-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-rank">#</th>
+                                    <th>Player</th>
+                                    <th>Pos</th>
+                                    <th>Pick</th>
+                                    <th>Movement</th>
+                                    <th>LDI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${worstPicksRowsHTML || '<tr><td colspan="6" class="text-muted" style="text-align:center;">No picks found.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Complete Draft Class Log Archive -->
+                <div class="draft-overall-section">
+                    <div class="section-header-row">
+                        <h2>Chronological Draft Class History</h2>
+                        <span class="section-tag-badge">Every Draft Board</span>
+                    </div>
+
+                    <div class="solo-seasons-grid">
+                        ${seasonCardsHTML}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.attachCommonListeners(container);
+    }
+
+    /**
+     * Generate Pure Vector SVG History Line Chart with Benchmark Toggle and Year Highlighting
+     */
+    generateManagerLdiTrendSVG(sortedSeasons, allTime) {
+        if (!sortedSeasons || sortedSeasons.length === 0) {
+            return `<div class="chart-empty-state">No historical draft data to chart.</div>`;
+        }
+
+        // Chronological order for x-axis (left to right)
+        const chronSeasons = [...sortedSeasons].sort((a, b) => a.seasonYear - b.seasonYear);
+
+        // Calculate League Average Draft Index per year
+        const leagueAvgMap = {};
+        allTime.seasonAnalyticsMap && Object.entries(allTime.seasonAnalyticsMap).forEach(([yr, a]) => {
+            if (!a.isUnplayedSeason && a.managerLeaderboard && a.managerLeaderboard.length > 0) {
+                const validMgrs = a.managerLeaderboard.filter(m => m.draftIndex !== null && !m.isPending);
+                if (validMgrs.length > 0) {
+                    const avg = validMgrs.reduce((sum, m) => sum + m.draftIndex, 0) / validMgrs.length;
+                    leagueAvgMap[yr] = Math.round(avg);
+                }
+            }
+        });
+
+        // Dimensions
+        const width = 860;
+        const height = 320;
+        const padLeft = 50;
+        const padRight = 30;
+        const padTop = 30;
+        const padBottom = 40;
+
+        const chartW = width - padLeft - padRight;
+        const chartH = height - padTop - padBottom;
+
+        const minScore = 0;
+        const maxScore = 100;
+
+        const getX = (idx) => {
+            if (chronSeasons.length === 1) return padLeft + chartW / 2;
+            return padLeft + (idx / (chronSeasons.length - 1)) * chartW;
+        };
+
+        const getY = (val) => {
+            const clamped = Math.max(minScore, Math.min(maxScore, val));
+            return padTop + chartH - ((clamped - minScore) / (maxScore - minScore)) * chartH;
+        };
+
+        // Grid lines (y = 25, 50, 75, 100)
+        const gridYValues = [25, 50, 75, 100];
+        const gridLinesSVG = gridYValues.map(v => {
+            const y = getY(v);
+            return `
+                <line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="var(--border-color, rgba(255,255,255,0.08))" stroke-dasharray="3,3" stroke-width="1"/>
+                <text x="${padLeft - 10}" y="${y + 4}" font-size="11" fill="var(--text-muted, #94a3b8)" text-anchor="end" font-weight="600">${v}</text>
+            `;
+        }).join('');
+
+        // Manager points and path
+        const managerPoints = chronSeasons.map((s, idx) => ({
+            x: getX(idx),
+            y: getY(s.draftIndex),
+            year: s.seasonYear,
+            score: s.draftIndex,
+            grade: s.gradeInfo?.grade || 'B',
+            color: s.gradeInfo?.color || '#10b981',
+            meanLdi: s.LDI_manager_season ?? s.meanLdi ?? 0,
+            isSelected: String(this.soloYearFilter) === String(s.seasonYear)
+        }));
+
+        let managerPathD = '';
+        if (managerPoints.length > 0) {
+            managerPathD = `M ${managerPoints[0].x} ${managerPoints[0].y} ` + managerPoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+        }
+
+        // Area path under manager line
+        let areaPathD = '';
+        if (managerPoints.length > 1) {
+            areaPathD = `M ${managerPoints[0].x} ${padTop + chartH} L ${managerPoints[0].x} ${managerPoints[0].y} ` +
+                        managerPoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ') +
+                        ` L ${managerPoints[managerPoints.length - 1].x} ${padTop + chartH} Z`;
+        }
+
+        // League average points and path
+        const leaguePoints = chronSeasons.map((s, idx) => {
+            const avg = leagueAvgMap[s.seasonYear] || 50;
+            return {
+                x: getX(idx),
+                y: getY(avg),
+                year: s.seasonYear,
+                score: avg
+            };
+        });
+
+        let leaguePathD = '';
+        if (leaguePoints.length > 0) {
+            leaguePathD = `M ${leaguePoints[0].x} ${leaguePoints[0].y} ` + leaguePoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+        }
+
+        // X-axis season labels
+        const xLabelsSVG = managerPoints.map(p => `
+            <text x="${p.x}" y="${height - 12}" font-size="12" fill="${p.isSelected ? '#f59e0b' : 'var(--text-secondary, #cbd5e1)'}" text-anchor="middle" font-weight="${p.isSelected ? '900' : '700'}">${p.year}</text>
+        `).join('');
+
+        // Render SVG
+        return `
+            <svg viewBox="0 0 ${width} ${height}" class="draft-trend-svg" style="width:100%; height:auto; display:block;">
+                <defs>
+                    <linearGradient id="managerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                        <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                    </linearGradient>
+                </defs>
+
+                <!-- Grid Lines & Labels -->
+                ${gridLinesSVG}
+                ${xLabelsSVG}
+
+                <!-- Area Fill -->
+                ${areaPathD ? `<path d="${areaPathD}" fill="url(#managerGrad)"/>` : ''}
+
+                <!-- League Benchmark Line (Toggleable) -->
+                ${this.showLeagueAvg && leaguePathD ? `
+                    <path d="${leaguePathD}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4" opacity="0.8"/>
+                    ${leaguePoints.map(p => `
+                        <circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#94a3b8" stroke="var(--bg-card, #1e293b)" stroke-width="1.5"/>
+                    `).join('')}
+                ` : ''}
+
+                <!-- Manager Main Line -->
+                ${managerPathD ? `<path d="${managerPathD}" fill="none" stroke="#10b981" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+
+                <!-- Manager Data Points -->
+                ${managerPoints.map(p => `
+                    <g class="chart-point-group" tabindex="0" data-chart-year="${p.year}" style="cursor: pointer;">
+                        ${p.isSelected ? `
+                            <circle cx="${p.x}" cy="${p.y}" r="12" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="2,2"/>
+                        ` : ''}
+                        <circle cx="${p.x}" cy="${p.y}" r="${p.isSelected ? '7.5' : '6.5'}" fill="${p.color}" stroke="${p.isSelected ? '#f59e0b' : 'var(--bg-surface, #0f172a)'}" stroke-width="2.5" style="transition: transform 0.2s;"/>
+                        <circle cx="${p.x}" cy="${p.y}" r="14" fill="transparent"/>
+                        <title>${p.year} Draft Grade: ${p.score} / 100 (${p.grade}) · Mean LDI: ${p.meanLdi >= 0 ? '+' : ''}${p.meanLdi.toFixed(2)}${this.showLeagueAvg ? ` · League Avg: ${leagueAvgMap[p.year] || 50}` : ''}</title>
+                    </g>
+                `).join('')}
+            </svg>
+
+            <!-- Chart Legend -->
+            <div class="chart-legend-row">
+                <div class="legend-item">
+                    <span class="legend-dot" style="background:#10b981;"></span>
+                    <span>Manager Draft Grade</span>
+                </div>
+                ${this.showLeagueAvg ? `
+                    <div class="legend-item">
+                        <span class="legend-line-dashed" style="background:#94a3b8;"></span>
+                        <span>League Benchmark / Average</span>
+                    </div>
+                ` : ''}
+                ${this.soloYearFilter !== 'all' ? `
+                    <div class="legend-item">
+                        <span class="legend-dot" style="background:#f59e0b; border: 1px dashed #fff;"></span>
+                        <span>Filtered Draft Class (${this.soloYearFilter})</span>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    /**
+     * Attach Event Listeners (Year selection, Tabs, Info modal, Managers, Trades, Filters)
+     */
+    attachCommonListeners(container, analytics = null) {
+        // Sub-Navigation Tabs
+        container.querySelector('#btn-subnav-yearly')?.addEventListener('click', () => this.setSubTab('yearly'));
+        container.querySelector('#btn-subnav-overall')?.addEventListener('click', () => this.setSubTab('overall'));
+        container.querySelector('#btn-subnav-team')?.addEventListener('click', () => this.setSubTab('team'));
+
+        // Info Blurb Modal Trigger
+        container.querySelector('#btn-open-ldi-info')?.addEventListener('click', () => this.openLdiInfoModal());
+
+        // Year Selector Pills in Yearly View
+        container.querySelectorAll('.season-pill-btn[data-year]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const yr = Number(e.currentTarget.getAttribute('data-year'));
                 this.setYear(yr);
             });
         });
 
-        // Attach Grouping View Toggle Listeners
-        const btnGroupRound = container.querySelector('#btn-group-round');
-        const btnGroupManager = container.querySelector('#btn-group-manager');
-        if (btnGroupRound) {
-            btnGroupRound.addEventListener('click', () => this.setDisplayGrouping('round'));
-        }
-        if (btnGroupManager) {
-            btnGroupManager.addEventListener('click', () => this.setDisplayGrouping('manager'));
-        }
-
-        // Attach Name Mode Toggle Listeners
-        const btnMgr = container.querySelector('#btn-toggle-mgr');
-        const btnTeam = container.querySelector('#btn-toggle-team');
-        if (btnMgr) {
-            btnMgr.addEventListener('click', () => this.setNameMode('manager'));
-        }
-        if (btnTeam) {
-            btnTeam.addEventListener('click', () => this.setNameMode('team'));
-        }
-
-        // Attach Tuning Panel Toggle Listener
-        const btnToggleTuning = container.querySelector('#btn-toggle-tuning');
-        const btnCloseTuning = container.querySelector('#btn-close-tuning');
-        btnToggleTuning?.addEventListener('click', () => this.toggleTuningPanel());
-        btnCloseTuning?.addEventListener('click', () => this.toggleTuningPanel());
-
-        // Attach Tuning Sliders Listeners
-        const sliderLambda = container.querySelector('#slider-lambda');
-        const sliderAlpha = container.querySelector('#slider-alpha');
-        const sliderWinsor = container.querySelector('#slider-winsor');
-        const sliderTbust = container.querySelector('#slider-tbust');
-        const sliderGmissed = container.querySelector('#slider-gmissed');
-        const btnResetTuning = container.querySelector('#btn-reset-tuning');
-
-        sliderLambda?.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            ldiEngine.updateParams({ lambda: val });
-        });
-
-        sliderAlpha?.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            ldiEngine.updateParams({ alpha: val });
-        });
-
-        sliderWinsor?.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            ldiEngine.updateParams({ winsor_percentile: val });
-        });
-
-        sliderTbust?.addEventListener('input', (e) => {
-            const val = parseFloat(e.target.value);
-            ldiEngine.updateParams({ t_bust: val });
-        });
-
-        sliderGmissed?.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value, 10);
-            ldiEngine.updateParams({ games_missed_threshold: val });
-        });
-
-        btnResetTuning?.addEventListener('click', () => {
-            ldiEngine.resetDefaults();
-        });
-
-        // Attach Click Listeners for Traded Picks
-        container.querySelectorAll('.pick-sub-tag.traded').forEach(btn => {
+        // Manager Selector Pills in Solo Profile
+        container.querySelectorAll('.season-pill-btn[data-mgr-select]').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const pickOverall = Number(e.currentTarget.getAttribute('data-pick-overall'));
-                const pick = analytics.picks.find(p => p.overallPick === pickOverall);
-                if (pick) {
-                    this.openTradeModal(pick);
+                const mId = e.currentTarget.getAttribute('data-mgr-select');
+                this.setSelectedManager(mId);
+            });
+        });
+
+        // Overall View Filters
+        const overallYearSelect = container.querySelector('#overall-filter-year');
+        if (overallYearSelect) {
+            overallYearSelect.addEventListener('change', (e) => {
+                this.overallYearFilter = e.target.value;
+                this.render();
+            });
+        }
+
+        const overallRetiredToggle = container.querySelector('#overall-toggle-retired');
+        if (overallRetiredToggle) {
+            overallRetiredToggle.addEventListener('change', (e) => {
+                this.overallIncludeRetired = e.target.checked;
+                this.render();
+            });
+        }
+
+        // Solo Profile Filters
+        const soloMgrSelect = container.querySelector('#solo-mgr-select');
+        if (soloMgrSelect) {
+            soloMgrSelect.addEventListener('change', (e) => {
+                this.setSelectedManager(e.target.value);
+            });
+        }
+
+        const soloYearSelect = container.querySelector('#solo-filter-year');
+        if (soloYearSelect) {
+            soloYearSelect.addEventListener('change', (e) => {
+                this.soloYearFilter = e.target.value;
+                this.render();
+            });
+        }
+
+        const soloRetiredToggle = container.querySelector('#solo-toggle-retired');
+        if (soloRetiredToggle) {
+            soloRetiredToggle.addEventListener('change', (e) => {
+                this.soloIncludeRetired = e.target.checked;
+                this.render();
+            });
+        }
+
+        // Clickable points on SVG Chart to select year
+        container.querySelectorAll('.chart-point-group[data-chart-year]').forEach(g => {
+            g.addEventListener('click', (e) => {
+                const yr = e.currentTarget.getAttribute('data-chart-year');
+                if (yr) {
+                    this.soloYearFilter = this.soloYearFilter === yr ? 'all' : yr;
+                    this.render();
                 }
             });
+        });
+
+        // Grouping View Toggle Listeners
+        const btnGroupRound = container.querySelector('#btn-group-round');
+        const btnGroupManager = container.querySelector('#btn-group-manager');
+        btnGroupRound?.addEventListener('click', () => this.setDisplayGrouping('round'));
+        btnGroupManager?.addEventListener('click', () => this.setDisplayGrouping('manager'));
+
+        // Name Mode Toggle Listeners
+        const btnMgr = container.querySelector('#btn-toggle-mgr');
+        const btnTeam = container.querySelector('#btn-toggle-team');
+        btnMgr?.addEventListener('click', () => this.setNameMode('manager'));
+        btnTeam?.addEventListener('click', () => this.setNameMode('team'));
+
+        // League Benchmark Toggle in Solo Profile
+        container.querySelector('#btn-toggle-league-avg')?.addEventListener('click', () => this.toggleLeagueAvgComparison());
+
+        // Jump to Year from Solo Profile Cards
+        container.querySelectorAll('.btn-jump-year').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const yr = Number(e.currentTarget.getAttribute('data-year'));
+                this.selectedYear = yr;
+                this.setSubTab('yearly');
+            });
+        });
+
+        // Clickable Manager links across all cards & tables
+        container.querySelectorAll('.clickable-mgr').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const mId = e.currentTarget.getAttribute('data-mgr-id');
+                if (mId) {
+                    this.setSubTab('team', mId);
+                }
+            });
+        });
+
+        // Clickable Traded Picks
+        if (analytics && analytics.picks) {
+            container.querySelectorAll('.pick-sub-tag.traded').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const pickOverall = Number(e.currentTarget.getAttribute('data-pick-overall'));
+                    const pick = analytics.picks.find(p => p.overallPick === pickOverall);
+                    if (pick) {
+                        this.openTradeModal(pick);
+                    }
+                });
+            });
+        }
+    }
+
+    /**
+     * Open LDI Explanatory Info Modal
+     */
+    openLdiInfoModal() {
+        let modal = document.getElementById('ldi-info-modal');
+        if (!modal) {
+            modal = document.createElement('dialog');
+            modal.id = 'ldi-info-modal';
+            modal.className = 'modal ldi-info-dialog';
+            document.body.appendChild(modal);
+        }
+
+        modal.innerHTML = `
+            <div class="ldi-info-modal-inner">
+                <div class="ldi-info-modal-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="ldi-info-badge">Framework Guide</span>
+                        <h2 style="font-family: 'Newsreader', Georgia, serif; font-size: 1.45rem; font-weight: 700; margin: 0; color: var(--text-primary);">The Landon Draft Index (LDI)</h2>
+                    </div>
+                    <button class="modal-close-btn" id="close-ldi-modal-btn" style="background: none; border: none; font-size: 1.25rem; color: var(--text-muted); cursor: pointer; padding: 4px 8px;">✕</button>
+                </div>
+
+                <div class="ldi-info-modal-body">
+                    <!-- Note from the Founder, Landon -->
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1rem 1.25rem; border-radius: 6px; margin-bottom: 1.25rem;">
+                        <div style="font-size: 0.75rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem;">A Note from the Founder, Landon</div>
+                        <p style="font-size: 0.9rem; color: #78350f; line-height: 1.55; margin: 0;">
+                            I developed the Landon Draft Index (LDI) as an advanced, rate-based fantasy football draft evaluation framework which looks at the true value generated by every draft selection relative to its draft capital and historical positional expectations. You'll see below an explanation that is a bit more in detail and describes the nuances of LDI. Enjoy!
+                        </p>
+                    </div>
+
+                    <div class="ldi-info-callout" style="margin-top: 0;">
+                        <div class="ldi-callout-title">Why LDI is Different:</div>
+                        <p>
+                            Traditional draft evaluators rely on end-of-season total points, which unfairly penalize players who miss games due to injury and overlook the massive scarcity differences between positions. LDI evaluates performance on a per-game rate against Generalized Additive Model (GAM) curves, recognizing that finding an elite difference-maker at quarterback or tight end is much harder than at replaceable depth positions, so the magnitude of the score shift is greater. The index incorporates an 85% positional baseline blended with a 15% Value Over Replacement Player (VORP) capital weight, provides intelligent concessions for injuries via games-missed proration, and uses a two-stage consistency filter to separate reliable weekly starters with explosive ceilings from erratic boom-or-bust producers.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="ldi-info-modal-footer">
+                    <button id="btn-close-ldi-dialog" class="btn-primary" style="padding: 8px 20px; font-weight: 700; border-radius: 4px; cursor: pointer;">Got It</button>
+                </div>
+            </div>
+        `;
+
+        if (typeof modal.showModal === 'function' && !modal.open) {
+            modal.showModal();
+        }
+
+        const closeBtn = modal.querySelector('#close-ldi-modal-btn');
+        const actionCloseBtn = modal.querySelector('#btn-close-ldi-dialog');
+        const closeModal = () => modal.close();
+        
+        closeBtn?.addEventListener('click', closeModal);
+        actionCloseBtn?.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.close();
         });
     }
 
@@ -1004,7 +2420,7 @@ export class VaultDraftEngine {
         const tradeTx = matchingTrades[0] || null;
         const fromName = tInfo?.fromManagerName || pickData.managerName;
         const toName = tInfo?.toManagerName || 'Trade Partner';
-        const dateStr = tradeTx?.date || tradeTx?.timestamp || `${year} Season • Week ${targetWeek}`;
+        const dateStr = tradeTx?.date || tradeTx?.timestamp || `${year} Season · Week ${targetWeek}`;
 
         let assetsHTML = '';
         if (tradeTx && tradeTx.items && tradeTx.items.length > 0) {

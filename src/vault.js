@@ -548,6 +548,17 @@ class FantasyApp {
             localStorage.setItem('vault_last_league', pathSlug);
         }
 
+        // 1. Immediately wire navigation, theme, and admin tab visibility on frame 0
+        this.setupThemeToggle();
+        this.setupNavigation();
+        this.updateAdminTabVisibility();
+        window.addEventListener('vault_auth_changed', () => {
+            this.updateAdminTabVisibility();
+            if (this.activeTab === 'admin') {
+                this.renderAdminDashboard();
+            }
+        });
+
         // Wait for initial Firebase auth resolution
         if (typeof window.AuthEngine !== 'undefined' && typeof window.AuthEngine.ready === 'function') {
             await window.AuthEngine.ready();
@@ -590,18 +601,13 @@ class FantasyApp {
 
         const founderBar = document.getElementById('founder-control-bar');
         if (founderBar) founderBar.remove();
-        this.setupThemeToggle();
         this.initPowerRankings();
-        this.setupNavigation();
         this.setupH2HControls();
         this.renderH2H();
         this.updateAdminTabVisibility();
-        window.addEventListener('vault_auth_changed', () => {
-            this.updateAdminTabVisibility();
-            if (this.activeTab === 'admin') {
-                this.renderAdminDashboard();
-            }
-        });
+        if (this.activeTab === 'draft') {
+            this.renderDraft();
+        }
 
         // Check for join code in URL params (e.g. ?join=CODE)
         const joinCodeParam = urlParams.get('join');
@@ -1140,6 +1146,15 @@ class FantasyApp {
         if (!this.draftEngine) {
             this.draftEngine = new VaultDraftEngine({
                 containerId: 'view-draft',
+                draftResults: this.draftResults,
+                weeklyPlayerStats: this.playerStats,
+                transactions: this.transactions,
+                managers: this.managers,
+                leagueSettings: this.leagueSettings,
+                scoringSettings: this.scoringSettings
+            });
+        } else {
+            this.draftEngine.updateData({
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
                 transactions: this.transactions,
@@ -1796,7 +1811,7 @@ class FantasyApp {
 
                     <!-- Note from Landon for Tagline Customization -->
                     <div style="margin-top: 1rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1rem 1.25rem; border-radius: 6px;">
-                        <div style="font-size: 0.75rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">A Note from Landon</div>
+                        <div style="font-size: 0.75rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">A Note from the Founder, Landon</div>
                         <p style="font-size: 0.88rem; color: #78350f; line-height: 1.5; margin: 0;">
                             Hey, this is one of the first points of customization for your league. Feel free to make the league tagline a tradition, as maybe the champion gets to create the tagline for the next year! That's something you as the admin have control of. I've included below some sample taglines that I came up with in a quick brainstorm, and I'll keep adding more, but feel free to make one up on your own as well.
                         </p>
