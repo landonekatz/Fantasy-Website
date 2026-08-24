@@ -1,4 +1,4 @@
-// The Fantasy Vault, as Client-Side Auth Engine & Join Code System
+// The Fantasy Vault - Client-Side Auth Engine & Join Code System
 import { auth, db, database } from './firebase.js';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";

@@ -1,5 +1,5 @@
 /**
- * The Fantasy Vault, as Manager Display Name & Nickname Formatter
+ * The Fantasy Vault - Manager Display Name & Nickname Formatter
  * 
  * Rules:
  * 1. Nicknames are max 20 characters long.

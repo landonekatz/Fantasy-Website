@@ -1745,7 +1745,7 @@ class FantasyApp {
         modalContent.innerHTML = `
             <div class="modal-header">
                 <div class="modal-title-area">
-                    <h2>${season} • Week ${week} ${m && m.is_playoff ? ', as Playoffs (' + (roundName || 'Playoffs') + ')' : ', as Regular Season'}</h2>
+                    <h2>${season} • Week ${week} ${m && m.is_playoff ? ' • Playoffs (' + (roundName || 'Playoffs') + ')' : ' • Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">

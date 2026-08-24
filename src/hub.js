@@ -2,7 +2,7 @@ import { database } from './firebase.js';
 import { ref as dbRef, get } from 'firebase/database';
 
 let currentLeagueCreds = null;
-// The Fantasy Vault, as Editorial Light Hub Script & Auth Integration
+// The Fantasy Vault - Editorial Light Hub Script & Auth Integration
 // Elements
   const leagueNameInput = document.getElementById('input-league-name');
   const urlPreviewText = document.getElementById('url-preview-text');
