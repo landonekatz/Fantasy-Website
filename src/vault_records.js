@@ -82,16 +82,18 @@ Object.assign(TargetApp.prototype, {
         });
 
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
+        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || (winAppClaims && winAppClaims[m?.id || managerId]?.nickname) || '';
 
         if (m) {
             const baseName = m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name;
-            return formatManagerDisplayName(baseName, m.nickname, allowNicknames);
+            return formatManagerDisplayName(baseName, nick, allowNicknames);
         }
 
         const raw = (fallbackName && fallbackName !== managerId) ? fallbackName : managerId;
         if (!raw) return 'Unknown';
         const clean = String(raw).replace(/_/g, ' ').trim();
-        return clean.replace(/\b\w/g, c => c.toUpperCase());
+        return formatManagerDisplayName(clean.replace(/\b\w/g, c => c.toUpperCase()), nick, allowNicknames);
     },
 
     // Helper: get final placement badge HTML for a season and manager

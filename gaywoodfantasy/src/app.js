@@ -695,6 +695,13 @@ class FantasyApp {
             }
             if (claimsSnap && claimsSnap.exists()) {
                 this.claims = claimsSnap.val() || {};
+                Object.entries(this.claims).forEach(([mId, cVal]) => {
+                    const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
+                    if (nick) {
+                        const target = this.managers.find(m => m.id === mId);
+                        if (target && !target.nickname) target.nickname = nick;
+                    }
+                });
             }
             if (managersSnap && managersSnap.exists()) {
                 const rtdbManagers = managersSnap.val();
@@ -712,6 +719,19 @@ class FantasyApp {
                     });
                 }
             }
+
+            // Real-time listener for claims nicknames
+            try {
+                const claimsRef = dbRef(database, `leagues/gaywoodfantasy/claims`);
+                onValue(claimsRef, (snapshot) => {
+                    this.claims = snapshot.exists() ? (snapshot.val() || {}) : {};
+                    Object.entries(this.claims).forEach(([mId, cVal]) => {
+                        const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
+                        const target = this.managers.find(m => m.id === mId);
+                        if (target) target.nickname = nick || '';
+                    });
+                });
+            } catch (e) {}
         } catch (e) {
             console.warn('Could not fetch RTDB settings for gaywoodfantasy', e);
         }
@@ -731,6 +751,31 @@ class FantasyApp {
         }
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
+    }
+
+    getManagerDisplayName(managerId, fallbackName = '') {
+        if (!managerId && !fallbackName) return 'Unknown';
+        const searchId = String(managerId || '').toLowerCase().trim();
+        const searchFallback = String(fallbackName || '').toLowerCase().trim();
+
+        const m = (this.managers || []).find(mgr => {
+            const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
+            const fullName = String(mgr.full_name || '').toLowerCase().trim();
+            const dispName = String(mgr.display_name || '').toLowerCase().trim();
+            const espnId = String(mgr.espn_id || '').toLowerCase().trim();
+            return (id && (id === searchId || id === searchFallback)) ||
+                   (name && (name === searchId || name === searchFallback)) ||
+                   (fullName && (fullName === searchId || fullName === searchFallback)) ||
+                   (dispName && (dispName === searchId || dispName === searchFallback)) ||
+                   (espnId && (espnId === searchId || espnId === searchFallback));
+        });
+
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || '';
+        const baseName = m ? (m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
+
+        return formatManagerDisplayName(baseName, nick, allowNicknames);
     }
 
     getCurrentTeamName(managerId) {
@@ -763,7 +808,7 @@ class FantasyApp {
 
                 if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
                 if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
-                if (mgrEl) mgrEl.textContent = manager.name;
+                if (mgrEl) mgrEl.textContent = this.getManagerDisplayName(managerId, manager.name);
                 
                 // Add click listener to scroll to this manager's recap
                 el.style.cursor = 'pointer';
@@ -1583,12 +1628,11 @@ class FantasyApp {
         const currentGroup = this.managers.filter(m => m.status_group === 'Current Managers');
         const retiredGroup = this.managers.filter(m => m.status_group === 'Retired Managers');
 
-        const allowNick = this.leagueSettings?.allow_nicknames !== false;
         const createOptgroup = (label, items) => {
             if (!items.length) return '';
             let html = `<optgroup label="${label}">`;
             items.forEach(m => {
-                const name = formatManagerDisplayName(m.canonical_name || m.name || m.id, m.nickname, allowNick);
+                const name = this.getManagerDisplayName(m.id, m.canonical_name || m.name || m.id);
                 html += `<option value="${m.id}">${name}</option>`;
             });
             html += `</optgroup>`;
@@ -1626,7 +1670,7 @@ class FantasyApp {
             // Update active state
             [btnAll, btnCustom].forEach(btn => btn?.classList.remove('active'));
             if (mode === 'all') btnAll?.classList.add('active');
-                        if (mode === 'custom') {
+            if (mode === 'custom') {
                 btnCustom?.classList.add('active');
                 if (customContainer) customContainer.style.display = 'flex';
             } else {
@@ -1692,9 +1736,8 @@ class FantasyApp {
         const m1Obj = this.managers.find(m => m.id === m1Id) || { name: m1Id };
         const m2Obj = this.managers.find(m => m.id === m2Id) || { name: m2Id };
 
-        const allowNick = this.leagueSettings?.allow_nicknames !== false;
-        const m1Name = formatManagerDisplayName(m1Obj.canonical_name || m1Obj.name || m1Id, m1Obj.nickname, allowNick);
-        const m2Name = formatManagerDisplayName(m2Obj.canonical_name || m2Obj.name || m2Id, m2Obj.nickname, allowNick);
+        const m1Name = this.getManagerDisplayName(m1Id, m1Obj.canonical_name || m1Obj.name || m1Id);
+        const m2Name = this.getManagerDisplayName(m2Id, m2Obj.canonical_name || m2Obj.name || m2Id);
 
         if (!m1Id || !m2Id) {
             heroContainer.innerHTML = `
@@ -1918,9 +1961,7 @@ class FantasyApp {
         }
     }
 
-    openBoxscoreModal(season, week, homeManagerId, awayManagerId) {
-        const sNum = Number(season);
-        const wNum = Number(week);
+    showMatchupDetailsModal(homeManagerId, awayManagerId, sNum, wNum) {
         const modal = document.getElementById('boxscore-modal');
         const modalContent = document.getElementById('boxscore-modal-content');
         if (!modal || !modalContent) return;
@@ -1946,8 +1987,13 @@ class FantasyApp {
         });
         if (!m) return;
 
-        const leftName  = m.home_team_name || m.team_1_name || m.home_manager_id;
-        const rightName = m.away_team_name || m.team_2_name || m.away_manager_id;
+        const leftMgrId = m.home_manager_id || m.team_1_manager_id || hId;
+        const rightMgrId = m.away_manager_id || m.team_2_manager_id || aId;
+        const leftMgrName = this.getManagerDisplayName(leftMgrId, m.home_manager_name || m.team_1_manager_name);
+        const rightMgrName = this.getManagerDisplayName(rightMgrId, m.away_manager_name || m.team_2_manager_name);
+
+        const leftName  = m.home_team_name || m.team_1_name || leftMgrName;
+        const rightName = m.away_team_name || m.team_2_name || rightMgrName;
         const leftScore  = Number(m.home_score !== undefined ? m.home_score : m.team_1_actual_points) || 0;
         const rightScore = Number(m.away_score !== undefined ? m.away_score : m.team_2_actual_points) || 0;
         const isLeftWin  = m.winner === 'HOME' || (m.winner_team_id && Number(m.winner_team_id) === Number(m.team_1_id)) || leftScore > rightScore;
@@ -1963,10 +2009,10 @@ class FantasyApp {
         const leftPlayers  = gamePlayers.filter(p => p.team_id === m.home_team_id);
         const rightPlayers = gamePlayers.filter(p => p.team_id === m.away_team_id);
 
-        const renderRosterTable = (players, teamName, score, isWinner) => {
+        const renderRosterTable = (players, teamName, score, isWinner, managerName) => {
             const starters = players.filter(p => p.is_starter);
             const bench    = players.filter(p => !p.is_starter);
-            let html = `<div class="roster-card"><div class="roster-card-header"><div class="roster-team-title">${teamName} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div><div class="roster-team-score">${score.toFixed(2)}</div></div><div class="roster-section-title"><span>Starters</span></div>`;
+            let html = `<div class="roster-card"><div class="roster-card-header"><div class="roster-team-title">${teamName} ${managerName ? `<span style="font-size: 0.82rem; font-weight: normal; color: var(--text-muted); margin-left: 6px;">(${managerName})</span>` : ''} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div><div class="roster-team-score">${score.toFixed(2)}</div></div><div class="roster-section-title"><span>Starters</span></div>`;
 
             if (players.length === 0) {
                 html += `<div style="padding:28px;text-align:center;color:var(--text-muted);"><em>Detailed player box score not archived for this matchup.</em></div>`;
@@ -2028,21 +2074,21 @@ class FantasyApp {
             return html;
         };
 
-        const roundName = m ? (m.playoff_round || (m.is_playoff ? getPlayoffRoundName(season, week) : '')) : '';
+        const roundName = m ? (m.playoff_round || (m.is_playoff ? getPlayoffRoundName(sNum, wNum) : '')) : '';
         modalContent.innerHTML = `
             <div class="modal-header">
                 <div class="modal-title-area">
-                    <h2>${season} • Week ${week} ${m && m.is_playoff ? ', as Playoffs (' + (roundName || 'Playoffs') + ')' : ', as Regular Season'}</h2>
+                    <h2>${sNum} • Week ${wNum} ${m && m.is_playoff ? ', as Playoffs (' + (roundName || 'Playoffs') + ')' : ', as Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="app.openSettingsModal(${season})" title="View League Scoring Settings">? Scoring</button>
+                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="app.openSettingsModal(${sNum})" title="View League Scoring Settings">? Scoring</button>
                     <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>
                 </div>
             </div>
             <div class="rosters-grid">
-                ${renderRosterTable(leftPlayers, leftName, leftScore, isLeftWin)}
-                ${renderRosterTable(rightPlayers, rightName, rightScore, isRightWin)}
+                ${renderRosterTable(leftPlayers, leftName, leftScore, isLeftWin, leftMgrName)}
+                ${renderRosterTable(rightPlayers, rightName, rightScore, isRightWin, rightMgrName)}
             </div>
         `;
 

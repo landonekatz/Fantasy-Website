@@ -102,7 +102,7 @@ TargetApp.prototype.renderRivalryWeek = function() {
                     <p>Only my wars with him: he is a lion</p>
                     <p>That I am proud to hunt.</p>
                 </blockquote>
-                <div class="dungeon-quote-credit">— William Shakespeare, <em>Coriolanus</em></div>
+                <div class="dungeon-quote-credit">, as William Shakespeare, <em>Coriolanus</em></div>
                 <p class="dungeon-subtitle">
                     Starting in the 2026-2027 season, every manager is bound to an eternal rival. Contested annually during the week of Thanksgiving, where rivalry records are carved in stone forever.
                 </p>

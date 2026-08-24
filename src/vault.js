@@ -944,6 +944,13 @@ class FantasyApp {
                 const claimsSnap = await get(dbRef(database, `leagues/${this.leagueSlug}/claims`));
                 if (claimsSnap.exists()) {
                     this.claims = claimsSnap.val() || {};
+                    const list = (this.members && this.members.length > 0) ? this.members : (this.managers || []);
+                    list.forEach(m => {
+                        const claim = this.claims[m.id];
+                        if (claim && claim.nickname !== undefined && !m.nickname) {
+                            m.nickname = claim.nickname;
+                        }
+                    });
                 }
             } catch (e) {
                 console.warn('Could not load claims from RTDB', e);
@@ -954,6 +961,13 @@ class FantasyApp {
                 const claimsRef = dbRef(database, `leagues/${this.leagueSlug}/claims`);
                 onValue(claimsRef, (snapshot) => {
                     this.claims = snapshot.exists() ? (snapshot.val() || {}) : {};
+                    const list = (this.members && this.members.length > 0) ? this.members : (this.managers || []);
+                    list.forEach(m => {
+                        const claim = this.claims[m.id];
+                        if (claim && claim.nickname !== undefined) {
+                            m.nickname = claim.nickname;
+                        }
+                    });
                     if (this.activeTab === 'admin') {
                         this.renderAdminDashboard();
                     }
@@ -1015,6 +1029,32 @@ class FantasyApp {
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
     }
 
+    getManagerDisplayName(managerId, fallbackName = '') {
+        if (!managerId && !fallbackName) return 'Unknown';
+        const searchId = String(managerId || '').toLowerCase().trim();
+        const searchFallback = String(fallbackName || '').toLowerCase().trim();
+
+        const mList = (this.members && this.members.length > 0) ? this.members : (this.managers || []);
+        const m = mList.find(mgr => {
+            const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
+            const fullName = String(mgr.full_name || '').toLowerCase().trim();
+            const dispName = String(mgr.display_name || '').toLowerCase().trim();
+            const espnId = String(mgr.espn_id || '').toLowerCase().trim();
+            return (id && (id === searchId || id === searchFallback)) ||
+                   (name && (name === searchId || name === searchFallback)) ||
+                   (fullName && (fullName === searchId || fullName === searchFallback)) ||
+                   (dispName && (dispName === searchId || dispName === searchFallback)) ||
+                   (espnId && (espnId === searchId || espnId === searchFallback));
+        });
+
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || '';
+        const baseName = m ? (m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
+
+        return formatManagerDisplayName(baseName, nick, allowNicknames);
+    }
+
     getCurrentTeamName(managerId) {
         if (!this.managersData || !this.managersData.team_mappings) return 'Unknown Team';
         const mappings = this.managersData.team_mappings.filter(m => m.manager_id === managerId);
@@ -1045,7 +1085,7 @@ class FantasyApp {
 
                 if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
                 if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
-                if (mgrEl) mgrEl.textContent = manager.name;
+                if (mgrEl) mgrEl.textContent = this.getManagerDisplayName(managerId, manager.name);
                 
                 // Add click listener to scroll to this manager's recap
                 el.style.cursor = 'pointer';
@@ -1189,12 +1229,11 @@ class FantasyApp {
         const currentGroup = this.managers.filter(m => m.status_group === 'Current Managers');
         const retiredGroup = this.managers.filter(m => m.status_group === 'Retired Managers');
 
-        const allowNick = this.leagueSettings?.allow_nicknames !== false;
         const createOptgroup = (label, items) => {
             if (!items.length) return '';
             let html = `<optgroup label="${label}">`;
             items.forEach(m => {
-                const name = formatManagerDisplayName(m.canonical_name || m.name || m.id, m.nickname, allowNick);
+                const name = this.getManagerDisplayName(m.id, m.canonical_name || m.name || m.id);
                 html += `<option value="${m.id}">${name}</option>`;
             });
             html += `</optgroup>`;
@@ -1287,7 +1326,9 @@ class FantasyApp {
 
     getFilteredYearRange() {
         if (this.currentYearFilter === 'all') {
-            return { min: 2015, max: 2026 };
+            const firstYear = parseInt(this.leagueSettings.firstYear) || 2015;
+            const lastYear = parseInt(this.leagueSettings.lastYear) || new Date().getFullYear();
+            return { min: firstYear, max: lastYear };
         }
         if (this.currentYearFilter === 'custom') {
             return { min: this.customStartYear, max: this.customEndYear };
@@ -1317,9 +1358,8 @@ class FantasyApp {
         const m1Obj = this.managers.find(m => m.id === m1Id) || { name: m1Id };
         const m2Obj = this.managers.find(m => m.id === m2Id) || { name: m2Id };
 
-        const allowNick = this.leagueSettings?.allow_nicknames !== false;
-        const m1Name = formatManagerDisplayName(m1Obj.canonical_name || m1Obj.name || m1Id, m1Obj.nickname, allowNick);
-        const m2Name = formatManagerDisplayName(m2Obj.canonical_name || m2Obj.name || m2Id, m2Obj.nickname, allowNick);
+        const m1Name = this.getManagerDisplayName(m1Id, m1Obj.canonical_name || m1Obj.name || m1Id);
+        const m2Name = this.getManagerDisplayName(m2Id, m2Obj.canonical_name || m2Obj.name || m2Id);
 
         if (!m1Id || !m2Id) {
             heroContainer.innerHTML = `
@@ -1348,15 +1388,18 @@ class FantasyApp {
         // Filter using home_manager_id / away_manager_id schema
         const filtered = this.matchups.filter(g => {
             if (!this.includePlayoffs && g.is_playoff) return false;
-            const y = g.year;
+            const y = g.season || g.year;
             if (y < range.min || y > range.max) return false;
-            const ids = new Set([g.home_manager_id, g.away_manager_id]);
-            return ids.has(m1Id) && ids.has(m2Id);
+            const involves1 = g.home_manager_id === m1Id || g.away_manager_id === m1Id || g.team_1_manager_id === m1Id || g.team_2_manager_id === m1Id;
+            const involves2 = g.home_manager_id === m2Id || g.away_manager_id === m2Id || g.team_1_manager_id === m2Id || g.team_2_manager_id === m2Id;
+            return involves1 && involves2;
         });
 
         // Sort chronologically
         filtered.sort((a, b) => {
-            if (a.year !== b.year) return a.year - b.year;
+            const yrA = a.season || a.year;
+            const yrB = b.season || b.year;
+            if (yrA !== yrB) return yrA - yrB;
             return a.week - b.week;
         });
 
@@ -1365,7 +1408,7 @@ class FantasyApp {
         if (this.playerStats) {
             this.playerStats.forEach(p => {
                 if (p.is_starter) {
-                    const key = `${p.year}_${p.week}_${p.manager_id}`;
+                    const key = `${p.year || p.season}_${p.week}_${p.manager_id}`;
                     projMap[key] = (projMap[key] || 0) + (p.projected_points || 0);
                 }
             });
@@ -1380,28 +1423,28 @@ class FantasyApp {
         let minMargin = null;
 
         filtered.forEach(g => {
-            const isM1Home = g.home_manager_id === m1Id;
-            const m1Score = isM1Home ? (g.home_score || 0) : (g.away_score || 0);
-            const m2Score = isM1Home ? (g.away_score || 0) : (g.home_score || 0);
-
-            m1PF += m1Score;
-            m2PF += m2Score;
+            const isM1Home = g.home_manager_id === m1Id || g.team_1_manager_id === m1Id;
+            const m1Score = isM1Home ? (g.home_score !== undefined ? g.home_score : g.team_1_actual_points) : (g.away_score !== undefined ? g.away_score : g.team_2_actual_points);
+            const m2Score = isM1Home ? (g.away_score !== undefined ? g.away_score : g.team_2_actual_points) : (g.home_score !== undefined ? g.home_score : g.team_1_actual_points);
             
-            const m1Proj = projMap[`${g.year}_${g.week}_${m1Id}`] || 0;
-            const m2Proj = projMap[`${g.year}_${g.week}_${m2Id}`] || 0;
+            m1PF += m1Score || 0;
+            m2PF += m2Score || 0;
+            
+            const m1Proj = projMap[`${g.year || g.season}_${g.week}_${m1Id}`] || 0;
+            const m2Proj = projMap[`${g.year || g.season}_${g.week}_${m2Id}`] || 0;
             m1ProjTotal += m1Proj;
             m2ProjTotal += m2Proj;
 
-            const margin = Math.abs(m1Score - m2Score);
-            const isM1Win = (isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY');
-            const isM2Win = (isM1Home && g.winner === 'AWAY') || (!isM1Home && g.winner === 'HOME');
+            const margin = Math.abs((m1Score || 0) - (m2Score || 0));
+            const isM1Win = (m1Score || 0) > (m2Score || 0);
+            const isM2Win = (m2Score || 0) > (m1Score || 0);
 
             if (isM1Win) { m1Wins++; if (g.is_playoff) m1PlayoffWins++; }
             else if (isM2Win) { m2Wins++; if (g.is_playoff) m2PlayoffWins++; }
             else { ties++; }
 
-            if (!maxBlowout || margin > maxBlowout.margin) maxBlowout = { margin, winner: isM1Win ? m1Name : m2Name, season: g.year, week: g.week };
-            if (!minMargin || margin < minMargin.margin) minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.year, week: g.week };
+            if (!maxBlowout || margin > maxBlowout.margin) maxBlowout = { margin, winner: isM1Win ? m1Name : m2Name, season: g.year || g.season, week: g.week };
+            if (!minMargin || margin < minMargin.margin) minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.year || g.season, week: g.week };
         });
 
         const totalGames = filtered.length;
@@ -1441,12 +1484,6 @@ class FantasyApp {
 
         let cardsHtml = '';
         filtered.forEach(g => {
-            const isM1Home = g.home_manager_id === m1Id;
-            const t1Name  = isM1Home ? (g.home_team_name || m1Name) : (g.away_team_name || m1Name);
-            const t2Name  = isM1Home ? (g.away_team_name || m2Name) : (g.home_team_name || m2Name);
-            const t1Score = isM1Home ? (g.home_score || 0) : (g.away_score || 0);
-            const t2Score = isM1Home ? (g.away_score || 0) : (g.home_score || 0);
-            
             const t1Proj = projMap[`${g.year}_${g.week}_${m1Id}`] || 0;
             const t2Proj = projMap[`${g.year}_${g.week}_${m2Id}`] || 0;
             
@@ -1599,14 +1636,16 @@ class FantasyApp {
         const rightTeamId = Number(m.away_team_id !== undefined ? m.away_team_id : m.team_2_id);
         const leftMgrId = m.home_manager_id || m.team_1_manager_id;
         const rightMgrId = m.away_manager_id || m.team_2_manager_id;
+        const leftMgrName = this.getManagerDisplayName(leftMgrId, m.home_manager_name || m.team_1_manager_name);
+        const rightMgrName = this.getManagerDisplayName(rightMgrId, m.away_manager_name || m.team_2_manager_name);
 
         const leftPlayers  = gamePlayers.filter(p => Number(p.team_id) === leftTeamId || (leftMgrId && p.manager_id === leftMgrId));
         const rightPlayers = gamePlayers.filter(p => Number(p.team_id) === rightTeamId || (rightMgrId && p.manager_id === rightMgrId));
 
-        const renderRosterTable = (players, teamName, score, isWinner) => {
+        const renderRosterTable = (players, teamName, score, isWinner, managerName) => {
             const starters = players.filter(p => p.is_starter);
             const bench    = players.filter(p => !p.is_starter);
-            let html = `<div class="roster-card"><div class="roster-card-header"><div class="roster-team-title">${teamName} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div><div class="roster-team-score">${score.toFixed(2)}</div></div><div class="roster-section-title"><span>Starters</span></div>`;
+            let html = `<div class="roster-card"><div class="roster-card-header"><div class="roster-team-title">${teamName} ${managerName ? `<span style="font-size: 0.82rem; font-weight: normal; color: var(--text-muted); margin-left: 6px;">(${managerName})</span>` : ''} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div><div class="roster-team-score">${score.toFixed(2)}</div></div><div class="roster-section-title"><span>Starters</span></div>`;
 
             if (players.length === 0) {
                 html += `
@@ -1689,8 +1728,8 @@ class FantasyApp {
                 </div>
             </div>
             <div class="rosters-grid">
-                ${renderRosterTable(leftPlayers, leftName, leftScore, isLeftWin)}
-                ${renderRosterTable(rightPlayers, rightName, rightScore, isRightWin)}
+                ${renderRosterTable(leftPlayers, leftName, leftScore, isLeftWin, leftMgrName)}
+                ${renderRosterTable(rightPlayers, rightName, rightScore, isRightWin, rightMgrName)}
             </div>
         `;
 

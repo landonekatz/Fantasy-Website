@@ -467,6 +467,13 @@ class FantasyApp {
             }
             if (claimsSnap && claimsSnap.exists()) {
                 this.claims = claimsSnap.val() || {};
+                Object.entries(this.claims).forEach(([mId, cVal]) => {
+                    const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
+                    if (nick) {
+                        const target = this.managers.find(m => m.id === mId);
+                        if (target && !target.nickname) target.nickname = nick;
+                    }
+                });
             }
             if (managersSnap && managersSnap.exists()) {
                 const rtdbManagers = managersSnap.val();
@@ -484,6 +491,19 @@ class FantasyApp {
                     });
                 }
             }
+
+            // Real-time listener for claims nicknames
+            try {
+                const claimsRef = dbRef(database, `leagues/dmsfantasy/claims`);
+                onValue(claimsRef, (snapshot) => {
+                    this.claims = snapshot.exists() ? (snapshot.val() || {}) : {};
+                    Object.entries(this.claims).forEach(([mId, cVal]) => {
+                        const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
+                        const target = this.managers.find(m => m.id === mId);
+                        if (target) target.nickname = nick || '';
+                    });
+                });
+            } catch (e) {}
         } catch (e) {
             console.warn('Could not fetch RTDB settings for dmsfantasy', e);
         }
@@ -503,6 +523,29 @@ class FantasyApp {
         }
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
+    }
+
+    getManagerDisplayName(managerId, fallbackName = '') {
+        if (!managerId && !fallbackName) return 'Unknown';
+        const searchId = String(managerId || '').toLowerCase().trim();
+        const searchFallback = String(fallbackName || '').toLowerCase().trim();
+
+        const m = (this.managers || []).find(mgr => {
+            const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
+            const fullName = String(mgr.full_name || '').toLowerCase().trim();
+            const dispName = String(mgr.display_name || '').toLowerCase().trim();
+            return (id && (id === searchId || id === searchFallback)) ||
+                   (name && (name === searchId || name === searchFallback)) ||
+                   (fullName && (fullName === searchId || fullName === searchFallback)) ||
+                   (dispName && (dispName === searchId || dispName === searchFallback));
+        });
+
+        const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || '';
+        const baseName = m ? (m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
+
+        return formatManagerDisplayName(baseName, nick, allowNicknames);
     }
 
     getCurrentTeamName(managerId) {
@@ -535,7 +578,7 @@ class FantasyApp {
 
                 if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
                 if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
-                if (mgrEl) mgrEl.textContent = manager.name;
+                if (mgrEl) mgrEl.textContent = this.getManagerDisplayName(managerId, manager.name);
                 
                 // Add click listener to scroll to this manager's recap
                 el.style.cursor = 'pointer';
@@ -1385,12 +1428,11 @@ class FantasyApp {
         const currentGroup = this.managers.filter(m => m.status_group === 'Current Managers');
         const retiredGroup = this.managers.filter(m => m.status_group === 'Retired Managers');
 
-        const allowNick = this.leagueSettings?.allow_nicknames !== false;
         const createOptgroup = (label, items) => {
             if (!items.length) return '';
             let html = `<optgroup label="${label}">`;
             items.forEach(m => {
-                const name = formatManagerDisplayName(m.canonical_name || m.name || m.id, m.nickname, allowNick);
+                const name = this.getManagerDisplayName(m.id, m.canonical_name || m.name || m.id);
                 html += `<option value="${m.id}">${name}</option>`;
             });
             html += `</optgroup>`;
@@ -1488,9 +1530,8 @@ class FantasyApp {
         const m1Obj = this.managers.find(m => m.id === m1Id) || { name: m1Id };
         const m2Obj = this.managers.find(m => m.id === m2Id) || { name: m2Id };
 
-        const allowNick = this.leagueSettings?.allow_nicknames !== false;
-        const m1Name = formatManagerDisplayName(m1Obj.canonical_name || m1Obj.name || m1Id, m1Obj.nickname, allowNick);
-        const m2Name = formatManagerDisplayName(m2Obj.canonical_name || m2Obj.name || m2Id, m2Obj.nickname, allowNick);
+        const m1Name = this.getManagerDisplayName(m1Id, m1Obj.canonical_name || m1Obj.name || m1Id);
+        const m2Name = this.getManagerDisplayName(m2Id, m2Obj.canonical_name || m2Obj.name || m2Id);
 
         if (!m1Id || !m2Id) {
             heroContainer.innerHTML = `
@@ -1530,9 +1571,10 @@ class FantasyApp {
             if (y < range.min || y > range.max) return false;
 
             // 4. Check if both managers are involved
-            const involves1 = g.team_1_manager_id === m1Id || g.team_2_manager_id === m1Id;
-            const involves2 = g.team_1_manager_id === m2Id || g.team_2_manager_id === m2Id;
-            return involves1 && involves2;
+            const t1Mgr = g.team_1_manager_id;
+            const t2Mgr = g.team_2_manager_id;
+
+            return (t1Mgr === m1Id && t2Mgr === m2Id) || (t1Mgr === m2Id && t2Mgr === m1Id);
         });
 
         // Sort chronologically: Earliest at top, Latest at bottom
@@ -1780,6 +1822,11 @@ class FantasyApp {
         const isLeftWin = m.winner_team_id === lId;
         const isRightWin = m.winner_team_id === rId;
 
+        const leftMgrId = m.team_1_manager_id || m.home_manager_id;
+        const rightMgrId = m.team_2_manager_id || m.away_manager_id;
+        const leftMgrName = this.getManagerDisplayName(leftMgrId, m.team_1_manager_name || m.home_manager_name);
+        const rightMgrName = this.getManagerDisplayName(rightMgrId, m.team_2_manager_name || m.away_manager_name);
+
         // Find all player stats for both teams in that season & week (deduplicating duplicate records)
         const rawGamePlayers = this.playerStats.filter(p => p.season === sNum && p.week === wNum && (p.team_id === lId || p.team_id === rId));
         const seenPlayerKeys = new Set();
@@ -1795,14 +1842,14 @@ class FantasyApp {
         const leftPlayers = gamePlayers.filter(p => p.team_id === lId);
         const rightPlayers = gamePlayers.filter(p => p.team_id === rId);
 
-        const renderRosterTable = (players, teamName, score, isWinner) => {
+        const renderRosterTable = (players, teamName, score, isWinner, managerName) => {
             const starters = players.filter(p => p.is_starter);
             const bench = players.filter(p => !p.is_starter);
 
             let html = `
                 <div class="roster-card">
                     <div class="roster-card-header">
-                        <div class="roster-team-title">${teamName} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div>
+                        <div class="roster-team-title">${teamName} ${managerName ? `<span style="font-size: 0.82rem; font-weight: normal; color: var(--text-muted); margin-left: 6px;">(${managerName})</span>` : ''} ${isWinner ? '<span class="win-badge">WINNER</span>' : ''}</div>
                         <div class="roster-team-score">${score.toFixed(2)}</div>
                     </div>
 
@@ -1921,8 +1968,8 @@ class FantasyApp {
             </div>
 
             <div class="rosters-grid">
-                ${renderRosterTable(leftPlayers, leftName, leftScore, isLeftWin)}
-                ${renderRosterTable(rightPlayers, rightName, rightScore, isRightWin)}
+                ${renderRosterTable(leftPlayers, leftName, leftScore, isLeftWin, leftMgrName)}
+                ${renderRosterTable(rightPlayers, rightName, rightScore, isRightWin, rightMgrName)}
             </div>
         `;
 

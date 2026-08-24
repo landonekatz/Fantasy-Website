@@ -927,6 +927,9 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
                     // 2. If app is currently active for this league, update in-memory
                     if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                        if (app.claims) {
+                            app.claims[managerId] = { ...(app.claims[managerId] || {}), nickname: newNick };
+                        }
                         if (app.members) {
                             const m = app.members.find(x => x.id === managerId);
                             if (m) m.nickname = newNick;
@@ -940,20 +943,35 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                             await set(allMgrRef, app.managers).catch(() => {});
                         }
 
-                        // Re-render views immediately
+                        // Re-render views immediately across power rankings, h2h, records, draft, and rivalries
+                        app.initPowerRankings?.();
                         app.setupH2HControls?.();
                         app.renderH2H?.();
                         app.renderRecords?.();
+                        app.renderRecordBook?.();
+                        app.renderRivalryWeek?.();
                         if (app.draftEngine) {
-                            app.draftEngine.updateData({ managers: app.managers, draftResults: app.draftResults, leagueSettings: app.leagueSettings });
-                            if (app.activeTab === 'draft') app.draftEngine.render();
+                            app.draftEngine.updateData({
+                                managers: app.managers || app.members,
+                                draftResults: app.draftResults,
+                                leagueSettings: app.leagueSettings,
+                                scoringSettings: app.scoringSettings || app.leagueSettings
+                            });
+                            if (app.activeTab === 'draft' || app.activeTab === 'draft-hub') {
+                                app.draftEngine.render();
+                            }
                         }
                         if (app.activeTab === 'admin') {
                             app.renderAdminDashboard?.();
                         }
                     }
 
-                    // 3. Update session cache
+                    // 3. Dispatch global event for multi-component synchronization
+                    window.dispatchEvent(new CustomEvent('vault_nickname_updated', {
+                        detail: { leagueId, managerId, nickname: newNick }
+                    }));
+
+                    // 4. Update session cache
                     if (!session.managerNicknames) session.managerNicknames = {};
                     session.managerNicknames[leagueId] = newNick;
                     try {

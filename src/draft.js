@@ -184,7 +184,9 @@ export class VaultDraftEngine {
                                   (m.status || '').toLowerCase() === 'retired' || 
                                   m.status_group === 'Retired Managers';
                 const baseName = m.canonical_name || m.name || m.manager_name || id;
-                const displayName = formatManagerDisplayName(baseName, m.nickname, allowNicknames);
+                const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
+                const nick = m.nickname || (this.claims && this.claims[id]?.nickname) || (winAppClaims && winAppClaims[id]?.nickname) || '';
+                const displayName = formatManagerDisplayName(baseName, nick, allowNicknames);
                 found.push({
                     id,
                     name: displayName,
@@ -202,7 +204,8 @@ export class VaultDraftEngine {
             if (id && !seen.has(id)) {
                 seen.add(id);
                 const baseName = p.manager_name || p.managerName || id;
-                const displayName = formatManagerDisplayName(baseName, p.nickname, allowNicknames);
+                const nick = p.nickname || (this.claims && this.claims[id]?.nickname) || (window.app?.claims && window.app.claims[id]?.nickname) || '';
+                const displayName = formatManagerDisplayName(baseName, nick, allowNicknames);
                 found.push({
                     id,
                     name: displayName,

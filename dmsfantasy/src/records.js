@@ -80,13 +80,34 @@ Object.assign(TargetApp.prototype, {
 
     // Helper: lookup manager name or return default
     getManagerName(managerId, fallbackName = '') {
-        const m = (this.managers || []).find(mgr => (mgr.id || mgr.manager_id) === managerId);
+        if (!managerId && !fallbackName) return 'Unknown';
+        const searchId = String(managerId || '').toLowerCase().trim();
+        const searchFallback = String(fallbackName || '').toLowerCase().trim();
+
+        const m = (this.managers || []).find(mgr => {
+            const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
+            const fullName = String(mgr.full_name || '').toLowerCase().trim();
+            const dispName = String(mgr.display_name || '').toLowerCase().trim();
+            return (id && (id === searchId || id === searchFallback)) ||
+                   (name && (name === searchId || name === searchFallback)) ||
+                   (fullName && (fullName === searchId || fullName === searchFallback)) ||
+                   (dispName && (dispName === searchId || dispName === searchFallback));
+        });
+
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
+        const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
+        const nick = m?.nickname || (this.claims && this.claims[m?.id || managerId]?.nickname) || (winAppClaims && winAppClaims[m?.id || managerId]?.nickname) || '';
+
         if (m) {
-            const baseName = m.canonical_name || m.name || m.manager_name;
-            return formatManagerDisplayName(baseName, m.nickname, allowNicknames);
+            const baseName = m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name;
+            return formatManagerDisplayName(baseName, nick, allowNicknames);
         }
-        return fallbackName || managerId;
+
+        const raw = (fallbackName && fallbackName !== managerId) ? fallbackName : managerId;
+        if (!raw) return 'Unknown';
+        const clean = String(raw).replace(/_/g, ' ').trim();
+        return formatManagerDisplayName(clean.replace(/\b\w/g, c => c.toUpperCase()), nick, allowNicknames);
     },
 
     // Helper: get final placement badge HTML for a season and manager
