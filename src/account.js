@@ -834,7 +834,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                            (info && info.name) ||
                            (app?.leagueSlug === leagueId ? app?.leagueSettings?.name : null) ||
                            localStoredName ||
-                           (leagueId === 'fbofantasy' ? 'FBO Fantasy League' : (leagueId.charAt(0).toUpperCase() + leagueId.slice(1) + ' League'));
+                           (leagueId.charAt(0).toUpperCase() + leagueId.slice(1) + ' League');
                 
                 const path = (cachedDetails && cachedDetails.path) || (info ? info.path : `/${leagueId}`);
                 const isUserAdmin = Boolean(session.isFounder || (session.adminLeagues && session.adminLeagues.includes(leagueId)));

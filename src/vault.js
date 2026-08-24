@@ -307,7 +307,7 @@ class FantasyApp {
 
         const pathSlug = window.location.pathname.substring(1).replace(/\/$/, "");
         const leagueTitle = this.leagueSettings?.name ||
-            (pathSlug === 'fbofantasy' ? 'FBO Fantasy League' : (pathSlug ? pathSlug.toUpperCase() + ' Vault' : 'Private League Archive'));
+            (pathSlug ? pathSlug.toUpperCase() + ' Vault' : 'Private League Archive');
 
         overlay = document.createElement('div');
         overlay.id = 'private-guard-overlay';
@@ -793,28 +793,6 @@ class FantasyApp {
         if (!bundleData) {
             if (window.FANTASY_DATA) {
                 bundleData = window.FANTASY_DATA;
-            } else if (slug === 'gaywoodfantasy') {
-                try {
-                    const [mgrs, stands, mat, stats, draft, sett] = await Promise.all([
-                        fetch('/gaywoodfantasy/data/managers.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/league_standings.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/matchups.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/weekly_player_stats.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/draft_results.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/league_settings.json').then(r => r.json())
-                    ]);
-                    bundleData = {
-                        members: mgrs.managers || mgrs,
-                        league_standings: stands,
-                        matchups: mat,
-                        weekly_player_stats: stats,
-                        draft_results: draft,
-                        league_settings: { name: 'Gaywood / Katz League', id: '262404', scoringRules: sett['2025'] || {} },
-                        scoring_settings: sett
-                    };
-                } catch (e) {
-                    console.warn('Failed local gaywood fallback:', e);
-                }
             } else if (slug === 'dmsfantasy') {
                 try {
                     const [stands, mat, stats, draft, tx] = await Promise.all([
@@ -1935,7 +1913,7 @@ class FantasyApp {
                     <div style="margin-top: 1.25rem;">
                         <label for="admin-league-title-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">Custom League Title:</label>
                         <div class="tagline-input-row">
-                            <input type="text" id="admin-league-title-input" class="admin-input" value="${leagueName}" placeholder="e.g. FBO Fantasy League HQ">
+                            <input type="text" id="admin-league-title-input" class="admin-input" value="${leagueName}" placeholder="e.g. Ironclad Dynasty League HQ">
                             <button id="btn-save-league-title" class="btn-primary" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Title</button>
                         </div>
                         <div id="title-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
@@ -2509,7 +2487,7 @@ class FantasyApp {
             return;
         }
 
-        const reservedSlugs = ['admin', 'api', 'auth', 'draft', 'records', 'h2h', 'login', 'signup', 'vault', 'thefantasyvault', 'dmsfantasy', 'gaywoodfantasy', 'assets', 'data', 'dist', 'node_modules'];
+        const reservedSlugs = ['admin', 'api', 'auth', 'draft', 'records', 'h2h', 'login', 'signup', 'vault', 'thefantasyvault', 'dmsfantasy', 'assets', 'data', 'dist', 'node_modules'];
         if (reservedSlugs.includes(cleanSlug)) {
             alert(`The slug "${cleanSlug}" is a reserved system keyword. Please choose a different slug.`);
             return;

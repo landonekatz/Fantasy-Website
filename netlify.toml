@@ -19,17 +19,6 @@
   to = "/dmsfantasy/index.html"
   status = 200
 
-# Route Gaywood / Katz Dad League HQ
-[[redirects]]
-  from = "/gaywoodfantasy"
-  to = "/gaywoodfantasy/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/gaywoodfantasy/*"
-  to = "/gaywoodfantasy/index.html"
-  status = 200
-
 # API endpoints
 [[redirects]]
   from = "/api/*"

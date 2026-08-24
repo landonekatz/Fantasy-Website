@@ -4,8 +4,6 @@
   "rewrites": [
     { "source": "/dmsfantasy", "destination": "/dmsfantasy/index.html" },
     { "source": "/dmsfantasy/(.*)", "destination": "/dmsfantasy/index.html" },
-    { "source": "/gaywoodfantasy", "destination": "/gaywoodfantasy/index.html" },
-    { "source": "/gaywoodfantasy/(.*)", "destination": "/gaywoodfantasy/index.html" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/:slug([a-zA-Z0-9_-]+)", "destination": "/vault.html" },

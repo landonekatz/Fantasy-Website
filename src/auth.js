@@ -486,15 +486,14 @@ const AuthEngine = {
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     const isFounder = user.email === 'landonekatz@gmail.com';
-    let joinedLeagues = currentSession?.joinedLeagues || (isFounder ? ['dmsfantasy', 'gaywoodfantasy'] : []);
-    let adminLeagues = currentSession?.adminLeagues || (isFounder ? ['dmsfantasy', 'gaywoodfantasy'] : []);
+    let joinedLeagues = currentSession?.joinedLeagues || (isFounder ? ['dmsfantasy'] : []);
+    let adminLeagues = currentSession?.adminLeagues || (isFounder ? ['dmsfantasy'] : []);
     let leagueDetails = currentSession?.leagueDetails || {
-      'dmsfantasy': { name: 'The Dumbarton League', path: '/dmsfantasy/' },
-      'gaywoodfantasy': { name: 'Gaywood / Katz League', path: '/gaywoodfantasy/' }
+      'dmsfantasy': { name: 'The Dumbarton League', path: '/dmsfantasy/' }
     };
     let claims = currentSession?.claims || {};
     try {
-      ['dmsfantasy', 'gaywoodfantasy'].forEach(slug => {
+      ['dmsfantasy'].forEach(slug => {
         const stored = localStorage.getItem(`vault_claim_${slug}`);
         if (stored && !claims[slug]) claims[slug] = stored;
       });
@@ -508,7 +507,7 @@ onAuthStateChanged(auth, async (user) => {
       name: currentSession?.name || user.displayName || user.email.split('@')[0],
       isFounder: isFounder,
       joinedLeagues: joinedLeagues,
-      adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
+      adminLeagues: isFounder ? ['dmsfantasy', ...adminLeagues] : adminLeagues,
       leagueDetails: leagueDetails,
       claims: claims,
       last_league: lastLeague
