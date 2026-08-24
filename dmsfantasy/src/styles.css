@@ -1767,6 +1767,7 @@ body.rivalry-dungeon-mode header h1 {
     letter-spacing: 1.5px;
     background: linear-gradient(180deg, #ffffff 0%, #ffb300 100%) !important;
     -webkit-background-clip: text !important;
+    background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
 }
 
@@ -1885,6 +1886,7 @@ body.rivalry-dungeon-mode footer:not(.dungeon-quote-credit) {
     letter-spacing: 2px;
     background: linear-gradient(180deg, #ffffff 0%, #ffb300 50%, #ff5722 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 12px;
     filter: drop-shadow(0 4px 15px rgba(255, 87, 34, 0.35));
