@@ -256,13 +256,17 @@ class FantasyApp {
                 // Auto-link new league to user's profile and save in session/storage
                 if (window.AuthEngine && typeof window.AuthEngine.linkUserLeague === 'function') {
                     await window.AuthEngine.linkUserLeague(slug, 'admin', customName || compiledPayload.league_settings?.name);
+                    if (creds.creatorClaimId && typeof window.AuthEngine.claimManagerProfile === 'function') {
+                        const claimedMgr = compiledPayload.members?.find(m => m.id === creds.creatorClaimId);
+                        await window.AuthEngine.claimManagerProfile(slug, creds.creatorClaimId, claimedMgr?.name || creds.creatorClaimId);
+                    }
                 } else {
                     localStorage.setItem('vault_last_league', slug);
                 }
 
-                sessionStorage.removeItem('pendingVaultBuild');
-
-                updateUI(100, "Complete!");
+                updateUI(96, "Rendering League Record Books & Visualizations...");
+                this.precompiledBundle = compiledPayload;
+                
                 if (session && session.email) {
                     try {
                         const joinCode = slug.substring(0, 3).toUpperCase() + "24"; 
@@ -281,22 +285,48 @@ class FantasyApp {
                     }
                 }
 
-                setTimeout(() => {
-                    overlay.style.opacity = '0';
-                    overlay.style.transition = 'opacity 0.5s ease';
+                this.finishBuildingOverlay = () => {
+                    updateUI(100, "Welcome to Your Vault!");
                     setTimeout(() => {
-                        document.body.removeChild(overlay);
-                        resolve();
-                    }, 500);
-                }, 500);
+                        overlay.style.opacity = '0';
+                        overlay.style.transition = 'opacity 0.6s ease';
+                        setTimeout(() => {
+                            if (overlay && overlay.parentNode) {
+                                overlay.parentNode.removeChild(overlay);
+                            }
+                        }, 600);
+                    }, 400);
+                };
 
+                resolve();
             } catch (error) {
                 console.error("Build Failed:", error);
-                updateUI(100, "Build failed. " + error.message);
-                setTimeout(() => {
-                    document.body.removeChild(overlay);
-                    resolve();
-                }, 3000);
+                if (bar) bar.style.background = '#ef4444';
+                if (text) {
+                    text.textContent = 'Failed';
+                    text.style.color = '#ef4444';
+                }
+                if (status) {
+                    status.innerHTML = `<span style="color: #ef4444; font-weight: 600;">Import Error:</span> ${error.message}`;
+                }
+                
+                const card = overlay.querySelector('div');
+                if (card) {
+                    const errorBox = document.createElement('div');
+                    errorBox.style.cssText = 'margin-top: 1.5rem; padding: 1.25rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; text-align: left;';
+                    errorBox.innerHTML = `
+                        <div style="font-weight: 700; color: #dc2626; margin-bottom: 0.5rem; font-size: 0.95rem;">Build Encountered an Error</div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary, #475569); margin-bottom: 1rem; line-height: 1.45;">${error.message}</p>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <a href="/" class="btn-primary" style="flex: 1; text-align: center; text-decoration: none; padding: 0.6rem; font-size: 0.88rem; justify-content: center; display: inline-flex; align-items: center;">Return to Landing Page &rarr;</a>
+                            <button id="btn-retry-build" class="btn" style="flex: 1; padding: 0.6rem; font-size: 0.88rem; cursor: pointer; border: 1px solid var(--border-line, #cbd5e1); background: #ffffff; color: #0f172a; font-weight: 600; border-radius: 4px;">Retry Build</button>
+                        </div>
+                    `;
+                    card.appendChild(errorBox);
+                    document.getElementById('btn-retry-build')?.addEventListener('click', () => {
+                        window.location.reload();
+                    });
+                }
             }
         });
     }
@@ -638,6 +668,11 @@ class FantasyApp {
                 }
             }, 600);
         }
+
+        // Finish the building overlay now that all DOM, tabs, and records are rendered
+        if (typeof this.finishBuildingOverlay === 'function') {
+            this.finishBuildingOverlay();
+        }
     }
 
     setupFounderControlBar() {
@@ -779,14 +814,18 @@ class FantasyApp {
         this.leagueSlug = slug;
         
         let bundleData = null;
-        try {
-            const databaseRef = dbRef(database, `leagues/${slug}`);
-            const snapshot = await get(databaseRef);
-            if (snapshot.exists()) {
-                bundleData = snapshot.val();
+        if (this.precompiledBundle) {
+            bundleData = this.precompiledBundle;
+        } else {
+            try {
+                const databaseRef = dbRef(database, `leagues/${slug}`);
+                const snapshot = await get(databaseRef);
+                if (snapshot.exists()) {
+                    bundleData = snapshot.val();
+                }
+            } catch (err) {
+                console.error("Failed to load league data from database:", err);
             }
-        } catch (err) {
-            console.error("Failed to load league data from database:", err);
         }
 
         // Fallback for static demo leagues if RTDB is empty

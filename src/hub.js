@@ -465,9 +465,30 @@ let currentLeagueCreds = null;
 
   if (btnConfirmManagers) {
     btnConfirmManagers.addEventListener('click', () => {
+      const session = AuthEngine ? AuthEngine.getSession() : null;
       if (step2 && step3) {
         step2.style.display = 'none';
         step3.style.display = 'block';
+
+        if (session && session.email) {
+          step3.innerHTML = `
+            <div style="text-align: center; padding: 1rem 0;">
+              <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: #dcfce7; color: #15803d; font-weight: 800; font-size: 1.1rem; margin-bottom: 12px;">✓</div>
+              <h3 class="modal-title" style="margin-bottom: 0.35rem;">Authenticated Account Active</h3>
+              <p class="modal-text" style="margin-bottom: 1.5rem; font-size: 0.92rem;">
+                You are signed in as <strong>${session.email}</strong>. This new league vault will be linked to your administrator profile immediately.
+              </p>
+              <button id="btn-build-now" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1rem; font-weight: 700; cursor: pointer;">
+                Build League Vault &rarr;
+              </button>
+            </div>
+          `;
+          document.getElementById('btn-build-now')?.addEventListener('click', () => {
+            const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
+            const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
+            advanceToStep4(slug);
+          });
+        }
       }
     });
   }
@@ -515,13 +536,13 @@ let currentLeagueCreds = null;
       const password = document.getElementById('register-password');
       if (email && email.value && password && password.value) {
         try {
-          const user = await AuthEngine.loginWithEmail(email.value, password.value);
+          const user = await AuthEngine.registerWithEmail(email.value, password.value);
           const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
           const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
           
           advanceToStep4(slug);
         } catch (err) {
-          alert("Sign In failed: " + err.message);
+          alert("Account Setup failed: " + err.message);
         }
       } else {
         alert("Please enter both email and password");

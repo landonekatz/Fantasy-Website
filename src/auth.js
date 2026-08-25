@@ -135,10 +135,41 @@ const AuthEngine = {
           return newResult.user;
         } catch (signupError) {
           console.error("Signup Error", signupError);
+          if (signupError.code === 'auth/operation-not-allowed' || signupError.code === 'auth/admin-restricted-operation') {
+            throw new Error("Email/Password sign-in is disabled in Firebase. Enable 'Email/Password' in Firebase Console (Authentication > Sign-in method).");
+          }
+          if (signupError.code === 'auth/weak-password') {
+            throw new Error("Password should be at least 6 characters.");
+          }
           throw signupError;
         }
       }
+      if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+        throw new Error("Email/Password sign-in is disabled in Firebase. Enable 'Email/Password' in Firebase Console (Authentication > Sign-in method).");
+      }
+      if (error.code === 'auth/wrong-password') {
+        throw new Error("Incorrect password. Please try again.");
+      }
       console.error("Email Auth Error", error);
+      throw error;
+    }
+  },
+
+  async registerWithEmail(email, password) {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      if (error.code === 'auth/email-already-in-use') {
+        return this.loginWithEmail(email, password);
+      }
+      if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+        throw new Error("Email/Password sign-in is disabled in Firebase. Enable 'Email/Password' in Firebase Console (Authentication > Sign-in method).");
+      }
+      if (error.code === 'auth/weak-password') {
+        throw new Error("Password should be at least 6 characters.");
+      }
+      console.error("Signup Error", error);
       throw error;
     }
   },

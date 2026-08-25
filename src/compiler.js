@@ -565,6 +565,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     const picks = season.data.draftDetail?.picks || [];
     for (const pick of picks) {
       const tid = pick.teamId;
+      const tinfo = (teamMap[year] && teamMap[year][tid]) || {};
       const pName = playerIdToName.get(pick.playerId) || `Player ID ${pick.playerId}`;
       const pos = playerIdToPosition.get(pick.playerId) || '';
       const histTeam = nflHistoricalTeams.getTeam(pName, year, pos);

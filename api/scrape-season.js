@@ -19,6 +19,8 @@ export default async function handler(req, res) {
   // 1. Check-only mode for year discovery
   if (checkOnly === 'true') {
     const urlsToTry = [
+      `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam`,
+      `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${year}&view=mTeam`,
       `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}?view=mStatus`,
       `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${year}&view=mStatus`
     ];
@@ -27,7 +29,10 @@ export default async function handler(req, res) {
         const r = await fetch(u, { headers, redirect: 'manual' });
         if (r.ok) {
           const d = await r.json();
-          return res.status(200).json({ year: yr, data: Array.isArray(d) ? d[0] : d });
+          const unwrapped = Array.isArray(d) ? d[0] : d;
+          if (unwrapped && (unwrapped.teams || unwrapped.status || unwrapped.members)) {
+            return res.status(200).json({ year: yr, data: unwrapped });
+          }
         }
       } catch (e) {}
     }
@@ -48,7 +53,7 @@ export default async function handler(req, res) {
       if (r.ok) {
         const d = await r.json();
         seasonData = Array.isArray(d) ? d[0] : d;
-        if (seasonData) break;
+        if (seasonData && seasonData.teams) break;
       }
     } catch (e) {}
   }
@@ -64,14 +69,22 @@ export default async function handler(req, res) {
     const weekNums = Array.from({ length: maxWeeks }, (_, i) => i + 1);
 
     const boxPromises = weekNums.map(async (w) => {
-      const boxUrl = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}?view=mBoxscore&scoringPeriodId=${w}`;
-      try {
-        const boxRes = await fetch(boxUrl, { headers, redirect: 'manual' });
-        if (boxRes.ok) {
-          const bData = await boxRes.json();
-          return { week: w, data: bData };
-        }
-      } catch (e) {}
+      const boxUrls = [
+        `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}?view=mBoxscore&view=mMatchupScore&scoringPeriodId=${w}`,
+        `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${year}&view=mBoxscore&view=mMatchupScore&scoringPeriodId=${w}`
+      ];
+      for (const boxUrl of boxUrls) {
+        try {
+          const boxRes = await fetch(boxUrl, { headers, redirect: 'manual' });
+          if (boxRes.ok) {
+            const rawBData = await boxRes.json();
+            const bData = Array.isArray(rawBData) ? rawBData[0] : rawBData;
+            if (bData && bData.schedule) {
+              return { week: w, data: bData };
+            }
+          }
+        } catch (e) {}
+      }
       return null;
     });
 
