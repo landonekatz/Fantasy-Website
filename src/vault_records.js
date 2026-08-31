@@ -1,4 +1,5 @@
 import { formatManagerDisplayName } from './formatters.js';
+import { calculateSeasonLoser } from './compiler.js';
 
 // The Record Book Analytics & UI Renderer for Gaywood Fantasy Football League HQ
 // Extends FantasyApp with all 5 Record Book sections, table PPG toggles, and custom interactive filtering
@@ -116,9 +117,13 @@ Object.assign(TargetApp.prototype, {
 
     // Helper: get final placement badge HTML for a season and manager
     getFinalPlacementBadge(season, managerId) {
-        const s = (this.standings || []).find(row => Number(row.year) === Number(season) && (row.manager_id === managerId || row.id === managerId));
+        const yr = Number(season);
+        const s = (this.standings || []).find(row => Number(row.year) === yr && (row.manager_id === managerId || row.id === managerId));
         if (!s) return '';
-        const rank = s.final_rank;
+        const rank = s.final_rank || s.rank;
+        const loserRes = yr ? calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings) : null;
+        const isOutrightLoser = loserRes ? (loserRes.manager_id === managerId) : (rank === 12);
+
         if (rank === 1) {
             return `<span class="placement-pill placement-1st" title="League Champion">1st Place</span>`;
         }
@@ -128,8 +133,8 @@ Object.assign(TargetApp.prototype, {
         if (rank === 3) {
             return `<span class="placement-pill">3rd Place</span>`;
         }
-        if (rank === 12) {
-            return `<span class="placement-pill placement-12th" title="Outright Loser / Toilet Bowl">12th Place</span>`;
+        if (isOutrightLoser) {
+            return `<span class="placement-pill placement-12th" title="Outright Loser / Last Place">${rank ? `${rank}th Place (Loser)` : 'Outright Loser'}</span>`;
         }
         return `<span class="placement-pill">${rank}th Place</span>`;
     },
@@ -480,28 +485,33 @@ Object.assign(TargetApp.prototype, {
             `;
         }).join('');
 
-        // Outright Losses List (12th Place Finishes / Toilet Bowl Losers)
+        // Outright Losses List (12th Place Finishes / Toilet Bowl Losers / Configured Season Losers)
         const toiletMap = {};
         let mostRecentToiletYear = -1;
         let mostRecentToiletManagerId = null;
 
-        for (const s of (this.standings || [])) {
-            if (!this.filterSeasonByRule(s.year, filterObj)) continue;
-            const mid = s.manager_id || s.id;
-            if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
-            if (s.final_rank === 12) {
+        const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => a - b);
+
+        for (const yr of distinctYears) {
+            if (!this.filterSeasonByRule(yr, filterObj)) continue;
+            const loserRes = calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings);
+            if (loserRes && loserRes.manager_id) {
+                const mid = loserRes.manager_id;
+                const standingEntry = (this.standings || []).find(s => Number(s.year || s.season) === yr && (s.manager_id || s.id) === mid);
+                if (!this.isManagerIncluded(mid, filterObj, standingEntry?.manager_status)) continue;
+
                 if (!toiletMap[mid]) {
                     toiletMap[mid] = {
                         manager_id: mid,
-                        manager_name: this.getManagerName(mid, s.manager_name),
+                        manager_name: this.getManagerName(mid, loserRes.manager_name),
                         total: 0,
                         years: []
                     };
                 }
                 toiletMap[mid].total += 1;
-                toiletMap[mid].years.push(Number(s.year));
-                if (Number(s.year) > mostRecentToiletYear) {
-                    mostRecentToiletYear = Number(s.year);
+                toiletMap[mid].years.push(yr);
+                if (yr > mostRecentToiletYear) {
+                    mostRecentToiletYear = yr;
                     mostRecentToiletManagerId = mid;
                 }
             }
@@ -836,7 +846,14 @@ Object.assign(TargetApp.prototype, {
         const leastPtsWinLeague = [...filteredStandings].filter(s => (s.final_rank || s.rank) === 1)
             .sort((a, b) => (Number(a.points_for) || 0) - (Number(b.points_for) || 0)).slice(0, 5);
 
-        const mostPtsLoseLeague = [...filteredStandings].filter(s => (s.final_rank || s.rank) === 12)
+        const calculatedLoserStandings = distinctYears.map(yr => {
+            const lRes = calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings);
+            if (!lRes) return null;
+            return (this.standings || []).find(s => Number(s.year || s.season) === yr && (s.manager_id || s.id) === lRes.manager_id);
+        }).filter(Boolean);
+
+        const mostPtsLoseLeague = [...calculatedLoserStandings]
+            .filter(s => this.filterSeasonByRule(s.year, filterObj) && this.isManagerIncluded(s.manager_id || s.id, filterObj, s.manager_status))
             .sort((a, b) => (Number(b.points_for) || 0) - (Number(a.points_for) || 0)).slice(0, 5);
 
         const getWinPct = (s) => {

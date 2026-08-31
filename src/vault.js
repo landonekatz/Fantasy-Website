@@ -1,4 +1,4 @@
-import { compileVaultData, generateRandomJoinCode } from './compiler.js';
+import { compileVaultData, generateRandomJoinCode, calculateSeasonLoser, getRuleDescription } from './compiler.js';
 import { database } from './firebase.js';
 import { ref as dbRef, set, get, child, update, onValue } from 'firebase/database';
 import { VaultDraftEngine } from './draft.js';
@@ -1899,15 +1899,33 @@ class FantasyApp {
             `;
         }).join('');
 
-        // Build options for merge selector
+        // Build options for merge selector and season selector
         const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
         const unclaimedOptions = unclaimedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+
+const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => b - a);
+        const activeYearsList = distinctYears.length > 0 ? distinctYears : [new Date().getFullYear()];
+        const seasonOptions = activeYearsList.map(y => `<option value="${y}">Season ${y}</option>`).join('');
 
         const isPrivate = Boolean(this.leagueSettings.is_private);
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
 
         container.innerHTML = `
             <div class="admin-dashboard-wrapper">
+
+                <!-- On This Page Secondary Scroller Bar -->
+                <div class="page-scroller-bar admin-scroller-bar">
+                    <span class="scroller-label">On This Page:</span>
+                    <div class="scroller-links">
+                        <a href="#admin-sec-identity" class="scroller-pill">Identity &amp; Motto</a>
+                        <a href="#admin-sec-nicknames" class="scroller-pill">Nicknames</a>
+                        <a href="#admin-sec-loser" class="scroller-pill">Loser Conditions</a>
+                        <a href="#admin-sec-privacy" class="scroller-pill">Privacy &amp; Access</a>
+                        <a href="#admin-sec-roster" class="scroller-pill">Manager Roster</a>
+                        <a href="#admin-sec-invites" class="scroller-pill">Invites &amp; Codes</a>
+                        <a href="#admin-sec-transfer" class="scroller-pill">Admin Status</a>
+                    </div>
+                </div>
 
                 <!-- Retrospective Admin Self-Claim Card (If Admin Has No Claimed Profile) -->
                 ${!currentAdminClaim ? `
@@ -1932,7 +1950,7 @@ class FantasyApp {
                 ` : ''}
 
                 <!-- 1. IDENTITY & CUSTOMIZATION -->
-                <div class="card admin-section-card" style="margin-top: 1.5rem;">
+                <div id="admin-sec-identity" class="card admin-section-card" style="margin-top: 1.5rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>League Identity &amp; Customization</h2>
@@ -1998,7 +2016,7 @@ class FantasyApp {
                 </div>
 
                 <!-- 2. LEAGUE NICKNAMES CUSTOMIZATION -->
-                <div class="card admin-section-card" style="margin-top: 2rem;">
+                <div id="admin-sec-nicknames" class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>League Nicknames Customization</h2>
@@ -2029,8 +2047,171 @@ class FantasyApp {
                     </div>
                 </div>
 
-                <!-- 3. PRIVACY & ACCESS CONTROL -->
-                <div class="card admin-section-card" style="margin-top: 2rem;">
+                <!-- 3. LEAGUE LOSER CONDITIONS -->
+                <div id="admin-sec-loser" class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div>
+                            <h2>League Loser Conditions</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Configure the exact timing, pool, and ordered criteria that determine the outright loser for each season.</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 1.25rem;">
+                        <!-- Season Selector & Current Loser Display -->
+                        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <label for="admin-loser-season-select" style="font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Select Season:</label>
+                                    <select id="admin-loser-season-select" class="admin-select" style="min-width: 150px; padding: 6px 12px; font-weight: 700; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        ${seasonOptions}
+                                    </select>
+                                </div>
+                                <div id="admin-loser-active-pill" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.35); padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; color: #b45309;">
+                                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #b45309;"></span>
+                                    <span id="admin-loser-rule-label">Custom Loser Condition</span>
+                                </div>
+                            </div>
+
+                            <!-- Current Rule & Calculated Loser Box -->
+                            <div id="admin-loser-current-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-gold, #d4af37); border-radius: 6px; padding: 1rem 1.25rem;">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                    <div>
+                                        <div style="font-size: 0.76rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Current Season Rule &amp; Result</div>
+                                        <div id="admin-loser-current-desc" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 6px;">
+                                            12th Place (Toilet Bowl / Consolation Bracket Loser)
+                                        </div>
+                                        <div id="admin-loser-current-winner" style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+                                            Designated Loser: <span style="color: #dc2626;" id="admin-loser-current-name">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rule Presets -->
+                        <div style="margin-bottom: 1.25rem;">
+                            <label style="display: block; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px;">
+                                Quick Presets:
+                            </label>
+                            <div class="loser-presets-wrapper">
+                                <button type="button" class="btn-loser-preset" data-preset="standard">12th Place Bracket (Standard)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="full_least_pts">Outright Least Pts (Full Season)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="reg_least_pts">Least Pts (Regular Season)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="worst_record_pts">Worst Record, Tiebreak Least Pts</button>
+                                <button type="button" class="btn-loser-preset" data-preset="non_playoff_least_pts">Non-Playoff Fewest Pts</button>
+                            </div>
+                        </div>
+
+                        <!-- Custom Rule Builder Form -->
+                        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;">
+                            <div style="font-size: 0.78rem; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                                Custom Loser Rule Configuration:
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 1.25rem;">
+                                <!-- 1. Scope / Timing -->
+                                <div>
+                                    <label for="admin-loser-scope" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">1. Timing Window (Scope):</label>
+                                    <select id="admin-loser-scope" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="bracket_playoffs">Playoff Bracket / Consolation Rank</option>
+                                        <option value="full_season">Full Season (Regular Season + Playoffs Combined)</option>
+                                        <option value="regular_season">Regular Season Only (Weeks 1–14/15)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 2. Candidate Pool -->
+                                <div>
+                                    <label for="admin-loser-pool" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">2. Eligible Team Pool:</label>
+                                    <select id="admin-loser-pool" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="all_teams">All 12 League Members Outright</option>
+                                        <option value="non_playoff_teams">Non-Playoff Teams (Bottom 6 Missed Playoffs)</option>
+                                        <option value="bracket_consolation">Consolation Bracket Teams</option>
+                                    </select>
+                                </div>
+
+                                <!-- 3. Primary Condition -->
+                                <div>
+                                    <label for="admin-loser-crit1" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">3. Primary Condition (1st Order):</label>
+                                    <select id="admin-loser-crit1" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="least_points">Least Points Scored (Lowest PF)</option>
+                                        <option value="worst_record">Worst Record / Win Percentage</option>
+                                        <option value="final_rank">Bracket Placement (12th Place)</option>
+                                        <option value="most_points_against">Most Points Against (Highest PA)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 4. Secondary Tiebreaker -->
+                                <div>
+                                    <label for="admin-loser-crit2" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">4. First Tiebreaker (2nd Order):</label>
+                                    <select id="admin-loser-crit2" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="least_points">Least Points Scored</option>
+                                        <option value="worst_record">Worst Record / Win Percentage</option>
+                                        <option value="most_points_against">Most Points Against</option>
+                                        <option value="head_to_head">Head-to-Head Record</option>
+                                        <option value="none">None (Standard Fallback)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Manual Override Accordion / Checkbox -->
+                            <div style="padding-top: 1rem; border-top: 1px solid var(--border-color); margin-bottom: 1.25rem;">
+                                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); cursor: pointer;">
+                                    <input type="checkbox" id="admin-loser-manual-toggle" style="cursor: pointer;">
+                                    Manually Designate Specific Manager as Loser (Custom Punishment / Exception)
+                                </label>
+
+                                <div id="admin-loser-manual-fields" style="display: none; margin-top: 10px; padding: 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px;">
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                        <div>
+                                            <label for="admin-loser-manual-mgr" style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; color: var(--text-secondary);">Select Designated Manager:</label>
+                                            <select id="admin-loser-manual-mgr" class="admin-select" style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);">
+                                                <option value="">-- Choose Manager --</option>
+                                                ${managerOptions}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="admin-loser-manual-reason" style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; color: var(--text-secondary);">Custom Reason / Punishment Details:</label>
+                                            <input type="text" id="admin-loser-manual-reason" class="admin-input" placeholder="e.g. Lost custom Week 17 Sacko punishment match" style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); box-sizing: border-box;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Dynamic Preview of Calculated Loser -->
+                            <div style="background: rgba(15, 23, 42, 0.03); border: 1px dashed var(--border-color); border-radius: 6px; padding: 12px 16px; margin-bottom: 1.25rem;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                    <div>
+                                        <div style="font-size: 0.75rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Live Preview (Result of Current Form Settings)</div>
+                                        <div id="admin-loser-preview-text" style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
+                                            Projected Loser: <span style="color: #dc2626;" id="admin-loser-preview-name">Calculating...</span>
+                                        </div>
+                                        <div id="admin-loser-preview-stats" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <button id="btn-save-loser-condition" class="btn-primary" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    Save Rule for <span id="btn-loser-save-year-label">Selected Season</span>
+                                </button>
+                                <button id="btn-apply-future-loser-conditions" class="btn btn-gold" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    Apply Rule as Future Default
+                                </button>
+                                <button id="btn-apply-all-loser-conditions" class="btn btn-secondary-action" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    Apply Rule to All Seasons (Past &amp; Future)
+                                </button>
+                                <button id="btn-reset-loser-condition" class="btn" style="padding: 9px 16px; font-weight: 600; font-size: 0.82rem; border-radius: 6px; cursor: pointer; white-space: nowrap; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                    Reset to Standard (12th Place)
+                                </button>
+                            </div>
+                            <div id="loser-condition-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. PRIVACY & ACCESS CONTROL -->
+                <div id="admin-sec-privacy" class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>League Privacy &amp; Access Control</h2>
@@ -2060,8 +2241,8 @@ class FantasyApp {
                     </div>
                 </div>
 
-                <!-- 4. REGISTERED MEMBERS & MANAGER ROSTER -->
-                <div class="card admin-section-card" style="margin-top: 2rem;">
+                <!-- 5. REGISTERED MEMBERS & MANAGER ROSTER -->
+                <div id="admin-sec-roster" class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>League Members Roster</h2>
@@ -2118,8 +2299,8 @@ class FantasyApp {
                     </div>
                 </div>
 
-                <!-- 5. LEAGUE INVITES & ACCESS -->
-                <div class="card admin-section-card" style="margin-top: 2rem;">
+                <!-- 6. LEAGUE INVITES & ACCESS -->
+                <div id="admin-sec-invites" class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>League Invites &amp; Access Control</h2>
@@ -2153,8 +2334,8 @@ class FantasyApp {
                     </div>
                 </div>
 
-                <!-- 5. TRANSFER ADMIN STATUS -->
-                <div class="card admin-section-card" style="margin-top: 2rem;">
+                <!-- 7. TRANSFER ADMIN STATUS -->
+                <div id="admin-sec-transfer" class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
                             <h2>Transfer Admin Status</h2>
@@ -2390,6 +2571,311 @@ class FantasyApp {
             });
         }
 
+        // Setup Loser Conditions Interactive System
+        const loserSeasonSelect = container.querySelector('#admin-loser-season-select');
+        const loserScopeSelect = container.querySelector('#admin-loser-scope');
+        const loserPoolSelect = container.querySelector('#admin-loser-pool');
+        const loserCrit1Select = container.querySelector('#admin-loser-crit1');
+        const loserCrit2Select = container.querySelector('#admin-loser-crit2');
+        const loserManualToggle = container.querySelector('#admin-loser-manual-toggle');
+        const loserManualFields = container.querySelector('#admin-loser-manual-fields');
+        const loserManualMgr = container.querySelector('#admin-loser-manual-mgr');
+        const loserManualReason = container.querySelector('#admin-loser-manual-reason');
+
+        const loserCurrentDesc = container.querySelector('#admin-loser-current-desc');
+        const loserCurrentName = container.querySelector('#admin-loser-current-name');
+        const loserRuleLabel = container.querySelector('#admin-loser-rule-label');
+        const btnSaveYearLabel = container.querySelector('#btn-loser-save-year-label');
+
+        const loserPreviewName = container.querySelector('#admin-loser-preview-name');
+        const loserPreviewStats = container.querySelector('#admin-loser-preview-stats');
+
+        const getSelectedYear = () => Number(loserSeasonSelect?.value || activeYearsList[0]);
+
+        const getFormConfig = () => {
+            const isManual = Boolean(loserManualToggle?.checked);
+            if (isManual) {
+                const targetMid = loserManualMgr?.value || '';
+                const targetMgr = sortedMembers.find(m => m.id === targetMid);
+                const reason = loserManualReason?.value?.trim() || '';
+                return {
+                    mode: 'manual',
+                    designated_manager_id: targetMid,
+                    designated_manager_name: targetMgr ? targetMgr.name : targetMid,
+                    custom_reason: reason,
+                    description: `Manual commissioner designation: ${reason || 'Custom League Punishment'}`
+                };
+            }
+
+            const scope = loserScopeSelect?.value || 'bracket_playoffs';
+            const pool = loserPoolSelect?.value || 'all_teams';
+            const c1 = loserCrit1Select?.value || 'least_points';
+            const c2 = loserCrit2Select?.value;
+
+            const criteria = [
+                { type: c1, order: c1 === 'most_points_against' ? 'desc' : 'asc' }
+            ];
+            if (c2 && c2 !== 'none') {
+                criteria.push({ type: c2, order: c2 === 'most_points_against' ? 'desc' : 'asc' });
+            }
+
+            return {
+                mode: 'custom',
+                scope,
+                pool,
+                criteria,
+                description: getRuleDescription({ scope, pool, criteria })
+            };
+        };
+
+        const updateLoserPreview = () => {
+            const yr = getSelectedYear();
+            const formConfig = getFormConfig();
+            const previewRes = calculateSeasonLoser(yr, this.standings, this.matchups, { [yr]: formConfig }, this.leagueSettings);
+            if (previewRes && previewRes.manager_id) {
+                const mgrName = this.getManagerName(previewRes.manager_id, previewRes.manager_name);
+                const tName = previewRes.team_name ? ` (${previewRes.team_name})` : '';
+                if (loserPreviewName) loserPreviewName.innerHTML = `<strong>${mgrName}</strong>${tName}`;
+                if (loserPreviewStats) loserPreviewStats.textContent = `${previewRes.stats_summary} , as ${previewRes.rule_description}`;
+            } else {
+                if (loserPreviewName) loserPreviewName.textContent = 'No standing data for selected season';
+                if (loserPreviewStats) loserPreviewStats.textContent = '';
+            }
+        };
+
+        const updateLoserUI = (yr) => {
+            if (btnSaveYearLabel) btnSaveYearLabel.textContent = `Season ${yr}`;
+            const conditionsMap = this.leagueSettings?.loser_conditions || {};
+            const activeConfig = conditionsMap[yr] || conditionsMap[String(yr)] || conditionsMap['default'] || {
+                mode: 'standard',
+                scope: 'bracket_playoffs',
+                pool: 'bracket_consolation',
+                criteria: [{ type: 'final_rank', order: 'desc' }],
+                description: 'Final Playoff / Consolation Bracket Rank (12th Place)'
+            };
+
+            // Update Current Result Box
+            const currentRes = calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings);
+            if (currentRes && currentRes.manager_id) {
+                const curMgr = this.getManagerName(currentRes.manager_id, currentRes.manager_name);
+                const curTeam = currentRes.team_name ? ` (${currentRes.team_name})` : '';
+                if (loserCurrentDesc) loserCurrentDesc.textContent = currentRes.rule_description;
+                if (loserCurrentName) loserCurrentName.innerHTML = `<strong>${curMgr}</strong>${curTeam} <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">[${currentRes.stats_summary}]</span>`;
+                if (loserRuleLabel) loserRuleLabel.textContent = (activeConfig.mode === 'standard' || !conditionsMap[yr]) ? 'Standard Bracket Rule' : 'Custom Configured Rule';
+            } else {
+                if (loserCurrentDesc) loserCurrentDesc.textContent = 'Standard Playoff Bracket Finish';
+                if (loserCurrentName) loserCurrentName.textContent = 'No season data';
+                if (loserRuleLabel) loserRuleLabel.textContent = 'Default Rule';
+            }
+
+            // Populate form controls
+            if (activeConfig.mode === 'manual') {
+                if (loserManualToggle) loserManualToggle.checked = true;
+                if (loserManualFields) loserManualFields.style.display = 'block';
+                if (loserManualMgr) loserManualMgr.value = activeConfig.designated_manager_id || '';
+                if (loserManualReason) loserManualReason.value = activeConfig.custom_reason || '';
+            } else {
+                if (loserManualToggle) loserManualToggle.checked = false;
+                if (loserManualFields) loserManualFields.style.display = 'none';
+                if (loserScopeSelect) loserScopeSelect.value = activeConfig.scope || 'bracket_playoffs';
+                if (loserPoolSelect) loserPoolSelect.value = activeConfig.pool || 'all_teams';
+                if (loserCrit1Select) loserCrit1Select.value = activeConfig.criteria?.[0]?.type || activeConfig.criteria?.[0] || 'least_points';
+                if (loserCrit2Select) loserCrit2Select.value = activeConfig.criteria?.[1]?.type || activeConfig.criteria?.[1] || 'none';
+            }
+
+            updateLoserPreview();
+        };
+
+        if (loserSeasonSelect) {
+            loserSeasonSelect.addEventListener('change', () => {
+                updateLoserUI(getSelectedYear());
+            });
+            // Initial load for first season
+            updateLoserUI(getSelectedYear());
+        }
+
+        // Form change listeners for live preview
+        [loserScopeSelect, loserPoolSelect, loserCrit1Select, loserCrit2Select, loserManualMgr, loserManualReason].forEach(el => {
+            el?.addEventListener('change', updateLoserPreview);
+            el?.addEventListener('input', updateLoserPreview);
+        });
+
+        loserManualToggle?.addEventListener('change', () => {
+            if (loserManualFields) {
+                loserManualFields.style.display = loserManualToggle.checked ? 'block' : 'none';
+            }
+            updateLoserPreview();
+        });
+
+        // Preset buttons
+        container.querySelectorAll('.btn-loser-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const preset = btn.getAttribute('data-preset');
+                if (loserManualToggle) loserManualToggle.checked = false;
+                if (loserManualFields) loserManualFields.style.display = 'none';
+
+                if (preset === 'standard') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'bracket_playoffs';
+                    if (loserPoolSelect) loserPoolSelect.value = 'bracket_consolation';
+                    if (loserCrit1Select) loserCrit1Select.value = 'final_rank';
+                    if (loserCrit2Select) loserCrit2Select.value = 'none';
+                } else if (preset === 'full_least_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'full_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'all_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'least_points';
+                    if (loserCrit2Select) loserCrit2Select.value = 'worst_record';
+                } else if (preset === 'reg_least_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'regular_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'all_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'least_points';
+                    if (loserCrit2Select) loserCrit2Select.value = 'worst_record';
+                } else if (preset === 'worst_record_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'regular_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'all_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'worst_record';
+                    if (loserCrit2Select) loserCrit2Select.value = 'least_points';
+                } else if (preset === 'non_playoff_least_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'regular_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'non_playoff_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'least_points';
+                    if (loserCrit2Select) loserCrit2Select.value = 'worst_record';
+                }
+                updateLoserPreview();
+            });
+        });
+
+        // Save Rule for Selected Season
+        const btnSaveLoser = container.querySelector('#btn-save-loser-condition');
+        if (btnSaveLoser) {
+            btnSaveLoser.addEventListener('click', async () => {
+                const yr = getSelectedYear();
+                const formConfig = getFormConfig();
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnSaveLoser.disabled = true;
+                btnSaveLoser.textContent = 'Saving...';
+                try {
+                    await this.saveLoserCondition(yr, formConfig);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Successfully saved loser condition for <strong>Season ${yr}</strong>!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(yr);
+                } catch (e) {
+                    console.error('Failed to save loser condition', e);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg error';
+                        feedbackEl.textContent = 'Failed to save loser condition. Please try again.';
+                    }
+                } finally {
+                    btnSaveLoser.disabled = false;
+                    btnSaveLoser.textContent = `Save Rule for Season ${yr}`;
+                }
+            });
+        }
+
+        // Apply Rule as Future Default
+        const btnApplyFutureLoser = container.querySelector('#btn-apply-future-loser-conditions');
+        if (btnApplyFutureLoser) {
+            btnApplyFutureLoser.addEventListener('click', async () => {
+                const formConfig = getFormConfig();
+                const confirmed = window.confirm("Set this rule as the new default loser condition for all future seasons?");
+                if (!confirmed) return;
+
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnApplyFutureLoser.disabled = true;
+                btnApplyFutureLoser.textContent = 'Setting Default...';
+                try {
+                    await this.applyLoserConditionToFutureSeasons(formConfig);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Set as the <strong>default loser condition</strong> for current and future seasons!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(getSelectedYear());
+                } catch (e) {
+                    console.error('Failed to set future loser condition default', e);
+                } finally {
+                    btnApplyFutureLoser.disabled = false;
+                    btnApplyFutureLoser.textContent = 'Apply Rule as Future Default';
+                }
+            });
+        }
+
+        // Apply Rule to All Seasons
+        const btnApplyAllLoser = container.querySelector('#btn-apply-all-loser-conditions');
+        if (btnApplyAllLoser) {
+            btnApplyAllLoser.addEventListener('click', async () => {
+                const formConfig = getFormConfig();
+                const confirmed = window.confirm("Are you sure you want to apply this loser condition rule to ALL seasons in league history?");
+                if (!confirmed) return;
+
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnApplyAllLoser.disabled = true;
+                btnApplyAllLoser.textContent = 'Applying...';
+                try {
+                    await this.applyLoserConditionToAllSeasons(formConfig);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Applied loser condition rule to <strong>all seasons</strong> across league history!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(getSelectedYear());
+                } catch (e) {
+                    console.error('Failed to apply loser conditions to all', e);
+                } finally {
+                    btnApplyAllLoser.disabled = false;
+                    btnApplyAllLoser.textContent = 'Apply Rule to All Seasons (Past & Future)';
+                }
+            });
+        }
+
+        // Reset to Standard
+        const btnResetLoser = container.querySelector('#btn-reset-loser-condition');
+        if (btnResetLoser) {
+            btnResetLoser.addEventListener('click', async () => {
+                const yr = getSelectedYear();
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnResetLoser.disabled = true;
+                try {
+                    await this.resetLoserCondition(yr);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Reset Season ${yr} to standard 12th place bracket finish.`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(yr);
+                } catch (e) {
+                    console.error('Failed to reset loser condition', e);
+                } finally {
+                    btnResetLoser.disabled = false;
+                }
+            });
+        }
+
+        // Setup smooth scrolling for "On This Page" subnav pills inside Admin Dashboard
+        container.querySelectorAll('.admin-scroller-bar .scroller-pill').forEach(link => {
+            link.addEventListener('click', (e) => {
+                const targetId = link.getAttribute('href');
+                if (targetId && targetId.startsWith('#')) {
+                    e.preventDefault();
+                    const el = container.querySelector(targetId);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        });
+
         // Wire up Copy buttons
         const copyBtns = container.querySelectorAll('.btn-copy-action');
         copyBtns.forEach(btn => {
@@ -2407,6 +2893,76 @@ class FantasyApp {
                 }
             });
         });
+    }
+
+    async saveLoserCondition(year, ruleConfig) {
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.loser_conditions) this.leagueSettings.loser_conditions = {};
+        this.leagueSettings.loser_conditions[year] = ruleConfig;
+
+        if (this.leagueSlug) {
+            try {
+                const loserRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings/loser_conditions/${year}`);
+                await set(loserRef, ruleConfig);
+            } catch (e) {
+                console.error("Failed to save loser condition to Firebase", e);
+            }
+        }
+        if (this.precompiledBundle?.league_settings) {
+            if (!this.precompiledBundle.league_settings.loser_conditions) this.precompiledBundle.league_settings.loser_conditions = {};
+            this.precompiledBundle.league_settings.loser_conditions[year] = ruleConfig;
+        }
+    }
+
+    async applyLoserConditionToFutureSeasons(ruleConfig) {
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.loser_conditions) this.leagueSettings.loser_conditions = {};
+
+        this.leagueSettings.loser_conditions['default'] = ruleConfig;
+
+        if (this.leagueSlug) {
+            try {
+                const defaultRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings/loser_conditions/default`);
+                await set(defaultRef, ruleConfig);
+            } catch (e) {
+                console.error("Failed to save default loser condition to Firebase", e);
+            }
+        }
+        if (this.precompiledBundle?.league_settings) {
+            if (!this.precompiledBundle.league_settings.loser_conditions) this.precompiledBundle.league_settings.loser_conditions = {};
+            this.precompiledBundle.league_settings.loser_conditions['default'] = ruleConfig;
+        }
+    }
+
+    async applyLoserConditionToAllSeasons(ruleConfig) {
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.loser_conditions) this.leagueSettings.loser_conditions = {};
+
+        const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))];
+        this.leagueSettings.loser_conditions['default'] = ruleConfig;
+        for (const yr of distinctYears) {
+            this.leagueSettings.loser_conditions[yr] = ruleConfig;
+        }
+
+        if (this.leagueSlug) {
+            try {
+                const loserRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings/loser_conditions`);
+                await set(loserRef, this.leagueSettings.loser_conditions);
+            } catch (e) {
+                console.error("Failed to save loser conditions to Firebase", e);
+            }
+        }
+    }
+
+    async resetLoserCondition(year) {
+        const standardConfig = {
+            mode: 'standard',
+            scope: 'bracket_playoffs',
+            pool: 'bracket_consolation',
+            criteria: [{ type: 'final_rank', order: 'desc' }],
+            description: 'Final Playoff / Consolation Bracket Rank (12th Place)'
+        };
+        await this.saveLoserCondition(year, standardConfig);
     }
 
     async saveLeagueTagline(newTagline) {

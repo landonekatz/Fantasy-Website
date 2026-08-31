@@ -4104,4 +4104,357 @@ footer.dungeon-quote-credit,
     box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
 }
 
+/* ==========================================================================
+   ADMIN DASHBOARD SYSTEM & STYLING (GAYWOOD / DAD LEAGUE HQ)
+   ========================================================================== */
+.admin-dashboard-wrapper {
+    max-width: 1040px;
+    margin: 0 auto 40px;
+}
+
+.admin-scroller-bar {
+    position: sticky;
+    top: 16px;
+    z-index: 95;
+    background: var(--glass-bg, rgba(255, 255, 255, 0.95));
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 9999px;
+    padding: 8px 18px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-md);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-section-card {
+    padding: 24px 28px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 24px;
+    scroll-margin-top: 85px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-section-card:hover {
+    border-color: var(--border-highlight, #0f172a);
+    box-shadow: var(--shadow-md);
+}
+
+.admin-card-header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+}
+
+.admin-card-header h2 {
+    font-family: var(--font-heading, 'Newsreader', Georgia, serif);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px;
+    letter-spacing: 0.5px;
+}
+
+/* Landon Note Box */
+.admin-landon-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: linear-gradient(135deg, rgba(180, 83, 9, 0.08) 0%, rgba(212, 175, 55, 0.03) 100%);
+    border: 1px solid rgba(180, 83, 9, 0.25);
+    border-left: 4px solid var(--accent-gold, #b45309);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0 18px;
+}
+
+.landon-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #b45309 0%, #78350f 100%);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    box-shadow: 0 2px 6px rgba(180, 83, 9, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.landon-note-title {
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--accent-gold, #b45309);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+}
+
+.landon-note-text {
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--text-secondary);
+}
+
+.btn-primary {
+    background: #0f172a;
+    color: #ffffff !important;
+    border: 1px solid #0f172a;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
+}
+
+.btn-primary:hover {
+    background: #1e293b;
+    border-color: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-gold {
+    background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+    color: #ffffff !important;
+    border: 1px solid #92400e;
+    font-weight: 700;
+}
+
+.btn-gold:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    box-shadow: 0 4px 12px rgba(180, 83, 9, 0.3);
+}
+
+.btn-secondary-action {
+    background: #475569;
+    color: #ffffff !important;
+    border: 1px solid #475569;
+    font-weight: 600;
+}
+
+.btn-secondary-action:hover {
+    background: #334155;
+    border-color: #334155;
+}
+
+/* Tagline & Loser Presets */
+.tagline-presets-wrapper,
+.loser-presets-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 0.85rem;
+}
+
+.btn-tagline-preset,
+.btn-loser-preset {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-tagline-preset:hover,
+.btn-loser-preset:hover {
+    background: rgba(180, 83, 9, 0.1);
+    border-color: var(--accent-gold, #b45309);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+.tagline-input-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.admin-input {
+    flex: 1;
+    min-width: 240px;
+    padding: 9px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    font-family: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-input:focus {
+    outline: none;
+    border-color: var(--accent-blue, #1d4ed8);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+.admin-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-family: inherit;
+    transition: border-color 0.2s ease;
+}
+
+.admin-select:focus {
+    outline: none;
+    border-color: var(--accent-blue, #1d4ed8);
+}
+
+/* Admin Table */
+.admin-table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    text-align: left;
+}
+
+.admin-table th {
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tr:hover td {
+    background: var(--bg-card-hover);
+}
+
+/* Merge Controls */
+.admin-merge-box {
+    padding: 18px 20px;
+    background: rgba(180, 83, 9, 0.04);
+    border: 1px solid rgba(180, 83, 9, 0.2);
+    border-radius: 8px;
+}
+
+.admin-merge-controls {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+@media (max-width: 768px) {
+    .admin-merge-controls {
+        grid-template-columns: 1fr;
+    }
+    .merge-arrow {
+        display: none;
+    }
+}
+
+.merge-select-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.merge-select-group label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.merge-arrow {
+    font-size: 1.5rem;
+    color: var(--accent-gold);
+    padding-bottom: 8px;
+    text-align: center;
+}
+
+/* Feedback message */
+.admin-feedback-msg {
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.admin-feedback-msg.success {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.admin-feedback-msg.error {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
 

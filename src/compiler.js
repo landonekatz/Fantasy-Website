@@ -281,6 +281,12 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       
       const moves = t.transactionCounter ? ((t.transactionCounter.acquisitions || 0) + (t.transactionCounter.trades || 0)) : 0;
       
+      const schedSettings = season.data.settings?.scheduleSettings || {};
+      const playoffTeamsCount = schedSettings.playoffTeamCount || 6;
+      const isPlayoffMaker = (t.made_playoffs !== undefined) ? 
+        (t.made_playoffs === true || String(t.made_playoffs).toLowerCase() === 'true') : 
+        (teamInfo.playoffSeed <= playoffTeamsCount);
+
       standings.push({
         year: season.year,
         team_id: t.id,
@@ -294,6 +300,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         points_against: Math.round((overall.pointsAgainst || 0) * 100) / 100,
         final_rank: teamInfo.finalRank,
         playoff_seed: teamInfo.playoffSeed,
+        made_playoffs: isPlayoffMaker,
         transactions: moves
       });
     }
@@ -799,5 +806,252 @@ export function testScoringRulesRetrospective(compiledData) {
   return {
     ...results,
     passed: overallPassed
+  };
+}
+
+/**
+ * Returns a human-readable description of a loser condition rule configuration.
+ */
+export function getRuleDescription(ruleConfig = {}) {
+  if (!ruleConfig) return '12th Place (Toilet Bowl / Consolation Bracket Loser)';
+  if (ruleConfig.description) return ruleConfig.description;
+  if (ruleConfig.mode === 'manual') return `Manual commissioner designation: ${ruleConfig.custom_reason || 'Custom League Punishment'}`;
+
+  const scopeNames = {
+    'full_season': 'End of Full Season (All Weeks through Playoffs)',
+    'regular_season': 'End of Regular Season',
+    'bracket_playoffs': 'Final Playoff / Consolation Bracket Standing'
+  };
+  const poolNames = {
+    'all_teams': 'all 12 league members',
+    'non_playoff_teams': 'non-playoff teams only',
+    'bracket_consolation': 'consolation bracket participants'
+  };
+  const critNames = {
+    'least_points': 'Least Points Scored',
+    'worst_record': 'Worst Record (Win %)',
+    'final_rank': '12th Place / Bracket Finish',
+    'most_points_against': 'Most Points Against',
+    'head_to_head': 'Head-to-Head Record'
+  };
+
+  const s = scopeNames[ruleConfig.scope] || scopeNames['bracket_playoffs'];
+  const p = poolNames[ruleConfig.pool] || poolNames['all_teams'];
+  const c1 = critNames[ruleConfig.criteria?.[0]?.type || ruleConfig.criteria?.[0]] || critNames['least_points'];
+  const c2 = critNames[ruleConfig.criteria?.[1]?.type || ruleConfig.criteria?.[1]];
+
+  let desc = `${c1} across ${p} at ${s}`;
+  if (c2 && c2 !== 'None' && c2 !== undefined) {
+    desc += `, tiebreaker by ${c2}`;
+  }
+  return desc;
+}
+
+/**
+ * Evaluates standings and matchups according to a season's loser condition rule to determine the official loser.
+ */
+export function calculateSeasonLoser(year, standings = [], matchups = [], loserConditions = {}, leagueSettings = {}) {
+  const yr = Number(year);
+  const seasonStandings = (standings || []).filter(s => Number(s.year || s.season) === yr);
+  if (seasonStandings.length === 0) return null;
+
+  const seasonMatchups = (matchups || []).filter(m => Number(m.year || m.season) === yr);
+
+  const conditionsMap = loserConditions || leagueSettings?.loser_conditions || {};
+  const ruleConfig = conditionsMap[yr] || conditionsMap[String(yr)] || conditionsMap['default'] || {
+    mode: 'standard',
+    scope: 'bracket_playoffs',
+    pool: 'bracket_consolation',
+    criteria: [{ type: 'final_rank', order: 'desc' }],
+    description: 'Final Playoff / Consolation Bracket Rank (12th Place)'
+  };
+
+  // If manual override mode
+  if (ruleConfig.mode === 'manual' && ruleConfig.designated_manager_id) {
+    const targetStanding = seasonStandings.find(s => (s.manager_id || s.id) === ruleConfig.designated_manager_id);
+    const mName = targetStanding ? (targetStanding.manager_name || targetStanding.name) : (ruleConfig.designated_manager_name || 'Designated Manager');
+    return {
+      manager_id: ruleConfig.designated_manager_id,
+      manager_name: mName,
+      team_name: targetStanding ? (targetStanding.team_name || '') : '',
+      year: yr,
+      rule_type: 'manual',
+      rule_description: ruleConfig.description || `Manual commissioner designation: ${ruleConfig.custom_reason || 'Custom League Punishment'}`,
+      stats_summary: ruleConfig.custom_reason || 'Manual Selection',
+      raw_team: targetStanding || null,
+      ranked_pool: seasonStandings
+    };
+  }
+
+  // Compile team stats
+  const teamStats = {};
+  for (const s of seasonStandings) {
+    const mid = s.manager_id || s.id;
+    const tid = s.team_id || s.id;
+    const madePlayoffs = s.made_playoffs !== undefined ?
+      (s.made_playoffs === true || String(s.made_playoffs).toLowerCase() === 'true') :
+      (s.playoff_seed ? s.playoff_seed <= 6 : false);
+
+    teamStats[mid] = {
+      manager_id: mid,
+      manager_name: s.manager_name || s.name || 'Unknown',
+      team_id: tid,
+      team_name: s.team_name || '',
+      final_rank: Number(s.final_rank || s.rank) || 99,
+      playoff_seed: Number(s.playoff_seed) || 99,
+      made_playoffs: madePlayoffs,
+      reg_wins: Number(s.wins) || 0,
+      reg_losses: Number(s.losses) || 0,
+      reg_ties: Number(s.ties) || 0,
+      reg_points_for: Number(s.points_for) || 0,
+      reg_points_against: Number(s.points_against) || 0,
+      reg_win_pct: (Number(s.wins) || 0) + (Number(s.losses) || 0) + (Number(s.ties) || 0) > 0 ?
+        ((Number(s.wins) || 0) + 0.5 * (Number(s.ties) || 0)) / ((Number(s.wins) || 0) + (Number(s.losses) || 0) + (Number(s.ties) || 0)) : (Number(s.win_pct) || 0),
+      full_points_for: Number(s.points_for) || 0,
+      full_points_against: Number(s.points_against) || 0,
+      full_wins: Number(s.wins) || 0,
+      full_losses: Number(s.losses) || 0,
+      full_ties: Number(s.ties) || 0,
+      full_win_pct: 0,
+      has_matchup_data: false
+    };
+  }
+
+  // Accumulate matchup data for full-season calculations
+  if (seasonMatchups.length > 0) {
+    const matchupPF = {};
+    const matchupPA = {};
+    const matchupW = {};
+    const matchupL = {};
+    const matchupT = {};
+
+    for (const m of seasonMatchups) {
+      const hId = m.home_team_id !== undefined ? m.home_team_id : (m.team_1_id !== undefined ? m.team_1_id : m.home_manager_id);
+      const aId = m.away_team_id !== undefined ? m.away_team_id : (m.team_2_id !== undefined ? m.team_2_id : m.away_manager_id);
+      const hMid = m.home_manager_id || m.team_1_manager_id;
+      const aMid = m.away_manager_id || m.team_2_manager_id;
+      const hPts = Number(m.home_score !== undefined ? m.home_score : m.team_1_actual_points) || 0;
+      const aPts = Number(m.away_score !== undefined ? m.away_score : m.team_2_actual_points) || 0;
+
+      const targetH = hMid || Object.keys(teamStats).find(k => teamStats[k].team_id === hId);
+      const targetA = aMid || Object.keys(teamStats).find(k => teamStats[k].team_id === aId);
+
+      if (targetH) {
+        matchupPF[targetH] = (matchupPF[targetH] || 0) + hPts;
+        matchupPA[targetH] = (matchupPA[targetH] || 0) + aPts;
+        if (hPts > aPts) matchupW[targetH] = (matchupW[targetH] || 0) + 1;
+        else if (hPts < aPts) matchupL[targetH] = (matchupL[targetH] || 0) + 1;
+        else matchupT[targetH] = (matchupT[targetH] || 0) + 1;
+      }
+      if (targetA) {
+        matchupPF[targetA] = (matchupPF[targetA] || 0) + aPts;
+        matchupPA[targetA] = (matchupPA[targetA] || 0) + hPts;
+        if (aPts > hPts) matchupW[targetA] = (matchupW[targetA] || 0) + 1;
+        else if (aPts < hPts) matchupL[targetA] = (matchupL[targetA] || 0) + 1;
+        else matchupT[targetA] = (matchupT[targetA] || 0) + 1;
+      }
+    }
+
+    for (const mid of Object.keys(teamStats)) {
+      if (matchupPF[mid] !== undefined) {
+        teamStats[mid].full_points_for = Math.round(matchupPF[mid] * 100) / 100;
+        teamStats[mid].full_points_against = Math.round((matchupPA[mid] || 0) * 100) / 100;
+        teamStats[mid].full_wins = matchupW[mid] || 0;
+        teamStats[mid].full_losses = matchupL[mid] || 0;
+        teamStats[mid].full_ties = matchupT[mid] || 0;
+        const totalG = teamStats[mid].full_wins + teamStats[mid].full_losses + teamStats[mid].full_ties;
+        teamStats[mid].full_win_pct = totalG > 0 ? (teamStats[mid].full_wins + 0.5 * teamStats[mid].full_ties) / totalG : 0;
+        teamStats[mid].has_matchup_data = true;
+      }
+    }
+  }
+
+  let candidatePool = Object.values(teamStats);
+
+  // Filter pool
+  const pool = ruleConfig.pool || 'all_teams';
+  if (pool === 'non_playoff_teams') {
+    const nonPlayoff = candidatePool.filter(t => !t.made_playoffs);
+    if (nonPlayoff.length > 0) candidatePool = nonPlayoff;
+  }
+
+  // Sort candidate pool by criteria chain
+  const scope = ruleConfig.scope || (ruleConfig.type === 'least_points' ? 'full_season' : 'bracket_playoffs');
+  const criteria = (ruleConfig.criteria && ruleConfig.criteria.length > 0) ? ruleConfig.criteria : [
+    { type: ruleConfig.type || (scope === 'bracket_playoffs' ? 'final_rank' : 'least_points'), order: 'asc' }
+  ];
+
+  candidatePool.sort((a, b) => {
+    for (const crit of criteria) {
+      const critType = crit.type || crit;
+      if (critType === 'least_points') {
+        const ptsA = scope === 'regular_season' ? a.reg_points_for : a.full_points_for;
+        const ptsB = scope === 'regular_season' ? b.reg_points_for : b.full_points_for;
+        if (Math.abs(ptsA - ptsB) > 0.001) return ptsA - ptsB;
+      } else if (critType === 'worst_record') {
+        const pctA = scope === 'full_season' && a.has_matchup_data ? a.full_win_pct : a.reg_win_pct;
+        const pctB = scope === 'full_season' && b.has_matchup_data ? b.full_win_pct : b.reg_win_pct;
+        if (Math.abs(pctA - pctB) > 0.0001) return pctA - pctB;
+        const winsA = scope === 'full_season' && a.has_matchup_data ? a.full_wins : a.reg_wins;
+        const winsB = scope === 'full_season' && b.has_matchup_data ? b.full_wins : b.reg_wins;
+        if (winsA !== winsB) return winsA - winsB;
+      } else if (critType === 'final_rank') {
+        if (a.final_rank !== b.final_rank) return b.final_rank - a.final_rank;
+      } else if (critType === 'most_points_against') {
+        const paA = scope === 'regular_season' ? a.reg_points_against : a.full_points_against;
+        const paB = scope === 'regular_season' ? b.reg_points_against : b.full_points_against;
+        if (Math.abs(paA - paB) > 0.001) return paB - paA;
+      } else if (critType === 'head_to_head') {
+        if (seasonMatchups.length > 0) {
+          const mAB = seasonMatchups.filter(m => 
+            ((m.home_manager_id === a.manager_id && m.away_manager_id === b.manager_id) ||
+             (m.home_manager_id === b.manager_id && m.away_manager_id === a.manager_id))
+          );
+          let aWins = 0, bWins = 0;
+          mAB.forEach(m => {
+            const hMid = m.home_manager_id;
+            const hPts = Number(m.home_score || m.team_1_actual_points) || 0;
+            const aPts = Number(m.away_score || m.team_2_actual_points) || 0;
+            if (hPts > aPts) {
+              if (hMid === a.manager_id) aWins++; else bWins++;
+            } else if (aPts > hPts) {
+              if (hMid === a.manager_id) bWins++; else aWins++;
+            }
+          });
+          if (aWins !== bWins) return aWins - bWins;
+        }
+      }
+    }
+    // Fallback tiebreaker: least points
+    const finalPtsA = scope === 'regular_season' ? a.reg_points_for : a.full_points_for;
+    const finalPtsB = scope === 'regular_season' ? b.reg_points_for : b.full_points_for;
+    return finalPtsA - finalPtsB;
+  });
+
+  const loserTeam = candidatePool[0];
+  if (!loserTeam) return null;
+
+  const usedPts = scope === 'regular_season' ? loserTeam.reg_points_for : loserTeam.full_points_for;
+  const usedWins = (scope === 'full_season' && loserTeam.has_matchup_data) ? loserTeam.full_wins : loserTeam.reg_wins;
+  const usedLosses = (scope === 'full_season' && loserTeam.has_matchup_data) ? loserTeam.full_losses : loserTeam.reg_losses;
+  const usedTies = (scope === 'full_season' && loserTeam.has_matchup_data) ? loserTeam.full_ties : loserTeam.reg_ties;
+  const recordStr = `${usedWins}-${usedLosses}${usedTies > 0 ? `-${usedTies}` : ''}`;
+
+  let statSummary = `${usedPts.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} Total Pts (${recordStr})`;
+  if (scope === 'bracket_playoffs' && loserTeam.final_rank) {
+    statSummary = `${loserTeam.final_rank}th Place (${usedPts.toFixed(1)} Pts, ${recordStr})`;
+  }
+
+  return {
+    manager_id: loserTeam.manager_id,
+    manager_name: loserTeam.manager_name,
+    team_id: loserTeam.team_id,
+    team_name: loserTeam.team_name,
+    year: yr,
+    rule_type: ruleConfig.scope || 'bracket_playoffs',
+    rule_description: ruleConfig.description || getRuleDescription(ruleConfig),
+    stats_summary: statSummary,
+    raw_team: loserTeam,
+    ranked_pool: candidatePool
   };
 }

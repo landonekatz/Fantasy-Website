@@ -3,6 +3,7 @@ import { nflStats } from '/src/nfl_stats.js';
 import { database } from '/src/firebase.js';
 import { ref as dbRef, set, get, child, update, onValue } from 'firebase/database';
 import { formatManagerDisplayName } from '/src/formatters.js';
+import { calculateSeasonLoser, getRuleDescription } from '/src/compiler.js';
 
 function formatDumbartonNflInfo(p) {
     let opp = (p.nfl_team || '').trim();
@@ -849,12 +850,32 @@ class FantasyApp {
         const unclaimedOptions = unclaimedMembers.map(m => `<option value="${m.id}">${m.canonical_name || m.name || m.id}</option>`).join('');
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
 
+        const distinctYears = [...new Set((this.standings || []).map(s => Number(s.season || s.year)).filter(Boolean))].sort((a, b) => b - a);
+        const activeYearsList = distinctYears.length > 0 ? distinctYears : [new Date().getFullYear()];
+        const seasonOptions = activeYearsList.map(y => `<option value="${y}">Season ${y}</option>`).join('');
+
+        const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.canonical_name || m.name || m.id}</option>`).join('');
+
         container.innerHTML = `
-            <div class="admin-dashboard-wrapper" style="max-width: 960px; margin: 0 auto; padding: 1.5rem 0;">
+            <div class="admin-dashboard-wrapper">
+
+                <!-- On This Page Secondary Scroller Bar -->
+                <div class="page-scroller-bar admin-scroller-bar">
+                    <span class="scroller-label">On This Page:</span>
+                    <div class="scroller-links">
+                        <a href="#admin-sec-identity" class="scroller-pill">Identity &amp; Motto</a>
+                        <a href="#admin-sec-nicknames" class="scroller-pill">Nicknames</a>
+                        <a href="#admin-sec-loser" class="scroller-pill">Loser Conditions</a>
+                        <a href="#admin-sec-privacy" class="scroller-pill">Privacy &amp; Access</a>
+                        <a href="#admin-sec-roster" class="scroller-pill">Manager Roster</a>
+                        <a href="#admin-sec-invites" class="scroller-pill">Invites &amp; Codes</a>
+                        <a href="#admin-sec-transfer" class="scroller-pill">Admin Status</a>
+                    </div>
+                </div>
 
                 <!-- Retrospective Admin Self-Claim Card (If Admin Has No Claimed Profile) -->
                 ${!currentAdminClaim ? `
-                    <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px;">
+                    <div class="card admin-section-card" style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                             <div>
                                 <div style="font-size: 0.82rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">Claim Your Manager Profile (League Admin)</div>
@@ -863,45 +884,48 @@ class FantasyApp {
                                 </p>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <select id="admin-self-claim-select" style="min-width: 180px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                                <select id="admin-self-claim-select" class="admin-select" style="min-width: 180px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
                                     <option value="">-- Select Your Team --</option>
                                     ${unclaimedOptions}
                                 </select>
                                 <button id="btn-admin-self-claim" class="btn btn-primary" style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">Claim Profile</button>
                             </div>
                         </div>
-                        <div id="admin-self-claim-feedback" style="display: none; margin-top: 0.75rem; font-size: 0.85rem;"></div>
+                        <div id="admin-self-claim-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
                 ` : ''}
 
                 <!-- 1. IDENTITY & CUSTOMIZATION -->
-                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
-                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Identity &amp; Customization</h2>
+                <div id="admin-sec-identity" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>League Identity &amp; Customization</h2>
                         <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Customize your official masthead title and subtitle motto.</p>
                     </div>
 
                     <!-- Note from Landon for Tagline Customization -->
-                    <div style="margin-top: 1rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1rem 1.25rem; border-radius: 6px;">
-                        <div style="font-size: 0.75rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">A Note from the Founder, Landon</div>
-                        <p style="font-size: 0.88rem; color: #78350f; line-height: 1.5; margin: 0;">
-                            Hey, this is one of the first points of customization for your league. Feel free to make the league tagline a tradition, as maybe the champion gets to create the tagline for the next year! That's something you as the admin have control of. I've included below some sample taglines that I came up with in a quick brainstorm, and I'll keep adding more, but feel free to make one up on your own as well.
-                        </p>
+                    <div class="admin-landon-note">
+                        <div class="landon-avatar">LK</div>
+                        <div>
+                            <div class="landon-note-title">A Note from the Founder, Landon</div>
+                            <p class="landon-note-text">
+                                Hey, this is one of the first points of customization for your league. Feel free to make the league tagline a tradition, as maybe the champion gets to create the tagline for the next year! That's something you as the admin have control of. I've included below some sample taglines that I came up with in a quick brainstorm, and I'll keep adding more, but feel free to make one up on your own as well.
+                            </p>
+                        </div>
                     </div>
 
                     <!-- Custom League Title -->
-                    <div style="margin-top: 1rem;">
+                    <div style="margin-top: 1.25rem;">
                         <label for="admin-league-title-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">Custom League Title:</label>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <input type="text" id="admin-league-title-input" value="${leagueName}" style="flex: 1; min-width: 240px; padding: 8px 12px; font-size: 0.9rem; border: 1px solid var(--border-line); border-radius: 4px;">
-                            <button id="btn-save-league-title" class="btn btn-primary" style="padding: 8px 16px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Title</button>
+                        <div class="tagline-input-row">
+                            <input type="text" id="admin-league-title-input" class="admin-input" value="${leagueName}" placeholder="e.g. The Dumbarton League HQ">
+                            <button id="btn-save-league-title" class="btn btn-primary">Save Title</button>
                         </div>
-                        <div id="title-save-feedback" style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"></div>
+                        <div id="title-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
 
                     <!-- Tagline Customization -->
-                    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-line);">
-                        <label for="admin-tagline-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--text-secondary);">League Tagline / Subtitle:</label>
+                    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                        <label for="admin-tagline-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--text-secondary);">League Tagline / Subtitle Motto:</label>
                         <div class="tagline-presets-wrapper">
                             <button type="button" class="btn-tagline-preset" data-preset="Variance is an excuse for incompetence">"Variance is an excuse for incompetence"</button>
                             <button type="button" class="btn-tagline-preset" data-preset="Landon is the greatest fantasy player of all time">"Landon is the greatest fantasy player of all time"</button>
@@ -909,25 +933,25 @@ class FantasyApp {
                             <button type="button" class="btn-tagline-preset" data-preset="Inside joke">"Inside joke"</button>
                             <button type="button" class="btn-tagline-preset" data-preset="In a league of our own">"In a league of our own"</button>
                         </div>
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <input type="text" id="admin-tagline-input" value="${currentTagline}" placeholder="Enter custom motto..." style="flex: 1; min-width: 240px; padding: 8px 12px; font-size: 0.9rem; border: 1px solid var(--border-line); border-radius: 4px;">
-                            <button id="btn-save-tagline" class="btn btn-primary" style="padding: 8px 16px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Tagline</button>
+                        <div class="tagline-input-row">
+                            <input type="text" id="admin-tagline-input" class="admin-input" value="${currentTagline}" placeholder="Enter custom motto...">
+                            <button id="btn-save-tagline" class="btn btn-primary">Save Tagline</button>
                         </div>
-                        <div id="tagline-save-feedback" style="display: none; margin-top: 0.5rem; font-size: 0.85rem;"></div>
+                        <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
                 </div>
 
                 <!-- 2. LEAGUE NICKNAMES CUSTOMIZATION -->
-                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
-                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Nicknames Customization</h2>
+                <div id="admin-sec-nicknames" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>League Nicknames Customization</h2>
                         <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Enable or disable custom manager nicknames across your league archive.</p>
                     </div>
-                    <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                    <div style="padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                             <div>
                                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                    <strong style="font-size: 0.95rem; color: var(--text-main);">Nickname Status:</strong>
+                                    <strong style="font-size: 1rem; color: var(--text-primary);">Nickname Status:</strong>
                                     <span id="admin-nickname-badge" style="display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; ${allowNicknames ? 'background:#dcfce7; color:#15803d;' : 'background:#f1f5f9; color:#64748b;'}">
                                         ${allowNicknames ? 'Nicknames: Enabled' : 'Nicknames: Disabled'}
                                     </span>
@@ -939,30 +963,191 @@ class FantasyApp {
                                     You and your league members can assign and edit your individual nicknames anytime in the <strong>My Account</strong> tab located in the top right of the navigation bar.
                                 </p>
                             </div>
-                            <button id="btn-toggle-nicknames" class="btn" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #b45309); color:#fff; border:none;'}">
+                            <button id="btn-toggle-nicknames" class="btn" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #991b1b); color:#fff; border:none;'}">
                                 ${allowNicknames ? 'Disable League Nicknames' : 'Enable League Nicknames'}
                             </button>
                         </div>
-                        <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem; color: #15803d; font-size: 0.85rem;"></div>
+                        <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
                 </div>
 
-                <!-- 3. PRIVACY & ACCESS CONTROL -->
-                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
-                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Privacy &amp; Access Control</h2>
+                <!-- 3. LEAGUE LOSER CONDITIONS -->
+                <div id="admin-sec-loser" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>League Loser Conditions</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Configure the exact timing, pool, and ordered criteria that determine the outright loser for each season.</p>
+                    </div>
+
+                    <div style="margin-top: 1.25rem;">
+                        <!-- Season Selector & Current Loser Display -->
+                        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <label for="admin-loser-season-select" style="font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Select Season:</label>
+                                    <select id="admin-loser-season-select" class="admin-select" style="min-width: 150px; padding: 6px 12px; font-weight: 700; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        ${seasonOptions}
+                                    </select>
+                                </div>
+                                <div id="admin-loser-active-pill" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(153, 27, 27, 0.1); border: 1px solid rgba(153, 27, 27, 0.35); padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; color: #991b1b;">
+                                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #991b1b;"></span>
+                                    <span id="admin-loser-rule-label">Custom Loser Condition</span>
+                                </div>
+                            </div>
+
+                            <!-- Current Rule & Calculated Loser Box -->
+                            <div id="admin-loser-current-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-left: 4px solid var(--accent-gold, #991b1b); border-radius: 6px; padding: 1rem 1.25rem;">
+                                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                    <div>
+                                        <div style="font-size: 0.76rem; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Current Season Rule &amp; Result</div>
+                                        <div id="admin-loser-current-desc" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 6px;">
+                                            12th Place (Toilet Bowl / Consolation Bracket Loser)
+                                        </div>
+                                        <div id="admin-loser-current-winner" style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+                                            Designated Loser: <span style="color: #dc2626;" id="admin-loser-current-name">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rule Presets -->
+                        <div style="margin-bottom: 1.25rem;">
+                            <label style="display: block; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px;">
+                                Quick Presets:
+                            </label>
+                            <div class="loser-presets-wrapper">
+                                <button type="button" class="btn-loser-preset" data-preset="standard">12th Place Bracket (Standard)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="full_least_pts">Outright Least Pts (Full Season)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="reg_least_pts">Least Pts (Regular Season)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="worst_record_pts">Worst Record, Tiebreak Least Pts</button>
+                                <button type="button" class="btn-loser-preset" data-preset="non_playoff_least_pts">Non-Playoff Fewest Pts</button>
+                            </div>
+                        </div>
+
+                        <!-- Custom Rule Builder Form -->
+                        <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;">
+                            <div style="font-size: 0.78rem; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                                Custom Loser Rule Configuration:
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 1.25rem;">
+                                <!-- 1. Scope / Timing -->
+                                <div>
+                                    <label for="admin-loser-scope" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">1. Timing Window (Scope):</label>
+                                    <select id="admin-loser-scope" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="bracket_playoffs">Playoff Bracket / Consolation Rank</option>
+                                        <option value="full_season">Full Season (Regular Season + Playoffs Combined)</option>
+                                        <option value="regular_season">Regular Season Only (Weeks 1–14/15)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 2. Candidate Pool -->
+                                <div>
+                                    <label for="admin-loser-pool" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">2. Eligible Team Pool:</label>
+                                    <select id="admin-loser-pool" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="all_teams">All 12 League Members Outright</option>
+                                        <option value="non_playoff_teams">Non-Playoff Teams (Bottom 6 Missed Playoffs)</option>
+                                        <option value="bracket_consolation">Consolation Bracket Teams</option>
+                                    </select>
+                                </div>
+
+                                <!-- 3. Primary Condition -->
+                                <div>
+                                    <label for="admin-loser-crit1" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">3. Primary Condition (1st Order):</label>
+                                    <select id="admin-loser-crit1" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="least_points">Least Points Scored (Lowest PF)</option>
+                                        <option value="worst_record">Worst Record / Win Percentage</option>
+                                        <option value="final_rank">Bracket Placement (12th Place)</option>
+                                        <option value="most_points_against">Most Points Against (Highest PA)</option>
+                                    </select>
+                                </div>
+
+                                <!-- 4. Secondary Tiebreaker -->
+                                <div>
+                                    <label for="admin-loser-crit2" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">4. First Tiebreaker (2nd Order):</label>
+                                    <select id="admin-loser-crit2" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                        <option value="least_points">Least Points Scored</option>
+                                        <option value="worst_record">Worst Record / Win Percentage</option>
+                                        <option value="most_points_against">Most Points Against</option>
+                                        <option value="head_to_head">Head-to-Head Record</option>
+                                        <option value="none">None (Standard Fallback)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Manual Override Accordion / Checkbox -->
+                            <div style="padding-top: 1rem; border-top: 1px solid var(--border-color); margin-bottom: 1.25rem;">
+                                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); cursor: pointer;">
+                                    <input type="checkbox" id="admin-loser-manual-toggle" style="cursor: pointer;">
+                                    Manually Designate Specific Manager as Loser (Custom Punishment / Exception)
+                                </label>
+
+                                <div id="admin-loser-manual-fields" style="display: none; margin-top: 10px; padding: 12px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px;">
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                        <div>
+                                            <label for="admin-loser-manual-mgr" style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; color: var(--text-secondary);">Select Designated Manager:</label>
+                                            <select id="admin-loser-manual-mgr" class="admin-select" style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);">
+                                                <option value="">-- Choose Manager --</option>
+                                                ${managerOptions}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label for="admin-loser-manual-reason" style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; color: var(--text-secondary);">Custom Reason / Punishment Details:</label>
+                                            <input type="text" id="admin-loser-manual-reason" class="admin-input" placeholder="e.g. Lost custom Week 17 Sacko punishment match" style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); box-sizing: border-box;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Dynamic Preview of Calculated Loser -->
+                            <div style="background: rgba(153, 27, 27, 0.03); border: 1px dashed var(--border-color); border-radius: 6px; padding: 12px 16px; margin-bottom: 1.25rem;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                    <div>
+                                        <div style="font-size: 0.75rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Live Preview (Result of Current Form Settings)</div>
+                                        <div id="admin-loser-preview-text" style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
+                                            Projected Loser: <span style="color: #dc2626;" id="admin-loser-preview-name">Calculating...</span>
+                                        </div>
+                                        <div id="admin-loser-preview-stats" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <button id="btn-save-loser-condition" class="btn btn-primary" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    Save Rule for <span id="btn-loser-save-year-label">Selected Season</span>
+                                </button>
+                                <button id="btn-apply-future-loser-conditions" class="btn btn-gold" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    Apply Rule as Future Default
+                                </button>
+                                <button id="btn-apply-all-loser-conditions" class="btn btn-secondary-action" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                    Apply Rule to All Seasons (Past &amp; Future)
+                                </button>
+                                <button id="btn-reset-loser-condition" class="btn" style="padding: 9px 16px; font-weight: 600; font-size: 0.82rem; border-radius: 6px; cursor: pointer; white-space: nowrap; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                    Reset to Standard (12th Place)
+                                </button>
+                            </div>
+                            <div id="loser-condition-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. PRIVACY & ACCESS CONTROL -->
+                <div id="admin-sec-privacy" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>League Privacy &amp; Access Control</h2>
                         <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Control whether your archive is publicly readable or restricted to signed-in league members.</p>
                     </div>
-                    <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                    <div style="padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                             <div>
                                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                    <strong style="font-size: 0.95rem; color: var(--text-main);">Vault Access:</strong>
-                                    <span id="admin-privacy-badge" style="display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; ${isPrivate ? 'background:#fee2e2; color:#dc2626;' : 'background:#dcfce7; color:#15803d;'}">
+                                    <strong style="font-size: 1rem; color: var(--text-primary);">Vault Access:</strong>
+                                    <span id="admin-privacy-badge" style="display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; ${isPrivate ? 'background:#fee2e2; color:#dc2626;' : 'background:#dcfce7; color:#15803d;'}\">
                                         ${isPrivate ? 'Private (Invite &amp; SSO Guarded)' : 'Public (Open Link Access)'}
                                     </span>
                                 </div>
-                                <p id="admin-privacy-desc" style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45;">
+                                <p id="admin-privacy-desc" style="margin: 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45; max-width: 600px;">
                                     ${isPrivate 
                                         ? 'Private vaults require managers to be logged in to view your archive, draft records, and record books.' 
                                         : 'Public vaults allow anyone with your league link to explore your history, record books, and draft analysis.'}
@@ -972,76 +1157,80 @@ class FantasyApp {
                                 ${isPrivate ? 'Make League Public' : 'Make League Private'}
                             </button>
                         </div>
-                        <div id="privacy-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem; color: #15803d; font-size: 0.85rem;"></div>
+                        <div id="privacy-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
                 </div>
 
-                <!-- 4. REGISTERED MEMBERS & MANAGER ROSTER -->
-                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
-                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Members Roster</h2>
-                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, copy individual claim links, or email invitations directly.</p>
+                <!-- 5. REGISTERED MEMBERS & MANAGER ROSTER -->
+                <div id="admin-sec-roster" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>League Members Roster</h2>
+                        <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, copy personalized claim links, and manage account assignments.</p>
                     </div>
 
-                    <div style="overflow-x: auto;">
-                        <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid var(--border-line); text-align: left;">
-                                    <th style="padding: 8px; width: 45%;">Manager Display Name</th>
-                                    <th style="padding: 8px; width: 20%;">Active Seasons</th>
-                                    <th style="padding: 8px; width: 35%;">Claim Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${managerRows}
-                            </tbody>
-                        </table>
+                    <div style="margin-top: 1.25rem;">
+                        <div class="admin-table-scroll">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 45%;">Manager Display Name</th>
+                                        <th style="width: 20%;">Active Seasons</th>
+                                        <th style="width: 35%;">Account &amp; Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${managerRows}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="manager-rename-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
-                    <div id="manager-rename-feedback" style="display: none; margin-top: 0.75rem; padding: 0.5rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; color: #065f46; font-size: 0.85rem;"></div>
                 </div>
 
-                <!-- 5. LEAGUE INVITES & ACCESS -->
-                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
-                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">League Invites &amp; Access Control</h2>
+                <!-- 6. LEAGUE INVITES & ACCESS -->
+                <div id="admin-sec-invites" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>League Invites &amp; Access Control</h2>
                         <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Share your official join code and direct invite links with league members to grant them access to this vault.</p>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                        <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
-                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Official Join Code:</span>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
-                                <code style="padding: 4px 10px; background: #fff; border: 1px solid var(--border-line); font-weight: 700; font-size: 1.05rem; letter-spacing: 1px; border-radius: 4px;">${joinCode}</code>
-                                <button class="btn-copy-action btn btn-sm btn-outline-primary" data-copy="${joinCode}" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">Copy Code</button>
+                    <div class="admin-invite-grid" style="margin-top: 1.25rem;">
+                        <div class="admin-invite-box">
+                            <span class="invite-label">Official Join Code:</span>
+                            <div class="invite-value-row">
+                                <code class="invite-code-pill">${joinCode}</code>
+                                <button class="btn-copy-action btn btn-sm" data-copy="${joinCode}">Copy Code</button>
                             </div>
                         </div>
-                        <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
-                            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">General League Invite Link:</span>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
-                                <span style="font-size: 0.82rem; font-family: monospace; color: var(--text-main); word-break: break-all;">${joinLink}</span>
-                                <button class="btn-copy-action btn btn-sm btn-primary" data-copy="${joinLink}" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer;">Copy Link</button>
+                        <div class="admin-invite-box" style="grid-column: span 2;">
+                            <span class="invite-label">General League Invite Link:</span>
+                            <div class="invite-value-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span class="invite-link-text">${joinLink}</span>
+                                    <button class="btn-copy-action btn btn-sm btn-primary" data-copy="${joinLink}">Copy Link</button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div style="margin-top: 1rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
+                    <div style="margin-top: 1.25rem; padding: 0.85rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
                         <p style="margin: 0; font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
                             <strong>General Invite Notice:</strong> Share this general invite link with your league members. When they join using this link, they will be prompted to select and claim their manager profile from the roster.
                         </p>
                     </div>
                 </div>
 
-                <!-- 5. TRANSFER ADMIN STATUS -->
-                <div class="card admin-section-card" style="margin-bottom: 1.5rem; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 1.25rem 1.5rem;">
-                    <div class="admin-card-header" style="border-bottom: 1px solid var(--border-line); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                        <h2 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.3rem; margin: 0 0 4px 0;">Transfer Admin Status</h2>
+                <!-- 7. TRANSFER ADMIN STATUS -->
+                <div id="admin-sec-transfer" class="card admin-section-card">
+                    <div class="admin-card-header">
+                        <h2>Transfer Admin Status</h2>
                         <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Transfer official ownership and commissioner control of this league archive to another manager.</p>
                     </div>
-                    <div style="padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line); border-radius: 6px;">
-                        <p style="font-size: 0.88rem; color: var(--text-secondary, #334155); line-height: 1.5; margin: 0 0 1rem 0;">
+                    <div style="padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+                        <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 1rem 0;">
                             Need to pass commissioner duties to another league member? You can invite a manager to take over admin status by email or by copying an admin transfer link. When they accept and sign in, full commissioner permissions will be transferred to their account.
                         </p>
-                        <button id="btn-open-transfer-admin-modal" class="btn" style="background: #b45309; color: #fff; padding: 8px 16px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none;">Transfer Admin Status</button>
+                        <button id="btn-open-transfer-admin-modal" class="btn btn-gold" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer;">Transfer Admin Status</button>
                     </div>
                 </div>
             </div>
@@ -1317,6 +1506,367 @@ class FantasyApp {
                 }
             });
         });
+
+        // Setup Loser Conditions Interactive System
+        const loserSeasonSelect = container.querySelector('#admin-loser-season-select');
+        const loserScopeSelect = container.querySelector('#admin-loser-scope');
+        const loserPoolSelect = container.querySelector('#admin-loser-pool');
+        const loserCrit1Select = container.querySelector('#admin-loser-crit1');
+        const loserCrit2Select = container.querySelector('#admin-loser-crit2');
+        const loserManualToggle = container.querySelector('#admin-loser-manual-toggle');
+        const loserManualFields = container.querySelector('#admin-loser-manual-fields');
+        const loserManualMgr = container.querySelector('#admin-loser-manual-mgr');
+        const loserManualReason = container.querySelector('#admin-loser-manual-reason');
+
+        const loserCurrentDesc = container.querySelector('#admin-loser-current-desc');
+        const loserCurrentName = container.querySelector('#admin-loser-current-name');
+        const loserRuleLabel = container.querySelector('#admin-loser-rule-label');
+        const btnSaveYearLabel = container.querySelector('#btn-loser-save-year-label');
+
+        const loserPreviewName = container.querySelector('#admin-loser-preview-name');
+        const loserPreviewStats = container.querySelector('#admin-loser-preview-stats');
+
+        const getSelectedYear = () => Number(loserSeasonSelect?.value || activeYearsList[0]);
+
+        const getFormConfig = () => {
+            const isManual = Boolean(loserManualToggle?.checked);
+            if (isManual) {
+                const targetMid = loserManualMgr?.value || '';
+                const targetMgr = sortedMembers.find(m => m.id === targetMid);
+                const reason = loserManualReason?.value?.trim() || '';
+                return {
+                    mode: 'manual',
+                    designated_manager_id: targetMid,
+                    designated_manager_name: targetMgr ? (targetMgr.canonical_name || targetMgr.name) : targetMid,
+                    custom_reason: reason,
+                    description: `Manual commissioner designation: ${reason || 'Custom League Punishment'}`
+                };
+            }
+
+            const scope = loserScopeSelect?.value || 'bracket_playoffs';
+            const pool = loserPoolSelect?.value || 'all_teams';
+            const c1 = loserCrit1Select?.value || 'least_points';
+            const c2 = loserCrit2Select?.value;
+
+            const criteria = [
+                { type: c1, order: c1 === 'most_points_against' ? 'desc' : 'asc' }
+            ];
+            if (c2 && c2 !== 'none') {
+                criteria.push({ type: c2, order: c2 === 'most_points_against' ? 'desc' : 'asc' });
+            }
+
+            return {
+                mode: 'custom',
+                scope,
+                pool,
+                criteria,
+                description: getRuleDescription({ scope, pool, criteria })
+            };
+        };
+
+        const updateLoserPreview = () => {
+            const yr = getSelectedYear();
+            const formConfig = getFormConfig();
+            const previewRes = calculateSeasonLoser(yr, this.standings, this.matchups, { [yr]: formConfig }, this.leagueSettings);
+            if (previewRes && previewRes.manager_id) {
+                const mgrName = this.getManagerName ? this.getManagerName(previewRes.manager_id, previewRes.manager_name) : (previewRes.manager_name || previewRes.manager_id);
+                const tName = previewRes.team_name ? ` (${previewRes.team_name})` : '';
+                if (loserPreviewName) loserPreviewName.innerHTML = `<strong>${mgrName}</strong>${tName}`;
+                if (loserPreviewStats) loserPreviewStats.textContent = `${previewRes.stats_summary} , as ${previewRes.rule_description}`;
+            } else {
+                if (loserPreviewName) loserPreviewName.textContent = 'No standing data for selected season';
+                if (loserPreviewStats) loserPreviewStats.textContent = '';
+            }
+        };
+
+        const updateLoserUI = (yr) => {
+            if (btnSaveYearLabel) btnSaveYearLabel.textContent = `Season ${yr}`;
+            const conditionsMap = this.leagueSettings?.loser_conditions || {};
+            const activeConfig = conditionsMap[yr] || conditionsMap[String(yr)] || conditionsMap['default'] || {
+                mode: 'standard',
+                scope: 'bracket_playoffs',
+                pool: 'bracket_consolation',
+                criteria: [{ type: 'final_rank', order: 'desc' }],
+                description: 'Final Playoff / Consolation Bracket Rank (12th Place)'
+            };
+
+            // Update Current Result Box
+            const currentRes = calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings);
+            if (currentRes && currentRes.manager_id) {
+                const curMgr = this.getManagerName ? this.getManagerName(currentRes.manager_id, currentRes.manager_name) : (currentRes.manager_name || currentRes.manager_id);
+                const curTeam = currentRes.team_name ? ` (${currentRes.team_name})` : '';
+                if (loserCurrentDesc) loserCurrentDesc.textContent = currentRes.rule_description;
+                if (loserCurrentName) loserCurrentName.innerHTML = `<strong>${curMgr}</strong>${curTeam} <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">[${currentRes.stats_summary}]</span>`;
+                if (loserRuleLabel) loserRuleLabel.textContent = (activeConfig.mode === 'standard' || !conditionsMap[yr]) ? 'Standard Bracket Rule' : 'Custom Configured Rule';
+            } else {
+                if (loserCurrentDesc) loserCurrentDesc.textContent = 'Standard Playoff Bracket Finish';
+                if (loserCurrentName) loserCurrentName.textContent = 'No season data';
+                if (loserRuleLabel) loserRuleLabel.textContent = 'Default Rule';
+            }
+
+            // Populate form controls
+            if (activeConfig.mode === 'manual') {
+                if (loserManualToggle) loserManualToggle.checked = true;
+                if (loserManualFields) loserManualFields.style.display = 'block';
+                if (loserManualMgr) loserManualMgr.value = activeConfig.designated_manager_id || '';
+                if (loserManualReason) loserManualReason.value = activeConfig.custom_reason || '';
+            } else {
+                if (loserManualToggle) loserManualToggle.checked = false;
+                if (loserManualFields) loserManualFields.style.display = 'none';
+                if (loserScopeSelect) loserScopeSelect.value = activeConfig.scope || 'bracket_playoffs';
+                if (loserPoolSelect) loserPoolSelect.value = activeConfig.pool || 'all_teams';
+                if (loserCrit1Select) loserCrit1Select.value = activeConfig.criteria?.[0]?.type || activeConfig.criteria?.[0] || 'least_points';
+                if (loserCrit2Select) loserCrit2Select.value = activeConfig.criteria?.[1]?.type || activeConfig.criteria?.[1] || 'none';
+            }
+
+            updateLoserPreview();
+        };
+
+        if (loserSeasonSelect) {
+            loserSeasonSelect.addEventListener('change', () => {
+                updateLoserUI(getSelectedYear());
+            });
+            // Initial load for first season
+            updateLoserUI(getSelectedYear());
+        }
+
+        // Form change listeners for live preview
+        [loserScopeSelect, loserPoolSelect, loserCrit1Select, loserCrit2Select, loserManualMgr, loserManualReason].forEach(el => {
+            el?.addEventListener('change', updateLoserPreview);
+            el?.addEventListener('input', updateLoserPreview);
+        });
+
+        loserManualToggle?.addEventListener('change', () => {
+            if (loserManualFields) {
+                loserManualFields.style.display = loserManualToggle.checked ? 'block' : 'none';
+            }
+            updateLoserPreview();
+        });
+
+        // Preset buttons
+        container.querySelectorAll('.btn-loser-preset').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const preset = btn.getAttribute('data-preset');
+                if (loserManualToggle) loserManualToggle.checked = false;
+                if (loserManualFields) loserManualFields.style.display = 'none';
+
+                if (preset === 'standard') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'bracket_playoffs';
+                    if (loserPoolSelect) loserPoolSelect.value = 'bracket_consolation';
+                    if (loserCrit1Select) loserCrit1Select.value = 'final_rank';
+                    if (loserCrit2Select) loserCrit2Select.value = 'none';
+                } else if (preset === 'full_least_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'full_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'all_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'least_points';
+                    if (loserCrit2Select) loserCrit2Select.value = 'worst_record';
+                } else if (preset === 'reg_least_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'regular_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'all_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'least_points';
+                    if (loserCrit2Select) loserCrit2Select.value = 'worst_record';
+                } else if (preset === 'worst_record_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'regular_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'all_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'worst_record';
+                    if (loserCrit2Select) loserCrit2Select.value = 'least_points';
+                } else if (preset === 'non_playoff_least_pts') {
+                    if (loserScopeSelect) loserScopeSelect.value = 'regular_season';
+                    if (loserPoolSelect) loserPoolSelect.value = 'non_playoff_teams';
+                    if (loserCrit1Select) loserCrit1Select.value = 'least_points';
+                    if (loserCrit2Select) loserCrit2Select.value = 'worst_record';
+                }
+                updateLoserPreview();
+            });
+        });
+
+        // Save Rule for Selected Season
+        const btnSaveLoser = container.querySelector('#btn-save-loser-condition');
+        if (btnSaveLoser) {
+            btnSaveLoser.addEventListener('click', async () => {
+                const yr = getSelectedYear();
+                const formConfig = getFormConfig();
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnSaveLoser.disabled = true;
+                btnSaveLoser.textContent = 'Saving...';
+                try {
+                    await this.saveLoserCondition(yr, formConfig);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Successfully saved loser condition for <strong>Season ${yr}</strong>!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(yr);
+                } catch (e) {
+                    console.error('Failed to save loser condition', e);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg error';
+                        feedbackEl.textContent = 'Failed to save loser condition. Please try again.';
+                    }
+                } finally {
+                    btnSaveLoser.disabled = false;
+                    btnSaveLoser.textContent = `Save Rule for Season ${yr}`;
+                }
+            });
+        }
+
+        // Apply Rule as Future Default
+        const btnApplyFutureLoser = container.querySelector('#btn-apply-future-loser-conditions');
+        if (btnApplyFutureLoser) {
+            btnApplyFutureLoser.addEventListener('click', async () => {
+                const formConfig = getFormConfig();
+                const confirmed = window.confirm("Set this rule as the new default loser condition for all future seasons?");
+                if (!confirmed) return;
+
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnApplyFutureLoser.disabled = true;
+                btnApplyFutureLoser.textContent = 'Setting Default...';
+                try {
+                    await this.applyLoserConditionToFutureSeasons(formConfig);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Set as the <strong>default loser condition</strong> for current and future seasons!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(getSelectedYear());
+                } catch (e) {
+                    console.error('Failed to set future loser condition default', e);
+                } finally {
+                    btnApplyFutureLoser.disabled = false;
+                    btnApplyFutureLoser.textContent = 'Apply Rule as Future Default';
+                }
+            });
+        }
+
+        // Apply Rule to All Seasons
+        const btnApplyAllLoser = container.querySelector('#btn-apply-all-loser-conditions');
+        if (btnApplyAllLoser) {
+            btnApplyAllLoser.addEventListener('click', async () => {
+                const formConfig = getFormConfig();
+                const confirmed = window.confirm("Are you sure you want to apply this loser condition rule to ALL seasons in league history?");
+                if (!confirmed) return;
+
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnApplyAllLoser.disabled = true;
+                btnApplyAllLoser.textContent = 'Applying...';
+                try {
+                    await this.applyLoserConditionToAllSeasons(formConfig);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Applied loser condition rule to <strong>all seasons</strong> across league history!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(getSelectedYear());
+                } catch (e) {
+                    console.error('Failed to apply loser conditions to all', e);
+                } finally {
+                    btnApplyAllLoser.disabled = false;
+                    btnApplyAllLoser.textContent = 'Apply Rule to All Seasons (Past & Future)';
+                }
+            });
+        }
+
+        // Reset to Standard
+        const btnResetLoser = container.querySelector('#btn-reset-loser-condition');
+        if (btnResetLoser) {
+            btnResetLoser.addEventListener('click', async () => {
+                const yr = getSelectedYear();
+                const feedbackEl = document.getElementById('loser-condition-feedback');
+                btnResetLoser.disabled = true;
+                try {
+                    await this.resetLoserCondition(yr);
+                    if (typeof this.renderRecords === 'function') this.renderRecords();
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Reset Season ${yr} to standard 12th place bracket finish.`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    updateLoserUI(yr);
+                } catch (e) {
+                    console.error('Failed to reset loser condition', e);
+                } finally {
+                    btnResetLoser.disabled = false;
+                }
+            });
+        }
+
+        // Setup smooth scrolling for "On This Page" subnav pills inside Admin Dashboard
+        container.querySelectorAll('.admin-scroller-bar .scroller-pill').forEach(link => {
+            link.addEventListener('click', (e) => {
+                const targetId = link.getAttribute('href');
+                if (targetId && targetId.startsWith('#')) {
+                    e.preventDefault();
+                    const el = container.querySelector(targetId);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        });
+    }
+
+    async saveLoserCondition(year, ruleConfig) {
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.loser_conditions) this.leagueSettings.loser_conditions = {};
+        this.leagueSettings.loser_conditions[year] = ruleConfig;
+
+        try {
+            const loserRef = dbRef(database, `leagues/dmsfantasy/league_settings/loser_conditions/${year}`);
+            await set(loserRef, ruleConfig);
+        } catch (e) {
+            console.error("Failed to save loser condition to Firebase", e);
+        }
+    }
+
+    async applyLoserConditionToFutureSeasons(ruleConfig) {
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.loser_conditions) this.leagueSettings.loser_conditions = {};
+
+        this.leagueSettings.loser_conditions['default'] = ruleConfig;
+
+        try {
+            const defaultRef = dbRef(database, `leagues/dmsfantasy/league_settings/loser_conditions/default`);
+            await set(defaultRef, ruleConfig);
+        } catch (e) {
+            console.error("Failed to save default loser condition to Firebase", e);
+        }
+    }
+
+    async applyLoserConditionToAllSeasons(ruleConfig) {
+        if (!this.leagueSettings) this.leagueSettings = {};
+        if (!this.leagueSettings.loser_conditions) this.leagueSettings.loser_conditions = {};
+
+        const distinctYears = [...new Set((this.standings || []).map(s => Number(s.season || s.year)).filter(Boolean))];
+        this.leagueSettings.loser_conditions['default'] = ruleConfig;
+        for (const yr of distinctYears) {
+            this.leagueSettings.loser_conditions[yr] = ruleConfig;
+        }
+
+        try {
+            const loserRef = dbRef(database, `leagues/dmsfantasy/league_settings/loser_conditions`);
+            await set(loserRef, this.leagueSettings.loser_conditions);
+        } catch (e) {
+            console.error("Failed to save loser conditions to Firebase", e);
+        }
+    }
+
+    async resetLoserCondition(year) {
+        const standardConfig = {
+            mode: 'standard',
+            scope: 'bracket_playoffs',
+            pool: 'bracket_consolation',
+            criteria: [{ type: 'final_rank', order: 'desc' }],
+            description: 'Final Playoff / Consolation Bracket Rank (12th Place)'
+        };
+        await this.saveLoserCondition(year, standardConfig);
     }
 
     async updateManagerName(managerId, newName, newNickname = null) {

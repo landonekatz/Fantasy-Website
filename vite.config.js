@@ -113,7 +113,8 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         vault: path.resolve(__dirname, 'vault.html'),
-        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html')
+        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html'),
+        gaywoodfantasy: path.resolve(__dirname, 'gaywoodfantasy/index.html')
       }
     }
   }
