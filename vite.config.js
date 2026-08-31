@@ -95,6 +95,16 @@ function serveMultiLeagueDataPlugin() {
           }
         }
       }
+      // Copy dmsfantasy pngs to dist/dmsfantasy
+      const dmsRoot = path.join(__dirname, 'dmsfantasy');
+      const dmsDistRoot = path.join(__dirname, 'dist', 'dmsfantasy');
+      if (fs.existsSync(dmsRoot)) {
+        for (const file of fs.readdirSync(dmsRoot)) {
+          if (file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.svg')) {
+            fs.copyFileSync(path.join(dmsRoot, file), path.join(dmsDistRoot, file));
+          }
+        }
+      }
     }
   };
 }

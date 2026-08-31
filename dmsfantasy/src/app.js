@@ -696,7 +696,7 @@ class FantasyApp {
                 const themeLabel = document.getElementById('theme-toggle-label');
                 if (themeLabel) themeLabel.textContent = 'THEME: BLOOD';
                 if (!document.getElementById('dungeon-bg-style')) {
-                    const imgUrl = new URL('dungeon_new.png', window.location.href).href;
+                    const imgUrl = '/dungeon_new.png';
                     const s = document.createElement('style');
                     s.id = 'dungeon-bg-style';
                     s.textContent = `body.rivalry-dungeon-mode::before {

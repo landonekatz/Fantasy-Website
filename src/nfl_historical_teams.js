@@ -2,7 +2,7 @@
  * Historical NFL Teams Lookup Service
  * Resolves season-accurate NFL teams at the time of fantasy drafts (2015-2027)
  */
-import historicalTeamsData from './nfl_historical_teams_data.json';
+import historicalTeamsData from './nfl_historical_teams_data.json' with { type: 'json' };
 
 const DEFENSE_MAP = {
   'patriots': 'NE', 'new england patriots': 'NE', 'patriots dst': 'NE', 'new england patriots dst': 'NE', 'patriots d/st': 'NE',

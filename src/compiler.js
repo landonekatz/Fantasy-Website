@@ -613,24 +613,68 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     for (const t of (season.data.transactions || [])) {
       if (t.status !== 'EXECUTED') continue;
       let processedItems = [];
+      const addedPlayers = [];
+      const droppedPlayers = [];
+      const tradedPlayers = [];
+      let primaryTeamId = null;
+
       if (t.items) {
         for (const item of t.items) {
+          const pName = playerIdToName.get(item.playerId) || `Player ID ${item.playerId}`;
           processedItems.push({
             player_id: item.playerId,
-            player_name: playerIdToName.get(item.playerId) || `Player ID ${item.playerId}`,
+            player_name: pName,
             type: item.type, // ADD, DROP, LINEUP
             from_team: item.fromTeamId,
             to_team: item.toTeamId
           });
+          if (item.type === 'ADD') {
+            addedPlayers.push(pName);
+            if (primaryTeamId === null && item.toTeamId) primaryTeamId = item.toTeamId;
+          }
+          if (item.type === 'DROP') {
+            droppedPlayers.push(pName);
+            if (primaryTeamId === null && item.fromTeamId) primaryTeamId = item.fromTeamId;
+          }
+          if (t.type === 'TRADE') {
+            tradedPlayers.push(pName);
+          }
         }
       }
       // Filter out boring ROSTER moves to keep it clean, unless you want them
       if (t.type === 'ROSTER') continue;
       
+      const tInfo = (primaryTeamId !== null && teamMap[year] && teamMap[year][primaryTeamId]) || {};
+      const execDate = t.executionDate || t.proposedDate;
+      const formattedTimestamp = execDate ? new Date(execDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      
+      let details = '';
+      if (t.type === 'TRADE') {
+        details = `Trade: ${tradedPlayers.join(', ')}`;
+      } else {
+        const parts = [];
+        if (addedPlayers.length > 0) parts.push(`Added: ${addedPlayers.join(', ')}`);
+        if (droppedPlayers.length > 0) parts.push(`Dropped: ${droppedPlayers.join(', ')}`);
+        if (t.bidAmount > 0) parts.push(`FAAB: $${t.bidAmount}`);
+        details = parts.join(' · ');
+      }
+
       transactions.push({
          year,
-         date: t.executionDate || t.proposedDate,
+         season: year,
+         date: execDate,
+         timestamp: formattedTimestamp,
          action_type: t.type, // FREEAGENT, WAIVER, TRADE
+         type: t.type === 'FREEAGENT' ? 'free_agent' : (t.type === 'TRADE' ? 'trade' : 'waiver'),
+         team_id: primaryTeamId,
+         team_name: tInfo.name || '',
+         manager_id: tInfo.ownerId || '',
+         manager_name: tInfo.ownerName || '',
+         added_players: addedPlayers,
+         dropped_players: droppedPlayers,
+         traded_players: tradedPlayers,
+         faab_bid: t.bidAmount || 0,
+         details: details,
          items: processedItems
       });
     }

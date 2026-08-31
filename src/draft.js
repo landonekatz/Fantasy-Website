@@ -22,6 +22,14 @@ function normalizePosition(rawPos, playerName = '') {
     return null;
 }
 
+function normPlayerName(name) {
+    if (!name) return '';
+    return String(name).toLowerCase()
+        .replace(/\b(jr\.?|sr\.?|ii|iii|iv|v)\b/gi, '')
+        .replace(/[^a-z0-9]/gi, '')
+        .trim();
+}
+
 export class VaultDraftEngine {
     constructor(options = {}) {
         this.containerId = options.containerId || 'view-draft';
@@ -473,6 +481,100 @@ export class VaultDraftEngine {
         // If no weekly stats or 0 points/games played, it's an unplayed season
         const isUnplayedSeason = (yearStats.length === 0 && totalGamesPlayedInSeason === 0);
 
+        // Index all transactions for this season
+        const normPlayerName = (name) => {
+            if (!name) return '';
+            return String(name).toLowerCase()
+                .replace(/\b(jr\.?|sr\.?|ii|iii|iv|v)\b/gi, '')
+                .replace(/[^a-z0-9]/gi, '')
+                .trim();
+        };
+
+        const seasonDropsMap = new Map();
+        const seasonAddsMap = new Map();
+        const seasonAllPlayerTxs = new Map();
+
+        yearTx.forEach(t => {
+            const droppedList = Array.isArray(t.dropped_players) ? [...t.dropped_players] : [];
+            const addedList = Array.isArray(t.added_players) ? [...t.added_players] : [];
+            
+            // Extract added player from details if added_players is empty (Yahoo format)
+            if (addedList.length === 0 && t.details && t.details !== 'Traded to') {
+                const addMatch = t.details.match(/^([A-Za-z0-9\.\'\-\s]+?)\s+(?:[A-Z]{2,3}|49ers)\s+-\s+(?:QB|RB|WR|TE|K|DEF)/);
+                if (addMatch && addMatch[1]) {
+                    const cleanAdd = addMatch[1].trim();
+                    if (!addedList.includes(cleanAdd) && !droppedList.includes(cleanAdd)) {
+                        addedList.push(cleanAdd);
+                    }
+                }
+            }
+
+            // Extract from ESPN items array if present
+            if (Array.isArray(t.items)) {
+                t.items.forEach(item => {
+                    const pName = item.player_name || item.name;
+                    if (pName) {
+                        if (item.type === 'DROP' && !droppedList.includes(pName)) droppedList.push(pName);
+                        if (item.type === 'ADD' && !addedList.includes(pName)) addedList.push(pName);
+                    }
+                });
+            }
+
+            droppedList.forEach(p => {
+                const np = normPlayerName(p);
+                if (!np) return;
+                if (!seasonDropsMap.has(np)) seasonDropsMap.set(np, []);
+                seasonDropsMap.get(np).push(t);
+                
+                if (!seasonAllPlayerTxs.has(np)) seasonAllPlayerTxs.set(np, []);
+                if (!seasonAllPlayerTxs.get(np).includes(t)) {
+                    seasonAllPlayerTxs.get(np).push(t);
+                }
+            });
+            
+            addedList.forEach(p => {
+                const np = normPlayerName(p);
+                if (!np) return;
+                if (!seasonAddsMap.has(np)) seasonAddsMap.set(np, []);
+                seasonAddsMap.get(np).push(t);
+                
+                if (!seasonAllPlayerTxs.has(np)) seasonAllPlayerTxs.set(np, []);
+                if (!seasonAllPlayerTxs.get(np).includes(t)) {
+                    seasonAllPlayerTxs.get(np).push(t);
+                }
+            });
+
+            // Also index trades from t.items or traded_players
+            const isTrade = (t.action_type === 'TRADE' || t.type === 'trade');
+            if (isTrade) {
+                const tradedList = Array.isArray(t.traded_players) ? [...t.traded_players] : [];
+                if (Array.isArray(t.items)) {
+                    t.items.forEach(item => {
+                        const pName = item.player_name || item.name;
+                        if (pName && !tradedList.includes(pName)) tradedList.push(pName);
+                    });
+                }
+                tradedList.forEach(p => {
+                    const np = normPlayerName(p);
+                    if (!np) return;
+                    if (!seasonAllPlayerTxs.has(np)) seasonAllPlayerTxs.set(np, []);
+                    if (!seasonAllPlayerTxs.get(np).includes(t)) {
+                        seasonAllPlayerTxs.get(np).push(t);
+                    }
+                });
+            }
+        });
+
+        const playerWeeklyMgrMap = new Map();
+        yearStats.forEach(st => {
+            const np = normPlayerName(st.player_name || st.playerName);
+            if (!np) return;
+            const wk = Number(st.week) || 1;
+            const stMgr = String(st.manager_id || st.managerId || (st.team_id !== undefined ? `team_${st.team_id}` : '')).toLowerCase();
+            if (!playerWeeklyMgrMap.has(np)) playerWeeklyMgrMap.set(np, new Map());
+            playerWeeklyMgrMap.get(np).set(wk, stMgr);
+        });
+
         // Group player weekly stats for transaction and roster tracking
         const playerSeasonTotals = {};
         yearStats.forEach(st => {
@@ -623,44 +725,162 @@ export class VaultDraftEngine {
                 };
             }
 
-            // Transaction / Destination Tag
-            let destinationTag = 'Retained All Season';
+            // Transaction / Destination Tag Lifecycle
+            let destinationTag = '';
             let tagType = 'retained';
             let tradeInfo = null;
+            let dropInfo = null;
 
-            if (finalInfo && finalInfo.weeklyRoster) {
-                const rosterEntries = Object.entries(finalInfo.weeklyRoster);
-                const otherMgrs = rosterEntries.filter(([wk, m]) => {
-                    const pMgrId = typeof m === 'object' ? (m?.managerId || m?.manager_id) : m;
-                    return pMgrId && String(pMgrId).toLowerCase() !== String(mgrId).toLowerCase();
+            const np = normPlayerName(pName);
+            const dMgrLower = String(mgrId || (pick.team_id !== undefined ? `team_${pick.team_id}` : '')).toLowerCase();
+            const dTeamId = pick.team_id !== undefined ? String(pick.team_id) : (pick.teamId !== undefined ? String(pick.teamId) : '');
+
+            // Check if drafter explicitly dropped this player in transactions
+            const playerDrops = seasonDropsMap.get(np) || [];
+            const droppedByDrafterTxs = playerDrops.filter(t => {
+                const tMgr = String(t.manager_id || t.managerId || '').toLowerCase();
+                const tTeam = t.team_id !== undefined ? String(t.team_id) : (t.teamId !== undefined ? String(t.teamId) : '');
+                if (tMgr && (tMgr === dMgrLower || (dMgrLower && tMgr.includes(dMgrLower)))) return true;
+                if (tTeam && dTeamId && tTeam === dTeamId) return true;
+                if (Array.isArray(t.items)) {
+                    return t.items.some(item => {
+                        const isMatch = normPlayerName(item.player_name || item.name) === np;
+                        const isDrop = item.type === 'DROP';
+                        const isFromTeam = (dTeamId && String(item.from_team) === dTeamId) || (dMgrLower && String(item.from_team).toLowerCase() === dMgrLower);
+                        return isMatch && isDrop && isFromTeam;
+                    });
+                }
+                return false;
+            });
+            const playerAllTxs = (seasonAllPlayerTxs.get(np) || []).slice();
+
+            // Weekly roster assignments for this player
+            const weekMap = playerWeeklyMgrMap.get(np) || new Map();
+            const drafterWeeks = [];
+            const otherMgrWeeks = [];
+
+            weekMap.forEach((mId, wk) => {
+                const isDrafterWeek = (mId === dMgrLower) || (dTeamId && mId === `team_${dTeamId}`) || (dMgrLower && mId.includes(dMgrLower));
+                if (isDrafterWeek) {
+                    drafterWeeks.push(wk);
+                } else if (mId) {
+                    otherMgrWeeks.push({ week: wk, managerId: mId });
+                }
+            });
+            otherMgrWeeks.sort((a, b) => a.week - b.week);
+
+            if (droppedByDrafterTxs.length > 0) {
+                tagType = 'dropped';
+                const lastDrafterWk = drafterWeeks.length > 0 ? Math.max(...drafterWeeks) : 0;
+                const dropWeek = lastDrafterWk > 0 ? Math.min(lastDrafterWk + 1, maxRegularSeasonGames) : 1;
+                destinationTag = `Dropped to Waivers (Wk ${dropWeek})`;
+                
+                dropInfo = {
+                    year,
+                    dropWeek,
+                    drafterManagerId: mgrId,
+                    drafterManagerName: mgrName,
+                    teamName: teamName,
+                    playerId: pId,
+                    playerName: pName,
+                    position: pos,
+                    overallPick,
+                    round,
+                    roundPick,
+                    transactions: playerAllTxs
+                };
+            } else if (otherMgrWeeks.length > 0) {
+                const firstOther = otherMgrWeeks[0];
+                const firstOtherWeek = Number(firstOther.week);
+                const targetMgrId = firstOther.managerId;
+                const targetMgrName = mgrList.find(m => String(m.id).toLowerCase() === String(targetMgrId).toLowerCase())?.name || targetMgrId;
+                const lastDrafterWk = drafterWeeks.length > 0 ? Math.max(...drafterWeeks) : 0;
+                const dropWeek = lastDrafterWk > 0 ? Math.min(lastDrafterWk + 1, maxRegularSeasonGames) : 1;
+
+                // If there is a gap between the last week drafter held them and first week new manager held them,
+                // it is impossible for it to be a trade (the player was unrostered on waivers/FA during the gap).
+                const isRosterGap = (firstOtherWeek > lastDrafterWk + 1);
+
+                // Check if the new manager acquired this player via waiver claim or free agent pickup
+                const targetMgrLower = String(targetMgrId).toLowerCase();
+                const targetAdds = (seasonAddsMap.get(np) || []).filter(t => {
+                    const tMgr = String(t.manager_id || t.managerId || '').toLowerCase();
+                    const tTeam = t.team_id !== undefined ? String(t.team_id) : '';
+                    return (tMgr && (tMgr === targetMgrLower || targetMgrLower.includes(tMgr))) || (tTeam && tTeam === targetMgrLower);
                 });
-                if (otherMgrs.length > 0) {
-                    const firstWeekMoved = otherMgrs[0][0];
-                    const rawTarget = otherMgrs[0][1];
-                    const targetMgrId = typeof rawTarget === 'object' ? (rawTarget?.managerId || rawTarget?.manager_id) : rawTarget;
-                    const mgrList = this.getManagerList();
-                    const targetMgrName = mgrList.find(m => String(m.id).toLowerCase() === String(targetMgrId).toLowerCase())?.name ||
-                                          targetMgrId;
-                    destinationTag = `Moved to ${targetMgrName} (Wk ${firstWeekMoved})`;
+                const isClaimedByOther = targetAdds.length > 0;
+
+                // Reconstruct full trade package: find all players moving between dMgrLower and targetMgrId at firstOtherWeek
+                const sideASent = []; // Drafter sent to target
+                const sideBSent = []; // Target sent to drafter
+                
+                playerWeeklyMgrMap.forEach((wMap, otherNp) => {
+                    const prevMgr = wMap.get(firstOtherWeek - 1);
+                    const currMgr = wMap.get(firstOtherWeek);
+                    
+                    if (prevMgr === dMgrLower && currMgr === targetMgrId) {
+                        const wasDropped = (seasonDropsMap.get(otherNp) || []).some(t => String(t.manager_id || t.managerId || '').toLowerCase() === dMgrLower);
+                        if (!wasDropped) {
+                            const originalStat = yearStats.find(s => normPlayerName(s.player_name || s.playerName) === otherNp);
+                            const dispName = originalStat?.player_name || originalStat?.playerName || otherNp;
+                            const dispPos = originalStat?.position || originalStat?.roster_slot || '';
+                            sideASent.push({ name: dispName, pos: dispPos });
+                        }
+                    } else if (prevMgr === targetMgrId && currMgr === dMgrLower) {
+                        const wasDropped = (seasonDropsMap.get(otherNp) || []).some(t => String(t.manager_id || t.managerId || '').toLowerCase() === targetMgrId);
+                        if (!wasDropped) {
+                            const originalStat = yearStats.find(s => normPlayerName(s.player_name || s.playerName) === otherNp);
+                            const dispName = originalStat?.player_name || originalStat?.playerName || otherNp;
+                            const dispPos = originalStat?.position || originalStat?.roster_slot || '';
+                            sideBSent.push({ name: dispName, pos: dispPos });
+                        }
+                    }
+                });
+                
+                if (!sideASent.some(p => normPlayerName(p.name) === np)) {
+                    sideASent.unshift({ name: pName, pos: pos });
+                }
+                
+                // A legitimate trade requires consecutive weeks (no gap), no waiver claim by target, and counterpart assets or explicit multi-player move
+                const isLegitTrade = !isRosterGap && !isClaimedByOther && (sideBSent.length > 0 || (sideASent.length > 1 && !isClaimedByOther));
+
+                if (isLegitTrade) {
                     tagType = 'traded';
+                    destinationTag = `Traded to ${targetMgrName} (Wk ${firstOtherWeek})`;
                     tradeInfo = {
                         year,
-                        week: Number(firstWeekMoved),
+                        week: firstOtherWeek,
                         fromManagerId: mgrId,
                         fromManagerName: mgrName,
                         toManagerId: targetMgrId,
                         toManagerName: targetMgrName,
                         playerId: pId,
                         playerName: pName,
-                        position: pos
+                        position: pos,
+                        sideASent,
+                        sideBSent
                     };
-                } else if (finalInfo.weeksPlayed < 4 && maxRegularSeasonGames > 8) {
-                    const activeWeeks = Array.from(playerSeasonTotals[String(pId)]?.weeksActive || []);
-                    const lastActiveWk = activeWeeks.length > 0 ? Math.max(...activeWeeks) : 1;
-                    const dropWk = Math.min(lastActiveWk + 1, maxRegularSeasonGames);
-                    destinationTag = `Dropped to Waivers (Wk ${dropWk})`;
+                } else {
                     tagType = 'dropped';
+                    destinationTag = `Dropped to Waivers (Wk ${dropWeek})`;
+                    dropInfo = {
+                        year,
+                        dropWeek,
+                        drafterManagerId: mgrId,
+                        drafterManagerName: mgrName,
+                        teamName: teamName,
+                        playerId: pId,
+                        playerName: pName,
+                        position: pos,
+                        overallPick,
+                        round,
+                        roundPick,
+                        transactions: playerAllTxs
+                    };
                 }
+            } else {
+                tagType = 'retained';
+                destinationTag = '';
             }
 
             const pickData = {
@@ -684,7 +904,8 @@ export class VaultDraftEngine {
                 ldiResult,
                 destinationTag,
                 tagType,
-                tradeInfo
+                tradeInfo,
+                dropInfo
             };
 
             enrichedPicks.push(pickData);
@@ -1248,10 +1469,11 @@ export class VaultDraftEngine {
 
             // Transaction Badge
             let txBadge = '';
-            if (p.tagType === 'traded') {
-                txBadge = `<button type="button" class="pick-sub-tag traded" data-pick-overall="${p.overallPick}" title="Click to view full trade details">⇄ ${p.destinationTag}</button>`;
-            } else if (p.tagType === 'dropped') {
-                txBadge = `<span class="pick-sub-tag dropped">${p.destinationTag}</span>`;
+            const pickYr = p.year || this.selectedYear;
+            if (p.tagType === 'traded' && p.destinationTag) {
+                txBadge = `<button type="button" class="pick-sub-tag traded" data-pick-overall="${p.overallPick}" data-year="${pickYr}" title="Click to view full trade details">⇄ ${p.destinationTag}</button>`;
+            } else if (p.tagType === 'dropped' && p.destinationTag) {
+                txBadge = `<button type="button" class="pick-sub-tag dropped" data-pick-overall="${p.overallPick}" data-year="${pickYr}" title="Click to view full add/drop transaction history">↓ ${p.destinationTag}</button>`;
             }
 
             const posClass = `pos-${(p.position || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
@@ -2530,18 +2752,36 @@ export class VaultDraftEngine {
             });
         });
 
-        // Clickable Traded Picks
-        if (analytics && analytics.picks) {
-            container.querySelectorAll('.pick-sub-tag.traded').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const pickOverall = Number(e.currentTarget.getAttribute('data-pick-overall'));
-                    const pick = analytics.picks.find(p => p.overallPick === pickOverall);
-                    if (pick) {
-                        this.openTradeModal(pick);
-                    }
-                });
-            });
-        }
+        // Global Clickable Traded & Dropped Picks via Event Delegation
+        container.addEventListener('click', (e) => {
+            const dropBtn = e.target.closest('.pick-sub-tag.dropped');
+            if (dropBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const pickOverall = Number(dropBtn.getAttribute('data-pick-overall'));
+                const pickYear = Number(dropBtn.getAttribute('data-year')) || Number(this.selectedYear);
+                const yearAnalytics = this.computeSeasonAnalytics(pickYear);
+                const pick = yearAnalytics?.picks?.find(p => p.overallPick === pickOverall);
+                if (pick) {
+                    this.openDropModal(pick);
+                }
+                return;
+            }
+
+            const tradeBtn = e.target.closest('.pick-sub-tag.traded');
+            if (tradeBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const pickOverall = Number(tradeBtn.getAttribute('data-pick-overall'));
+                const pickYear = Number(tradeBtn.getAttribute('data-year')) || Number(this.selectedYear);
+                const yearAnalytics = this.computeSeasonAnalytics(pickYear);
+                const pick = yearAnalytics?.picks?.find(p => p.overallPick === pickOverall);
+                if (pick) {
+                    this.openTradeModal(pick);
+                }
+                return;
+            }
+        });
     }
 
     /**
@@ -2636,7 +2876,28 @@ export class VaultDraftEngine {
         const dateStr = tradeTx?.date || tradeTx?.timestamp || `${year} Season · Week ${targetWeek}`;
 
         let assetsHTML = '';
-        if (tradeTx && tradeTx.items && tradeTx.items.length > 0) {
+        if (tInfo && (tInfo.sideASent?.length > 0 || tInfo.sideBSent?.length > 0)) {
+            assetsHTML = `
+                <div class="trade-assets-grid">
+                    <div class="trade-side-card">
+                        <div class="trade-side-header">${fromName} Receives:</div>
+                        <ul class="trade-assets-list">
+                            ${tInfo.sideBSent.length > 0 
+                                ? tInfo.sideBSent.map(p => `<li><strong>${p.name || p}</strong> ${p.pos ? `<span class="trade-asset-pos">${p.pos}</span>` : ''}</li>`).join('') 
+                                : '<li style="color: var(--text-muted); font-style: italic;">Draft picks / Considerations</li>'}
+                        </ul>
+                    </div>
+                    <div class="trade-side-card">
+                        <div class="trade-side-header">${toName} Receives:</div>
+                        <ul class="trade-assets-list">
+                            ${tInfo.sideASent.length > 0 
+                                ? tInfo.sideASent.map(p => `<li><strong>${p.name || p}</strong> ${p.pos ? `<span class="trade-asset-pos">${p.pos}</span>` : ''}</li>`).join('') 
+                                : '<li style="color: var(--text-muted); font-style: italic;">Draft picks / Considerations</li>'}
+                        </ul>
+                    </div>
+                </div>
+            `;
+        } else if (tradeTx && tradeTx.items && tradeTx.items.length > 0) {
             const sideA = tradeTx.items.filter(i => String(i.from_team) === String(tradeTx.items[0]?.from_team));
             const sideB = tradeTx.items.filter(i => String(i.from_team) !== String(tradeTx.items[0]?.from_team));
             
@@ -2669,7 +2930,7 @@ export class VaultDraftEngine {
                     <div class="trade-side-card">
                         <div class="trade-side-header">Sent By:</div>
                         <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary); margin-bottom: 4px;">${fromName}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);">Traded to ${toName} around Week ${targetWeek}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">Traded to ${toName} in Week ${targetWeek}</div>
                     </div>
                     <div class="trade-side-card">
                         <div class="trade-side-header">Acquired Asset:</div>
@@ -2707,6 +2968,187 @@ export class VaultDraftEngine {
         const actionCloseBtn = modal.querySelector('#btn-close-trade-dialog');
         const closeModal = () => modal.close();
         
+        closeBtn?.addEventListener('click', closeModal);
+        actionCloseBtn?.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.close();
+        });
+    }
+
+    /**
+     * Open Full Add/Drop & Waiver Log Modal for a Player
+     */
+    openDropModal(pickData) {
+        if (!pickData) return;
+        let modal = document.getElementById('drop-history-modal');
+        if (!modal) {
+            modal = document.createElement('dialog');
+            modal.id = 'drop-history-modal';
+            modal.className = 'modal drop-history-dialog';
+            document.body.appendChild(modal);
+        }
+
+        const year = Number(this.selectedYear);
+        const dInfo = pickData.dropInfo;
+        const dropWeek = dInfo?.dropWeek || 1;
+        const drafterName = dInfo?.drafterManagerName || pickData.managerName;
+        const teamName = dInfo?.teamName || pickData.teamName || drafterName;
+        const txList = dInfo?.transactions || [];
+
+        let timelineHTML = '';
+        if (txList.length > 0) {
+            const npTarget = normPlayerName(pickData.playerName);
+            timelineHTML = `
+                <div class="drop-timeline">
+                    ${txList.map(tx => {
+                        const isDrop = (tx.dropped_players || []).some(p => {
+                            const np1 = normPlayerName(p);
+                            return np1.includes(npTarget) || npTarget.includes(np1);
+                        }) || (Array.isArray(tx.items) && tx.items.some(i => i.type === 'DROP' && (normPlayerName(i.player_name || i.name).includes(npTarget) || npTarget.includes(normPlayerName(i.player_name || i.name)))));
+
+                        const isAdd = (tx.added_players || []).some(p => {
+                            const np1 = normPlayerName(p);
+                            return np1.includes(npTarget) || npTarget.includes(np1);
+                        }) || (Array.isArray(tx.items) && tx.items.some(i => i.type === 'ADD' && (normPlayerName(i.player_name || i.name).includes(npTarget) || npTarget.includes(normPlayerName(i.player_name || i.name)))));
+
+                        const isTrade = (tx.action_type === 'TRADE' || tx.type === 'trade');
+
+                        let badgeText = 'Transaction';
+                        let badgeClass = 'drop-badge-general';
+                        
+                        if (isTrade) {
+                            badgeText = 'Trade';
+                            badgeClass = 'drop-badge-adddrop';
+                        } else if (isDrop && isAdd) {
+                            badgeText = 'Add / Drop';
+                            badgeClass = 'drop-badge-adddrop';
+                        } else if (isDrop) {
+                            badgeText = (tx.type === 'free_agent' || tx.action_type === 'FREEAGENT') ? 'Dropped to FA' : 'Dropped to Waivers';
+                            badgeClass = 'drop-badge-dropped';
+                        } else if (isAdd) {
+                            badgeText = (tx.type === 'waiver' || tx.action_type === 'WAIVER') ? 'Claimed off Waivers' : 'Free Agent Pickup';
+                            badgeClass = 'drop-badge-added';
+                        }
+
+                        let mgrDisplay = tx.manager_name || tx.manager_id || '';
+                        let teamDisplay = tx.team_name ? ` · ${tx.team_name}` : '';
+
+                        if (!mgrDisplay && Array.isArray(tx.items)) {
+                            const targetItem = tx.items.find(i => normPlayerName(i.player_name || i.name) === npTarget);
+                            const relevantTeamId = isDrop ? targetItem?.from_team : targetItem?.to_team;
+                            if (relevantTeamId !== undefined) {
+                                const matchedMgr = this.managers.find(m => String(m.team_id) === String(relevantTeamId) || String(m.id) === String(relevantTeamId));
+                                if (matchedMgr) {
+                                    mgrDisplay = matchedMgr.name || matchedMgr.manager_name || `Team ${relevantTeamId}`;
+                                } else {
+                                    mgrDisplay = `Team ${relevantTeamId}`;
+                                }
+                            }
+                        }
+                        if (!mgrDisplay) mgrDisplay = 'League Transaction';
+
+                        let dateDisplay = `${year} Season`;
+                        const rawDate = tx.timestamp || tx.date;
+                        if (rawDate) {
+                            if (typeof rawDate === 'number' || (!isNaN(rawDate) && !isNaN(parseFloat(rawDate)) && String(rawDate).length >= 10)) {
+                                const d = new Date(Number(rawDate));
+                                if (!isNaN(d.getTime())) {
+                                    dateDisplay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                                }
+                            } else if (String(rawDate).includes('T')) {
+                                const d = new Date(rawDate);
+                                if (!isNaN(d.getTime())) {
+                                    dateDisplay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                                }
+                            } else {
+                                dateDisplay = String(rawDate);
+                            }
+                        }
+
+                        const bidVal = tx.faab_bid || tx.bid_amount || 0;
+                        const faabDisplay = (bidVal && Number(bidVal) > 0) ? `<span class="drop-faab-tag">FAAB: $${bidVal}</span>` : '';
+
+                        let detailsText = '';
+                        if (tx.details && tx.details !== 'Traded to') {
+                            detailsText = `<div class="drop-item-details">${tx.details}</div>`;
+                        } else if (Array.isArray(tx.items) && tx.items.length > 0) {
+                            const adds = tx.items.filter(i => i.type === 'ADD').map(i => i.player_name || i.name);
+                            const drops = tx.items.filter(i => i.type === 'DROP').map(i => i.player_name || i.name);
+                            const parts = [];
+                            if (adds.length > 0) parts.push(`Added: ${adds.join(', ')}`);
+                            if (drops.length > 0) parts.push(`Dropped: ${drops.join(', ')}`);
+                            if (parts.length > 0) {
+                                detailsText = `<div class="drop-item-details">${parts.join(' · ')}</div>`;
+                            }
+                        }
+
+                        return `
+                            <div class="drop-timeline-item">
+                                <div class="drop-timeline-marker ${badgeClass}"></div>
+                                <div class="drop-timeline-content">
+                                    <div class="drop-item-top">
+                                        <span class="drop-action-badge ${badgeClass}">${badgeText}</span>
+                                        <span class="drop-item-date">${dateDisplay}</span>
+                                    </div>
+                                    <div class="drop-item-manager">
+                                        <strong>${mgrDisplay}</strong>${teamDisplay}
+                                        ${faabDisplay}
+                                    </div>
+                                    ${detailsText}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        } else {
+            timelineHTML = `
+                <div class="drop-empty-state" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;">
+                        Drafted by <strong>${drafterName}</strong> in Round ${pickData.round} (Pick #${pickData.overallPick}) and released to waivers during the ${year} season (Week ${dropWeek}).
+                    </p>
+                </div>
+            `;
+        }
+
+        modal.innerHTML = `
+            <div class="drop-modal-inner" style="padding: 24px; max-width: 580px; margin: 0 auto;">
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                    <div>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 0.5px;">Waiver & Transaction Log</span>
+                        <h2 style="font-family: 'Newsreader', Georgia, serif; font-size: 1.4rem; font-weight: 700; margin: 4px 0 2px; color: var(--text-primary);">${pickData.playerName}</h2>
+                        <span style="font-size: 0.85rem; color: var(--text-muted);">Drafted Rd ${pickData.round}, Pick #${pickData.overallPick} by ${drafterName} (${teamName}) · ${year} Season</span>
+                    </div>
+                    <button class="modal-close-btn" id="close-drop-modal-btn" style="background: none; border: none; font-size: 1.25rem; color: var(--text-muted); cursor: pointer; padding: 4px 8px;">✕</button>
+                </div>
+
+                <div class="drop-summary-banner" style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Draft Status</span>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: #dc2626; margin-top: 2px;">Dropped to Waivers (Wk ${dropWeek})</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Season Moves</span>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">${txList.length} ${txList.length === 1 ? 'Action' : 'Actions'}</div>
+                    </div>
+                </div>
+
+                ${timelineHTML}
+
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                    <button id="btn-close-drop-dialog" class="btn-primary" style="padding: 8px 18px; font-weight: 700; border-radius: 4px; cursor: pointer;">Close</button>
+                </div>
+            </div>
+        `;
+
+        if (typeof modal.showModal === 'function' && !modal.open) {
+            modal.showModal();
+        }
+
+        const closeBtn = modal.querySelector('#close-drop-modal-btn');
+        const actionCloseBtn = modal.querySelector('#btn-close-drop-dialog');
+        const closeModal = () => modal.close();
+
         closeBtn?.addEventListener('click', closeModal);
         actionCloseBtn?.addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => {
