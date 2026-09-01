@@ -44,7 +44,7 @@
         <div class="page-scroller-bar">
             <span class="scroller-label">On This Page:</span>
             <div class="scroller-links">
-                <a href="#story" class="scroller-pill">Headlines</a>
+                <a href="#story" class="scroller-pill" id="scroller-pill-notes">League Updates</a>
                 <a href="#rankings" class="scroller-pill">Power Rankings</a>
                 <a href="#template" class="scroller-pill">Weekly Stories</a>
             </div>
@@ -63,114 +63,7 @@
         </div>
 
         <div class="card" id="rankings">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                <h2 id="power-rankings-title" style="margin:0;">Power Rankings (Week 0)</h2>
-            </div>
-            <!-- Order matches Week 0 rankings from power_rankings_history.json -->
-            <div class="rank" data-manager="will">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="jordan">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="madoc">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="luke">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="jake">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="mike">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="carson">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="benjamin">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="landon">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="isabella">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="ryan">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-            <div class="rank" data-manager="alex">
-                <img class="rank-logo" src="" alt="">
-                <div class="rank-info">
-                    <span class="rank-team"></span>
-                    <span class="rank-manager"></span>
-                </div>
-                <span class="trend-badge trend-flat">■ (--)</span>
-            </div>
-        </div>
-
-        <div class="card" id="template">
-            <h2 id="weekly-story-title">Week 0 Stories</h2>
-            <h3>Power Rankings</h3>
-            <div id="weekly-story-content">
-                <!-- Dynamically populated from power_rankings_history.json -->
-            </div>
+            <!-- Populated dynamically by PowerRankingsEngine -->
         </div>
     </div>
     <!-- END LEAGUE HOME PAGE VIEW -->

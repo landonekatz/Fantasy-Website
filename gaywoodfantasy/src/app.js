@@ -4,6 +4,8 @@ import { database } from '/src/firebase.js';
 import { ref as dbRef, set, get, child, update, onValue } from 'firebase/database';
 import { formatManagerDisplayName } from '/src/formatters.js';
 import { calculateSeasonLoser, getRuleDescription } from '/src/compiler.js';
+import { CommissionerNotesEngine } from '/src/commissioner_notes.js';
+import { PowerRankingsEngine } from '/src/power_rankings.js';
 
 function getPlayoffRoundName(season, week) {
     const yr = Number(season);
@@ -127,6 +129,8 @@ class FantasyApp {
             playoffs: { year: 'all', retired: false, customStart: 2015, customEnd: 2025 }
         };
         this.db = null;
+        this.notesEngine = null;
+        this.powerRankingsEngine = null;
     }
 
     renderPrivateGuard() {
@@ -767,6 +771,23 @@ class FantasyApp {
         }
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
+
+        // Initialize unified Commissioner Notes & League Updates Engine
+        this.notesEngine = new CommissionerNotesEngine({
+            leagueSlug: 'gaywoodfantasy',
+            app: this,
+            containerId: 'commissioner-note',
+            scrollerPillId: 'scroller-pill-notes',
+            adminContainerId: 'admin-sec-notes'
+        });
+
+        // Initialize unified Power Rankings Engine
+        this.powerRankingsEngine = new PowerRankingsEngine({
+            leagueSlug: 'gaywoodfantasy',
+            app: this,
+            containerId: 'rankings',
+            adminContainerId: 'admin-sec-power-rankings'
+        });
     }
 
     refreshNicknamesUI() {
@@ -838,6 +859,9 @@ class FantasyApp {
     }
 
     initPowerRankings() {
+        if (this.notesEngine) {
+            this.notesEngine.render();
+        }
         // 1. Populate logo, team name, manager name from managers data (DOM-based - chips are hardcoded in HTML)
         const ranks = document.querySelectorAll('.rank[data-manager]');
         ranks.forEach((el, index) => {
@@ -982,6 +1006,9 @@ class FantasyApp {
         } else {
             btnAdmin.style.display = 'none';
         }
+        if (this.notesEngine) {
+            this.notesEngine.render();
+        }
     }
 
     renderAdminDashboard() {
@@ -1053,21 +1080,88 @@ class FantasyApp {
         const seasonOptions = activeYearsList.map(y => `<option value="${y}">Season ${y}</option>`).join('');
 
         container.innerHTML = `
-            <div class="admin-dashboard-wrapper">
+            <div class="admin-dashboard-container">
 
-                <!-- On This Page Secondary Scroller Bar -->
-                <div class="page-scroller-bar admin-scroller-bar">
-                    <span class="scroller-label">On This Page:</span>
-                    <div class="scroller-links">
-                        <a href="#admin-sec-identity" class="scroller-pill">Identity &amp; Motto</a>
-                        <a href="#admin-sec-nicknames" class="scroller-pill">Nicknames</a>
-                        <a href="#admin-sec-loser" class="scroller-pill">Loser Conditions</a>
-                        <a href="#admin-sec-privacy" class="scroller-pill">Privacy &amp; Access</a>
-                        <a href="#admin-sec-roster" class="scroller-pill">Manager Roster</a>
-                        <a href="#admin-sec-invites" class="scroller-pill">Invites &amp; Codes</a>
-                        <a href="#admin-sec-transfer" class="scroller-pill">Admin Status</a>
+                <!-- Sticky Settings Sidebar -->
+                <aside class="admin-sidebar" id="admin-settings-sidebar">
+                    <div class="admin-sidebar-header">
+                        <div class="admin-sidebar-title-row">
+                            <span class="admin-sidebar-title">League Settings</span>
+                            <span class="admin-sidebar-badge">Admin</span>
+                        </div>
+                        <p class="admin-sidebar-subtitle">Navigation &amp; Controls</p>
                     </div>
-                </div>
+
+                    <nav class="admin-sidebar-nav">
+                        <!-- Group 1: General & Branding -->
+                        <div class="admin-sidebar-group">
+                            <div class="admin-sidebar-group-title">General &amp; Branding</div>
+
+                            <a href="#admin-sec-identity" class="admin-nav-item active" data-section="admin-sec-identity">
+                                <span class="admin-nav-item-title">Identity &amp; Motto</span>
+                                <span class="admin-nav-item-sub">Title, Motto, Tagline</span>
+                            </a>
+
+                            <a href="#admin-sec-nicknames" class="admin-nav-item" data-section="admin-sec-nicknames">
+                                <span class="admin-nav-item-title">Manager Nicknames</span>
+                                <span class="admin-nav-item-sub">Custom Quotes Toggle</span>
+                            </a>
+                        </div>
+
+                        <!-- Group 2: Editorials & Publishing -->
+                        <div class="admin-sidebar-group">
+                            <div class="admin-sidebar-group-title">Editorials &amp; Publishing</div>
+
+                            <a href="#admin-sec-notes" class="admin-nav-item" data-section="admin-sec-notes">
+                                <span class="admin-nav-item-title">Commissioner Notes</span>
+                                <span class="admin-nav-item-sub">Announcements, Editors</span>
+                            </a>
+
+                            <a href="#admin-sec-power-rankings" class="admin-nav-item" data-section="admin-sec-power-rankings">
+                                <span class="admin-nav-item-title">Power Rankings</span>
+                                <span class="admin-nav-item-sub">Rankings, Authors</span>
+                            </a>
+                        </div>
+
+                        <!-- Group 3: Competition & Rules -->
+                        <div class="admin-sidebar-group">
+                            <div class="admin-sidebar-group-title">Competition &amp; Rules</div>
+
+                            <a href="#admin-sec-loser" class="admin-nav-item" data-section="admin-sec-loser">
+                                <span class="admin-nav-item-title">Loser Conditions</span>
+                                <span class="admin-nav-item-sub">Last Place &amp; Punishments</span>
+                            </a>
+                        </div>
+
+                        <!-- Group 4: Members & Security -->
+                        <div class="admin-sidebar-group">
+                            <div class="admin-sidebar-group-title">Members &amp; Security</div>
+
+                            <a href="#admin-sec-privacy" class="admin-nav-item" data-section="admin-sec-privacy">
+                                <span class="admin-nav-item-title">Privacy &amp; Access</span>
+                                <span class="admin-nav-item-sub">Public / Private Vault</span>
+                            </a>
+
+                            <a href="#admin-sec-roster" class="admin-nav-item" data-section="admin-sec-roster">
+                                <span class="admin-nav-item-title">Manager Roster</span>
+                                <span class="admin-nav-item-sub">Renaming, Merging, Claims</span>
+                            </a>
+
+                            <a href="#admin-sec-invites" class="admin-nav-item" data-section="admin-sec-invites">
+                                <span class="admin-nav-item-title">Invites &amp; Join Codes</span>
+                                <span class="admin-nav-item-sub">Join Code, Direct Links</span>
+                            </a>
+
+                            <a href="#admin-sec-transfer" class="admin-nav-item" data-section="admin-sec-transfer">
+                                <span class="admin-nav-item-title">Administrator Role</span>
+                                <span class="admin-nav-item-sub">Admin Email, Transfer</span>
+                            </a>
+                        </div>
+                    </nav>
+                </aside>
+
+                <!-- Main Settings Content Area -->
+                <main class="admin-main-content">
 
                 <!-- Retrospective Admin Self-Claim Card (If Admin Has No Claimed Profile) -->
                 ${!currentAdminClaim ? `
@@ -1165,6 +1259,16 @@ class FantasyApp {
                         </div>
                         <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
+                </div>
+
+                <!-- 3. COMMISSIONER NOTES & LEAGUE UPDATES -->
+                <div id="admin-sec-notes" class="card admin-section-card">
+                    <!-- Populated by CommissionerNotesEngine -->
+                </div>
+
+                <!-- 4. POWER RANKINGS & PUBLISHING PERMISSIONS -->
+                <div id="admin-sec-power-rankings" class="card admin-section-card">
+                    <!-- Populated by PowerRankingsEngine -->
                 </div>
 
                 <!-- 3. LEAGUE LOSER CONDITIONS -->
@@ -1429,6 +1533,7 @@ class FantasyApp {
                         <button id="btn-open-transfer-admin-modal" class="btn btn-gold" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer;">Transfer Admin Status</button>
                     </div>
                 </div>
+                </main>
             </div>
         `;
 
@@ -1480,6 +1585,16 @@ class FantasyApp {
                     btnSelfClaim.textContent = 'Claim Profile';
                 }
             });
+        }
+
+        // Render Commissioner Notes admin section
+        if (this.notesEngine) {
+            this.notesEngine.renderAdminSection(container.querySelector('#admin-sec-notes'));
+        }
+
+        // Render Power Rankings admin section
+        if (this.powerRankingsEngine) {
+            this.powerRankingsEngine.renderAdminSection(container.querySelector('#admin-sec-power-rankings'));
         }
 
         // Wire up Tagline preset buttons
@@ -1994,19 +2109,56 @@ class FantasyApp {
             });
         }
 
-        // Setup smooth scrolling for "On This Page" subnav pills inside Admin Dashboard
-        container.querySelectorAll('.admin-scroller-bar .scroller-pill').forEach(link => {
+        // Setup smooth scrolling & active ScrollSpy for Admin Settings Sidebar
+        this.setupAdminSidebarScrollSpy(container);
+    }
+
+    setupAdminSidebarScrollSpy(container) {
+        const sidebarLinks = container.querySelectorAll('.admin-nav-item');
+        const sections = container.querySelectorAll('.admin-section-card');
+        if (!sidebarLinks.length || !sections.length) return;
+
+        // Smooth scroll on click
+        sidebarLinks.forEach(link => {
             link.addEventListener('click', (e) => {
-                const targetId = link.getAttribute('href');
-                if (targetId && targetId.startsWith('#')) {
-                    e.preventDefault();
-                    const el = container.querySelector(targetId);
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                e.preventDefault();
+                const targetId = link.getAttribute('href')?.replace('#', '');
+                const targetEl = container.querySelector(`#${targetId}`);
+                if (targetEl) {
+                    const headerOffset = 90;
+                    const elementPosition = targetEl.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                    sidebarLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
                 }
             });
         });
+
+        // ScrollSpy observer
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.id;
+                        sidebarLinks.forEach(link => {
+                            if (link.getAttribute('data-section') === id || link.getAttribute('href') === `#${id}`) {
+                                link.classList.add('active');
+                            } else {
+                                link.classList.remove('active');
+                            }
+                        });
+                    }
+                });
+            }, {
+                rootMargin: '-10% 0px -70% 0px'
+            });
+
+            sections.forEach(sec => observer.observe(sec));
+        }
     }
 
     async saveLoserCondition(year, ruleConfig) {
