@@ -852,7 +852,12 @@ class FantasyApp {
 
     getCurrentTeamName(managerId) {
         if (!this.managersData || !this.managersData.team_mappings) return 'Unknown Team';
-        const mappings = this.managersData.team_mappings.filter(m => m.manager_id === managerId);
+        const cleanId = String(managerId || '').toLowerCase().trim();
+        const targetId = (cleanId === 'ben' || cleanId === 'benjamin') ? 'benjamin' : cleanId;
+        const mappings = this.managersData.team_mappings.filter(m => {
+            const mId = String(m.manager_id || '').toLowerCase().trim();
+            return mId === targetId || mId === cleanId;
+        });
         if (mappings.length === 0) return 'Unknown Team';
         mappings.sort((a, b) => b.year - a.year);
         return mappings[0].team_name;

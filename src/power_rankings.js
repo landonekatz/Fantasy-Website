@@ -44,8 +44,8 @@ export class PowerRankingsEngine {
                 if (val) {
                     this.data = {
                         allowed_editors: val.allowed_editors || [],
-                        current_ranking: val.current_ranking || null,
-                        archived_rankings: val.archived_rankings || []
+                        current_ranking: this.normalizeEdition(val.current_ranking),
+                        archived_rankings: Array.isArray(val.archived_rankings) ? val.archived_rankings.map(item => this.normalizeEdition(item)) : []
                     };
                 } else {
                     this.loadInitialFallback();
@@ -68,6 +68,45 @@ export class PowerRankingsEngine {
         });
     }
 
+    canonicalizeManagerId(mgrId) {
+        if (!mgrId) return mgrId;
+        const managers = this.getManagersList();
+        const cleanId = String(mgrId).toLowerCase().trim();
+        const found = managers.find(m => {
+            const mId = String(m.id || '').toLowerCase().trim();
+            const mName = String(m.canonical_name || m.name || '').toLowerCase().trim();
+            if (mId === cleanId || mName === cleanId) return true;
+            if ((cleanId === 'ben' || cleanId === 'benjamin') && (mId === 'benjamin' || mId === 'ben' || mName === 'benjamin' || mName === 'ben')) return true;
+            return false;
+        });
+        return found ? found.id : mgrId;
+    }
+
+    normalizeEdition(edition) {
+        if (!edition) return null;
+        const normalized = { ...edition };
+        if (Array.isArray(normalized.rankings)) {
+            normalized.rankings = normalized.rankings.map((r, idx) => {
+                if (typeof r === 'string') {
+                    return {
+                        rank: idx + 1,
+                        manager_id: this.canonicalizeManagerId(r),
+                        prev_rank: null,
+                        blurb: ''
+                    };
+                }
+                return {
+                    ...r,
+                    rank: r.rank || (idx + 1),
+                    manager_id: this.canonicalizeManagerId(r.manager_id),
+                    prev_rank: r.prev_rank !== undefined && r.prev_rank !== null && r.prev_rank !== '' ? Number(r.prev_rank) : null,
+                    blurb: r.blurb || ''
+                };
+            });
+        }
+        return normalized;
+    }
+
     loadInitialFallback() {
         // Fallback from app.powerRankingsHistory if available
         if (this.app && this.app.powerRankingsHistory && this.app.powerRankingsHistory.length > 0) {
@@ -75,8 +114,8 @@ export class PowerRankingsEngine {
             const latest = sorted[0];
             const archives = sorted.slice(1);
 
-            this.data.current_ranking = this.formatRawHistoryItem(latest);
-            this.data.archived_rankings = archives.map(item => this.formatRawHistoryItem(item));
+            this.data.current_ranking = this.normalizeEdition(this.formatRawHistoryItem(latest));
+            this.data.archived_rankings = archives.map(item => this.normalizeEdition(this.formatRawHistoryItem(item)));
         }
     }
 
@@ -90,7 +129,7 @@ export class PowerRankingsEngine {
         const rawList = Array.isArray(item.rankings) ? item.rankings : [];
         const structured = rawList.map((mgrId, idx) => ({
             rank: idx + 1,
-            manager_id: mgrId,
+            manager_id: this.canonicalizeManagerId(mgrId),
             prev_rank: null,
             blurb: ''
         }));
@@ -121,26 +160,31 @@ export class PowerRankingsEngine {
     }
 
     getManagerDetails(mgrId) {
+        const canonicalId = this.canonicalizeManagerId(mgrId);
         const managers = this.getManagersList();
-        const found = managers.find(m => m.id === mgrId || m.name?.toLowerCase() === mgrId?.toLowerCase());
+        const found = managers.find(m => m.id === canonicalId || m.id === mgrId || m.name?.toLowerCase() === mgrId?.toLowerCase());
         
-        let teamName = 'Team ' + (mgrId || 'Member');
+        let teamName = 'Team ' + (found?.canonical_name || found?.name || canonicalId || 'Member');
         if (this.app && typeof this.app.getCurrentTeamName === 'function') {
-            teamName = this.app.getCurrentTeamName(mgrId);
+            teamName = this.app.getCurrentTeamName(canonicalId);
+            if ((teamName === 'Unknown Team' || !teamName) && found && found.team_name) {
+                teamName = found.team_name;
+            }
         } else if (found && found.team_name) {
             teamName = found.team_name;
         }
 
-        let displayName = found?.canonical_name || found?.name || mgrId || 'Manager';
+        let displayName = found?.canonical_name || found?.name || canonicalId || 'Manager';
         if (this.app && typeof this.app.getManagerDisplayName === 'function') {
-            displayName = this.app.getManagerDisplayName(mgrId, displayName);
+            displayName = this.app.getManagerDisplayName(canonicalId, displayName);
         }
 
         const logoUrl = found?.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
 
         return {
-            id: mgrId,
+            id: canonicalId,
             name: displayName,
+            displayName,
             teamName,
             logoUrl
         };
@@ -1251,6 +1295,13 @@ export class PowerRankingsEngine {
         if (!this.canEdit()) return false;
         const now = Date.now();
         const resolvedName = editorName || this.getCurrentUserDisplayName();
+        const cleanRankings = Array.isArray(rankings) ? rankings.map((r, idx) => ({
+            ...r,
+            rank: r.rank || (idx + 1),
+            manager_id: this.canonicalizeManagerId(r.manager_id),
+            prev_rank: r.prev_rank !== undefined && r.prev_rank !== null && r.prev_rank !== '' ? Number(r.prev_rank) : null,
+            blurb: r.blurb || ''
+        })) : [];
 
         if (!this.data.current_ranking) {
             this.data.current_ranking = {
@@ -1261,7 +1312,7 @@ export class PowerRankingsEngine {
 
         this.data.current_ranking.title = title;
         this.data.current_ranking.subtitle = subtitle;
-        this.data.current_ranking.rankings = rankings;
+        this.data.current_ranking.rankings = cleanRankings;
         this.data.current_ranking.updated_at = now;
         this.data.current_ranking.last_edited_by = resolvedName;
         if (!this.data.current_ranking.author_name) {
@@ -1286,6 +1337,13 @@ export class PowerRankingsEngine {
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
         const now = Date.now();
         const resolvedName = authorName || this.getCurrentUserDisplayName();
+        const cleanRankings = Array.isArray(rankings) ? rankings.map((r, idx) => ({
+            ...r,
+            rank: r.rank || (idx + 1),
+            manager_id: this.canonicalizeManagerId(r.manager_id),
+            prev_rank: r.prev_rank !== undefined && r.prev_rank !== null && r.prev_rank !== '' ? Number(r.prev_rank) : null,
+            blurb: r.blurb || ''
+        })) : [];
 
         // 1. Move old current_ranking to archived_rankings
         if (this.data.current_ranking && Array.isArray(this.data.current_ranking.rankings) && this.data.current_ranking.rankings.length > 0) {
@@ -1304,7 +1362,7 @@ export class PowerRankingsEngine {
             id: `pr_${now}`,
             title,
             subtitle,
-            rankings,
+            rankings: cleanRankings,
             author_name: resolvedName,
             author_email: session?.email || '',
             created_at: now,
