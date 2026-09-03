@@ -244,6 +244,19 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         playoffSeed: t.playoffSeed || 99,
         finalRank: t.rankCalculatedFinal || t.rankFinal || 99,
       };
+
+      if (t.roster && Array.isArray(t.roster.entries)) {
+        for (const entry of t.roster.entries) {
+          const p = entry.playerPoolEntry?.player;
+          if (p && p.id) {
+            const name = p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim();
+            if (name) playerIdToName.set(p.id, name);
+            const posId = p.defaultPositionId;
+            const posMap = { 1: 'QB', 2: 'RB', 3: 'WR', 4: 'TE', 5: 'K', 16: 'DEF' };
+            if (posMap[posId]) playerIdToPosition.set(p.id, posMap[posId]);
+          }
+        }
+      }
     }
   }
 

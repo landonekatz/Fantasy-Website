@@ -122,14 +122,7 @@ async function syncLeague(slug) {
   log(`  Current NFL Season: ${currentYear} (Week ${nflState.week})`);
 
   // Check if currentYear is available on the provider
-  const yearsToCheck = [currentYear];
-  if (currentYear > lastRecordedYear) {
-    yearsToCheck.push(currentYear);
-  }
-  // Also re-check the most recent recorded year in case of stat corrections
-  if (lastRecordedYear && !yearsToCheck.includes(lastRecordedYear)) {
-    yearsToCheck.push(lastRecordedYear);
-  }
+  const yearsToCheck = [...new Set([currentYear, lastRecordedYear].filter(Boolean))];
 
   const seasonsData = [];
 
@@ -189,6 +182,42 @@ async function syncLeague(slug) {
   if (!compiledPayload) {
     log(`  [Error] Failed to compile payload for /${slug}.`);
     return;
+  }
+
+  // Preserve and merge historical draft picks, standings, matchups, and player stats for older seasons
+  const fetchedYearsSet = new Set(seasonsData.map(s => s.year));
+  const existingDraft = await fetchFromFirebase(`leagues/${slug}/draft_results`) || [];
+  const existingMatchups = await fetchFromFirebase(`leagues/${slug}/matchups`) || [];
+  const existingStats = await fetchFromFirebase(`leagues/${slug}/weekly_player_stats`) || [];
+  const existingTeamStats = await fetchFromFirebase(`leagues/${slug}/team_stats`) || [];
+
+  const oldDraft = existingDraft.filter(p => !fetchedYearsSet.has(Number(p.year || p.season)));
+  const draftMap = new Map();
+  for (const p of [...oldDraft, ...(compiledPayload.draft_results || [])]) {
+    draftMap.set(`${p.year}-${p.overall_pick}`, p);
+  }
+  compiledPayload.draft_results = Array.from(draftMap.values()).sort((a, b) => (b.year - a.year) || (a.overall_pick - b.overall_pick));
+
+  const oldStandings = existingStandings.filter(s => !fetchedYearsSet.has(Number(s.year || s.season)));
+  compiledPayload.league_standings = [...(compiledPayload.league_standings || []), ...oldStandings];
+
+  const oldMatchups = existingMatchups.filter(m => !fetchedYearsSet.has(Number(m.year || m.season)));
+  compiledPayload.matchups = [...(compiledPayload.matchups || []), ...oldMatchups];
+
+  const oldStats = existingStats.filter(st => !fetchedYearsSet.has(Number(st.year || st.season)));
+  compiledPayload.weekly_player_stats = [...(compiledPayload.weekly_player_stats || []), ...oldStats];
+
+  const oldTeamStats = existingTeamStats.filter(ts => !fetchedYearsSet.has(Number(ts.year || ts.season)));
+  compiledPayload.team_stats = [...(compiledPayload.team_stats || []), ...oldTeamStats];
+
+  compiledPayload.league_standings.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.final_rank || 99) - (b.final_rank || 99));
+
+  // Recalculate start and end years
+  const allYears = [...new Set(compiledPayload.league_standings.map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => a - b);
+  if (allYears.length > 0) {
+    compiledPayload.league_settings.firstYear = allYears[0];
+    compiledPayload.league_settings.lastYear = allYears[allYears.length - 1];
+    compiledPayload.league_settings.totalSeasons = allYears.length;
   }
 
   // 6. Preserve and attach updated credentials and sync metadata
