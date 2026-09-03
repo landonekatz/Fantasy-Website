@@ -10,15 +10,10 @@ const PERSONA_KEY = 'vault_active_persona';
 const JOIN_CODES = {
   'DNFUAM': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   '7AR345': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
-  'Y6CW7J': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
   // Legacy aliases
   'D8M4S2': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
-  'DMSFANTASY': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
-  'K9Z15A': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
-  'KATZ15': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
-  'GAYWOODFANTASY': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
-  'GAYWOOD': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] }
+  'DMSFANTASY': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] }
 };
 
 // Session Management
@@ -27,15 +22,22 @@ try {
   const cached = localStorage.getItem('vault_cached_session');
   if (cached) {
     currentSession = JSON.parse(cached);
-    if (currentSession.last_league === 'gaywoodfantasy') currentSession.last_league = 'gaywoodfantasyfootball';
-    if (currentSession.joinedLeagues && currentSession.joinedLeagues.includes('gaywoodfantasy') && !currentSession.joinedLeagues.includes('gaywoodfantasyfootball')) {
-      currentSession.joinedLeagues.push('gaywoodfantasyfootball');
-    }
-    if (currentSession.adminLeagues && currentSession.adminLeagues.includes('gaywoodfantasy') && !currentSession.adminLeagues.includes('gaywoodfantasyfootball')) {
-      currentSession.adminLeagues.push('gaywoodfantasyfootball');
-    }
-    if (currentSession.claims && currentSession.claims['gaywoodfantasy'] && !currentSession.claims['gaywoodfantasyfootball']) {
-      currentSession.claims['gaywoodfantasyfootball'] = currentSession.claims['gaywoodfantasy'];
+    const isFounderSession = Boolean(currentSession.isFounder || (currentSession.email && currentSession.email.toLowerCase() === 'landonekatz@gmail.com'));
+    if (isFounderSession) {
+      currentSession.joinedLeagues = ['dmsfantasy'];
+      currentSession.adminLeagues = ['dmsfantasy'];
+      if (currentSession.claims && currentSession.claims['gaywoodfantasyfootball']) {
+        delete currentSession.claims['gaywoodfantasyfootball'];
+      }
+      if (currentSession.allLeagues && Array.isArray(currentSession.allLeagues)) {
+        currentSession.allLeagues.forEach(l => {
+          if (l.slug && typeof AuthEngine.resolveLeaguePath === 'function') {
+            l.path = AuthEngine.resolveLeaguePath(l.slug);
+          }
+        });
+      }
+    } else {
+      if (currentSession.last_league === 'gaywoodfantasy') currentSession.last_league = 'gaywoodfantasyfootball';
     }
   }
 } catch (e) {
@@ -84,7 +86,83 @@ const AuthEngine = {
 
   isFounder() {
     const session = this.getSession();
-    return session && session.email === 'landonekatz@gmail.com';
+    return Boolean(session && (session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com')));
+  },
+
+  async fetchAllVaultLeagues() {
+    if (this._allLeaguesCache && this._allLeaguesCache.length > 0) {
+      return this._allLeaguesCache;
+    }
+    try {
+      const res = await fetch('https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues.json?shallow=true');
+      if (!res.ok) throw new Error("Could not fetch leagues index");
+      const keysObj = await res.json();
+      const keys = Object.keys(keysObj || {});
+
+      // Ensure standard known leagues exist in the list
+      if (!keys.includes('dmsfantasy')) keys.push('dmsfantasy');
+      if (!keys.includes('gaywoodfantasyfootball')) keys.push('gaywoodfantasyfootball');
+
+      const leagues = await Promise.all(keys.map(async slug => {
+        let defaultInfo = {
+          slug,
+          name: slug.charAt(0).toUpperCase() + slug.slice(1) + ' League',
+          path: this.resolveLeaguePath(slug),
+          platform: 'espn',
+          isPrivate: false,
+          totalSeasons: null
+        };
+
+        if (slug === 'dmsfantasy') {
+          defaultInfo.name = 'The Dumbarton League';
+          defaultInfo.platform = 'yahoo';
+          defaultInfo.isPrivate = true;
+        } else if (slug === 'gaywoodfantasyfootball') {
+          defaultInfo.slug = 'gaywoodfantasyfootball';
+          defaultInfo.name = 'Gaywood Fantasy Football';
+          defaultInfo.path = '/gaywoodfantasyfootball';
+          defaultInfo.platform = 'espn';
+          defaultInfo.isPrivate = false;
+        }
+
+        try {
+          const sRes = await fetch(`https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues/${slug}/league_settings.json`);
+          if (sRes.ok) {
+            const s = await sRes.json();
+            if (s) {
+              return {
+                slug,
+                name: s.name || defaultInfo.name,
+                path: this.resolveLeaguePath(slug),
+                platform: s.platform || defaultInfo.platform,
+                isPrivate: Boolean(s.is_private),
+                totalSeasons: s.totalSeasons || s.total_seasons || null,
+                adminEmail: s.admin_email || null,
+                joinCode: s.join_code || null
+              };
+            }
+          }
+        } catch (e) {}
+
+        return defaultInfo;
+      }));
+
+      // Deduplicate by slug
+      const uniqueMap = new Map();
+      leagues.forEach(l => {
+        if (!uniqueMap.has(l.slug)) uniqueMap.set(l.slug, l);
+      });
+      const uniqueLeagues = Array.from(uniqueMap.values());
+
+      this._allLeaguesCache = uniqueLeagues;
+      return uniqueLeagues;
+    } catch (err) {
+      console.warn("Error fetching all vault leagues:", err);
+      return [
+        { slug: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy/', platform: 'yahoo', isPrivate: true },
+        { slug: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', platform: 'espn', isPrivate: false }
+      ];
+    }
   },
 
   resolveLeaguePath(slug) {
@@ -92,7 +170,7 @@ const AuthEngine = {
     const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     if (cleanSlug === 'dmsfantasy') return '/dmsfantasy/';
     if (cleanSlug === 'gaywoodfantasy' || cleanSlug === 'gaywoodfantasyfootball') return '/gaywoodfantasyfootball';
-    return `/vault.html?league=${encodeURIComponent(cleanSlug)}`;
+    return `/${cleanSlug}`;
   },
 
   async recordActiveLeague(leagueSlug) {
@@ -520,9 +598,9 @@ const AuthEngine = {
 // Set up listener for real-time auth state changes
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    const isFounder = user.email === 'landonekatz@gmail.com';
-    let joinedLeagues = currentSession?.joinedLeagues || (isFounder ? ['dmsfantasy'] : []);
-    let adminLeagues = currentSession?.adminLeagues || (isFounder ? ['dmsfantasy'] : []);
+    const isFounder = (user.email || '').toLowerCase() === 'landonekatz@gmail.com';
+    let joinedLeagues = isFounder ? ['dmsfantasy'] : (currentSession?.joinedLeagues || []);
+    let adminLeagues = isFounder ? ['dmsfantasy'] : (currentSession?.adminLeagues || []);
     let leagueDetails = currentSession?.leagueDetails || {
       'dmsfantasy': { name: 'The Dumbarton League', path: '/dmsfantasy/' }
     };
@@ -622,24 +700,24 @@ onAuthStateChanged(auth, async (user) => {
           }
         }
 
-        if (joinedLeagues.includes('gaywoodfantasy') && !joinedLeagues.includes('gaywoodfantasyfootball')) {
-          joinedLeagues.push('gaywoodfantasyfootball');
+        let allLeagues = [];
+        if (isFounder) {
+          allLeagues = await AuthEngine.fetchAllVaultLeagues();
+          joinedLeagues = ['dmsfantasy'];
+          adminLeagues = ['dmsfantasy'];
         }
-        if (claims['gaywoodfantasy'] && !claims['gaywoodfantasyfootball']) {
-          claims['gaywoodfantasyfootball'] = claims['gaywoodfantasy'];
-        }
-        if (lastLeague === 'gaywoodfantasy') lastLeague = 'gaywoodfantasyfootball';
 
         currentSession = {
           uid: user.uid,
           email: user.email,
           name: userData.name || user.displayName || user.email.split('@')[0],
           isFounder: isFounder,
-          joinedLeagues: joinedLeagues,
-          adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasyfootball', ...adminLeagues] : adminLeagues,
+          joinedLeagues: isFounder ? ['dmsfantasy'] : joinedLeagues,
+          adminLeagues: isFounder ? ['dmsfantasy'] : adminLeagues,
           leagueDetails: leagueDetails,
           claims: claims,
-          last_league: lastLeague
+          last_league: lastLeague,
+          allLeagues: allLeagues
         };
         try {
           localStorage.setItem('vault_cached_session', JSON.stringify(currentSession));

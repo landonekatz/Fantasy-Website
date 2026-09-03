@@ -92,6 +92,9 @@ async function syncLeague(slug) {
   const credentials = await fetchFromFirebase(`leagues/${slug}/credentials`) || {};
   const existingMembers = await fetchFromFirebase(`leagues/${slug}/members`) || [];
   const existingStandings = await fetchFromFirebase(`leagues/${slug}/league_standings`) || [];
+  const existingClaims = await fetchFromFirebase(`leagues/${slug}/claims`);
+  const existingNotes = await fetchFromFirebase(`leagues/${slug}/commissioner_notes`);
+  const existingRankings = await fetchFromFirebase(`leagues/${slug}/power_rankings`);
 
   if (!settings && !credentials.leagueId) {
     log(`  [Skip] League /${slug} has no settings or league ID in database.`);
@@ -243,6 +246,17 @@ async function syncLeague(slug) {
   }
   if (settings?.loser_conditions) {
     compiledPayload.league_settings.loser_conditions = settings.loser_conditions;
+  }
+
+  // Preserve claims, commissioner notes, and power rankings
+  if (existingClaims) {
+    compiledPayload.claims = existingClaims;
+  }
+  if (existingNotes) {
+    compiledPayload.commissioner_notes = existingNotes;
+  }
+  if (existingRankings) {
+    compiledPayload.power_rankings = existingRankings;
   }
 
   // 7. Save to Firebase RTDB

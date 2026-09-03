@@ -29,12 +29,11 @@ export class CommissionerNotesEngine {
 
         // Default note data if none exists in RTDB
         const defaultTitle = this.leagueSlug === 'dmsfantasy' ? 'League Updates' : 'Note from the Commissioner';
-        const defaultHeadline = this.leagueSlug === 'dmsfantasy' ? 'Personnel Changes' : ((this.leagueSlug === 'gaywoodfantasyfootball' || this.leagueSlug === 'gaywoodfantasy') ? 'Welcome to the 2025 Season' : 'Welcome to the Archive');
+        const defaultHeadline = this.leagueSlug === 'dmsfantasy' ? 'Personnel Changes' : '';
         const defaultBody = this.leagueSlug === 'dmsfantasy'
             ? "The whole league was distraught to learn of perennial loser Jack Lovas's removal. It was not due to their love of Lovas - but the loss of a free win one could pencil in their schedule.\n\nLovas's replacement, Madoc Watson, passed the Commissioner and Committee's physical and mental examinations and will debut in the opening week of the 2026 season. Watson is known for his delusional self-belief and scrappy playstyle and projects as a bottom-to-middle level contender."
-            : ((this.leagueSlug === 'gaywoodfantasyfootball' || this.leagueSlug === 'gaywoodfantasy')
-                ? "Welcome to another year of Gaywood / Katz Fantasy Football. Since 2015, this league has been the proving ground for glory and heartbreak. Good luck to all managers this season."
-                : "Welcome to our official league archive. All historical matchups, draft selections, records, and league updates are preserved here.");
+            : "(Notes from Commissioner will appear here.)";
+        const isDefault = this.leagueSlug !== 'dmsfantasy';
 
         this.data = {
             section_title: defaultTitle,
@@ -47,7 +46,8 @@ export class CommissionerNotesEngine {
                 author_email: '',
                 created_at: 1725184000000,
                 updated_at: 1725184000000,
-                last_edited_by: 'Commissioner'
+                last_edited_by: 'Commissioner',
+                is_default: isDefault
             },
             archived_notes: []
         };
@@ -90,10 +90,12 @@ export class CommissionerNotesEngine {
         this.renderAdminSection();
 
         // Listen for auth changes to update editor button visibility
-        window.addEventListener('vault_auth_changed', () => {
-            this.render();
-            this.renderAdminSection();
-        });
+        if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+            window.addEventListener('vault_auth_changed', () => {
+                this.render();
+                this.renderAdminSection();
+            });
+        }
     }
 
     mergeData(val) {
@@ -115,20 +117,27 @@ export class CommissionerNotesEngine {
     canEdit() {
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
         if (!session) return false;
-        if (session.isFounder || session.email === 'landonekatz@gmail.com') return true;
 
-        // Check if user is league admin
-        const isAdmin = Boolean(
-            (session.adminLeagues && (session.adminLeagues.includes(this.leagueSlug) || (this.leagueSlug === 'dmsfantasy' && session.adminLeagues.includes('dms')))) ||
-            (this.app?.leagueSettings?.admin_email && session.email && this.app.leagueSettings.admin_email.toLowerCase() === session.email.toLowerCase())
+        const userEmail = (session.email || '').toLowerCase();
+        const adminEmail = (this.app?.leagueSettings?.admin_email || '').toLowerCase();
+        const isDesignatedAdmin = Boolean(
+            (adminEmail && userEmail === adminEmail) ||
+            (session.adminLeagues && (session.adminLeagues.includes(this.leagueSlug) || (this.leagueSlug === 'dmsfantasy' && session.adminLeagues.includes('dms'))))
         );
-        if (isAdmin) return true;
+
+        const isFounder = Boolean(session.isFounder || userEmail === 'landonekatz@gmail.com');
+
+        // Founder Inspection Mode: If founder is inspecting another league (not designated admin and not dmsfantasy), founder mode is strictly read-only
+        if (isFounder && !isDesignatedAdmin && this.leagueSlug !== 'dmsfantasy') {
+            return false;
+        }
+
+        if (isDesignatedAdmin || (isFounder && this.leagueSlug === 'dmsfantasy')) return true;
 
         const allowed = this.data.allowed_editors || [];
         if (allowed.length === 0) return false;
 
         // Check email match
-        const userEmail = (session.email || '').toLowerCase();
         if (userEmail && allowed.some(e => String(e).toLowerCase() === userEmail)) return true;
 
         // Check user ID match
@@ -229,9 +238,21 @@ export class CommissionerNotesEngine {
         const hasEditAccess = this.canEdit();
         const totalNotes = allNotes.length;
 
+        const isDefaultPlaceholder = Boolean(
+            activeNote.is_default || 
+            (this.leagueSlug !== 'dmsfantasy' && (
+                !activeNote.content ||
+                activeNote.content.trim().startsWith('(Notes from Commissioner will appear here') ||
+                activeNote.content.trim().startsWith('(Commissioner notes will appear here') ||
+                (activeNote.id && activeNote.id.startsWith('note_init_'))
+            ))
+        );
+
         // Parse markdown content
         let parsedBody = '';
-        if (window.marked && activeNote.content) {
+        if (isDefaultPlaceholder) {
+            parsedBody = '<p style="color:var(--text-muted); font-style:italic;">(Notes from Commissioner will appear here.)</p>';
+        } else if (window.marked && activeNote.content) {
             parsedBody = window.marked.parse(activeNote.content);
         } else {
             parsedBody = (activeNote.content || '').replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
@@ -273,13 +294,13 @@ export class CommissionerNotesEngine {
                     <!-- Editor Action Buttons (Strictly Visible ONLY for Authorized Editors) -->
                     ${hasEditAccess ? `
                         <div class="notes-editor-actions">
-                            ${isLive ? `
+                            ${isLive && !isDefaultPlaceholder ? `
                                 <button type="button" class="btn btn-sm btn-notes-edit" title="Edit this live note in-place">
                                     Edit Note
                                 </button>
                             ` : ''}
-                            <button type="button" class="btn btn-sm btn-primary btn-notes-new" title="Create a new note (archives current note)">
-                                + New Note
+                            <button type="button" class="btn btn-sm btn-primary btn-notes-new" title="Create a new note">
+                                ${isDefaultPlaceholder ? '+ Write Note' : '+ New Note'}
                             </button>
                         </div>
                     ` : ''}
@@ -288,24 +309,26 @@ export class CommissionerNotesEngine {
 
             <!-- Note Content Area -->
             <div class="notes-body-wrapper">
-                ${activeNote.title ? `<h3 class="notes-headline">${activeNote.title}</h3>` : ''}
+                ${!isDefaultPlaceholder && activeNote.title ? `<h3 class="notes-headline">${activeNote.title}</h3>` : ''}
                 <div class="notes-body-content markdown-body">
                     ${parsedBody}
                 </div>
             </div>
 
             <!-- Note Metadata Footer -->
-            <div class="notes-meta-footer">
-                <div class="notes-meta-text">
-                    <span>Posted by <strong>${authorName}</strong> on ${createdStr || 'Recent'}</span>
-                    ${isEdited ? `<span class="notes-meta-edited"> • Last edited by <strong>${editorName}</strong> on ${updatedStr}</span>` : ''}
+            ${!isDefaultPlaceholder ? `
+                <div class="notes-meta-footer">
+                    <div class="notes-meta-text">
+                        <span>Posted by <strong>${authorName}</strong> on ${createdStr || 'Recent'}</span>
+                        ${isEdited ? `<span class="notes-meta-edited"> • Last edited by <strong>${editorName}</strong> on ${updatedStr}</span>` : ''}
+                    </div>
+                    ${!isLive ? `
+                        <button type="button" class="notes-return-live-btn btn btn-sm">
+                            Return to Current Note →
+                        </button>
+                    ` : ''}
                 </div>
-                ${!isLive ? `
-                    <button type="button" class="notes-return-live-btn btn btn-sm">
-                        Return to Current Note →
-                    </button>
-                ` : ''}
-            </div>
+            ` : ''}
         `;
 
         // Wire up event listeners
@@ -475,7 +498,7 @@ export class CommissionerNotesEngine {
                             <div contenteditable="true" id="edit-note-body-editor" class="notes-wysiwyg-editor" data-placeholder="Compose your commissioner note or league update here..."></div>
                             <div class="editor-status-bar">
                                 <span class="editor-word-count">0 words • 0 characters</span>
-                                <span class="editor-hint">Live rich text editor — text actively reflects your styling</span>
+                                <span class="editor-hint">Live rich text editor, as text actively reflects your styling</span>
                             </div>
                         </div>
                     </div>
@@ -612,7 +635,7 @@ export class CommissionerNotesEngine {
                             <div contenteditable="true" id="new-note-body-editor" class="notes-wysiwyg-editor" data-placeholder="Compose your new commissioner note or league update here..."></div>
                             <div class="editor-status-bar">
                                 <span class="editor-word-count">0 words • 0 characters</span>
-                                <span class="editor-hint">Live rich text editor — text actively reflects your styling</span>
+                                <span class="editor-hint">Live rich text editor, as text actively reflects your styling</span>
                             </div>
                         </div>
                     </div>
@@ -851,6 +874,15 @@ export class CommissionerNotesEngine {
         const allowedEditors = this.data.allowed_editors || [];
         const adminEmail = (this.app?.leagueSettings?.admin_email || session?.email || 'Admin').toLowerCase();
 
+        const userEmail = (session?.email || '').toLowerCase();
+        const designatedAdminEmail = (this.app?.leagueSettings?.admin_email || '').toLowerCase();
+        const isDesignatedAdmin = Boolean(
+            (designatedAdminEmail && userEmail === designatedAdminEmail) ||
+            (session?.adminLeagues && (session.adminLeagues.includes(this.leagueSlug) || (this.leagueSlug === 'dmsfantasy' && session.adminLeagues.includes('dms'))))
+        );
+        const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
+        const isFounderInspection = Boolean(this.app?.isFounderInspection || (isFounder && !isDesignatedAdmin && this.leagueSlug !== 'dmsfantasy'));
+
         // Sort managers
         const sortedManagers = [...managers].sort((a, b) => (a.canonical_name || a.name || '').localeCompare(b.canonical_name || b.name || ''));
         const availableToAdd = sortedManagers.filter(m => !allowedEditors.includes(m.id));
@@ -898,7 +930,7 @@ export class CommissionerNotesEngine {
                         </span>
                     </td>
                     <td style="padding: 10px 12px; text-align: right;">
-                        <button type="button" class="btn btn-sm btn-revoke-editor" data-editor-id="${ed}" style="padding: 3px 8px; font-size: 0.75rem; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; border-radius: 4px; cursor: pointer;">
+                        <button type="button" class="btn btn-sm btn-revoke-editor" data-editor-id="${ed}" ${isFounderInspection ? 'disabled style="padding: 3px 8px; font-size: 0.75rem; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; border-radius: 4px; cursor: not-allowed; opacity: 0.5;"' : 'style="padding: 3px 8px; font-size: 0.75rem; border: 1px solid #fca5a5; background: #fef2f2; color: #991b1b; border-radius: 4px; cursor: pointer;"'}>
                             Revoke
                         </button>
                     </td>
@@ -924,14 +956,14 @@ export class CommissionerNotesEngine {
                     Section Header / Display Title:
                 </label>
                 <div class="tagline-presets-wrapper" style="margin-bottom: 8px;">
-                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="League Updates">"League Updates"</button>
-                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Note from the Commissioner">"Note from the Commissioner"</button>
-                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Commissioner's Corner">"Commissioner's Corner"</button>
-                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Weekly Headlines">"Weekly Headlines"</button>
+                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="League Updates" ${isFounderInspection ? 'disabled' : ''}>"League Updates"</button>
+                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Note from the Commissioner" ${isFounderInspection ? 'disabled' : ''}>"Note from the Commissioner"</button>
+                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Commissioner's Corner" ${isFounderInspection ? 'disabled' : ''}>"Commissioner's Corner"</button>
+                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Weekly Headlines" ${isFounderInspection ? 'disabled' : ''}>"Weekly Headlines"</button>
                 </div>
                 <div class="tagline-input-row">
-                    <input type="text" id="admin-notes-title-input" class="admin-input" value="${currentTitle}" placeholder="e.g. League Updates or Note from the Commissioner">
-                    <button type="button" id="btn-save-notes-title" class="btn btn-primary">Save Header</button>
+                    <input type="text" id="admin-notes-title-input" class="admin-input" value="${currentTitle}" placeholder="e.g. League Updates or Note from the Commissioner" ${isFounderInspection ? 'disabled style="background: #f8fafc; cursor: not-allowed;"' : ''}>
+                    <button type="button" id="btn-save-notes-title" class="btn btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="opacity: 0.5; cursor: not-allowed;"' : ''}>Save Header</button>
                 </div>
                 <div id="notes-title-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
             </div>
@@ -947,11 +979,11 @@ export class CommissionerNotesEngine {
 
                 <!-- Add Editor Row -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1rem;">
-                    <select id="admin-notes-add-manager-select" class="admin-select" style="min-width: 220px; padding: 7px 10px; font-size: 0.86rem; font-weight: 600; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                    <select id="admin-notes-add-manager-select" class="admin-select" ${isFounderInspection ? 'disabled style="min-width: 220px; padding: 7px 10px; font-size: 0.86rem; font-weight: 600; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-primary); cursor: not-allowed;"' : 'style="min-width: 220px; padding: 7px 10px; font-size: 0.86rem; font-weight: 600; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);"'}>
                         <option value="">-- Select Manager to Grant Edit Access --</option>
                         ${managerOptions}
                     </select>
-                    <button type="button" id="btn-grant-editor-access" class="btn btn-primary" style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                    <button type="button" id="btn-grant-editor-access" class="btn btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: not-allowed; white-space: nowrap; opacity: 0.5;"' : 'style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;"'}>
                         Grant Edit Access
                     </button>
                 </div>
@@ -986,10 +1018,10 @@ export class CommissionerNotesEngine {
                         </p>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button type="button" id="btn-admin-edit-live-note" class="btn btn-sm" style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer;">
+                        <button type="button" id="btn-admin-edit-live-note" class="btn btn-sm" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: not-allowed; opacity: 0.5;"' : 'style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer;"'}>
                             Edit Live Note
                         </button>
-                        <button type="button" id="btn-admin-create-new-note" class="btn btn-sm btn-primary" style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer;">
+                        <button type="button" id="btn-admin-create-new-note" class="btn btn-sm btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: not-allowed; opacity: 0.5;"' : 'style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer;"'}>
                             + New Note
                         </button>
                     </div>
@@ -1007,6 +1039,7 @@ export class CommissionerNotesEngine {
         // Wire up Preset buttons
         container.querySelectorAll('.btn-notes-title-preset').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (isFounderInspection) return;
                 const preset = btn.getAttribute('data-preset');
                 const input = container.querySelector('#admin-notes-title-input');
                 if (input && preset) {
@@ -1017,6 +1050,7 @@ export class CommissionerNotesEngine {
 
         // Wire up Save Title button
         container.querySelector('#btn-save-notes-title')?.addEventListener('click', async () => {
+            if (isFounderInspection || !this.canEdit()) return;
             const input = container.querySelector('#admin-notes-title-input');
             const feedback = container.querySelector('#notes-title-save-feedback');
             const val = input ? input.value.trim() : '';
@@ -1043,6 +1077,7 @@ export class CommissionerNotesEngine {
 
         // Wire up Add Editor button
         container.querySelector('#btn-grant-editor-access')?.addEventListener('click', async () => {
+            if (isFounderInspection || !this.canEdit()) return;
             const select = container.querySelector('#admin-notes-add-manager-select');
             const feedback = container.querySelector('#notes-editor-feedback');
             const selectedMgrId = select ? select.value : '';
@@ -1074,6 +1109,7 @@ export class CommissionerNotesEngine {
         // Wire up Revoke buttons
         container.querySelectorAll('.btn-revoke-editor').forEach(btn => {
             btn.addEventListener('click', async () => {
+                if (isFounderInspection || !this.canEdit()) return;
                 const edId = btn.getAttribute('data-editor-id');
                 if (!edId) return;
                 await this.removeEditor(edId);
@@ -1083,10 +1119,12 @@ export class CommissionerNotesEngine {
 
         // Wire up Live Note Edit / New Note buttons in Admin
         container.querySelector('#btn-admin-edit-live-note')?.addEventListener('click', () => {
+            if (isFounderInspection || !this.canEdit()) return;
             this.openEditModal();
         });
 
         container.querySelector('#btn-admin-create-new-note')?.addEventListener('click', () => {
+            if (isFounderInspection || !this.canEdit()) return;
             this.openNewNoteModal();
         });
     }

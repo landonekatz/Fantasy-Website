@@ -35,6 +35,7 @@ export class VaultDraftEngine {
         this.containerId = options.containerId || 'view-draft';
         this.draftResults = this.normalizeDraftResults(options.draftResults);
         this.weeklyPlayerStats = this.normalizeWeeklyStats(options.weeklyPlayerStats);
+        this.matchups = Array.isArray(options.matchups) ? options.matchups : (options.matchups?.matchups || []);
         this.transactions = Array.isArray(options.transactions) ? options.transactions : (options.transactions?.transactions || []);
         this.managers = this.normalizeManagers(options.managers);
         this.leagueSettings = options.leagueSettings || {};
@@ -111,6 +112,9 @@ export class VaultDraftEngine {
         }
         if (options.weeklyPlayerStats !== undefined) {
             this.weeklyPlayerStats = this.normalizeWeeklyStats(options.weeklyPlayerStats);
+        }
+        if (options.matchups !== undefined) {
+            this.matchups = Array.isArray(options.matchups) ? options.matchups : (options.matchups?.matchups || []);
         }
         if (options.transactions !== undefined) {
             this.transactions = Array.isArray(options.transactions) ? options.transactions : (options.transactions?.transactions || []);
@@ -238,7 +242,8 @@ export class VaultDraftEngine {
             if (id && !seen.has(id)) {
                 seen.add(id);
                 const baseName = p.manager_name || p.managerName || id;
-                const nick = p.nickname || (this.claims && this.claims[id]?.nickname) || (window.app?.claims && window.app.claims[id]?.nickname) || '';
+                const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
+                const nick = p.nickname || (this.claims && this.claims[id]?.nickname) || (winAppClaims && winAppClaims[id]?.nickname) || '';
                 const displayName = formatManagerDisplayName(baseName, nick, allowNicknames);
                 found.push({
                     id,
@@ -495,7 +500,7 @@ export class VaultDraftEngine {
         });
 
         // Determine season status: unplayed vs in-progress vs completed
-        const isUnplayedSeason = (yearStats.length === 0 && totalGamesPlayedInSeason === 0 && maxPlayedWeek === 0);
+        const isUnplayedSeason = (totalGamesPlayedInSeason === 0 && maxPlayedWeek === 0);
         const isSeasonInProgress = !isUnplayedSeason && (maxPlayedWeek > 0 && maxPlayedWeek < fullRegularSeasonWeeks);
         const maxRegularSeasonGames = isSeasonInProgress ? maxPlayedWeek : fullRegularSeasonWeeks;
 
@@ -992,7 +997,14 @@ export class VaultDraftEngine {
                 steals,
                 picks: mObj.picks
             };
-        }).sort((a, b) => (b.draftIndex ?? 0) - (a.draftIndex ?? 0));
+        }).sort((a, b) => {
+            if (isUnplayedSeason) {
+                const aSlot = a.picks[0]?.overallPick ?? 999;
+                const bSlot = b.picks[0]?.overallPick ?? 999;
+                return aSlot - bSlot;
+            }
+            return (b.draftIndex ?? 0) - (a.draftIndex ?? 0);
+        });
 
         // Best Steal, Worst Draft, What If, Bust
         let bestSteal = null;

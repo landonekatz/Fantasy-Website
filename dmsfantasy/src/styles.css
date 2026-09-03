@@ -242,6 +242,39 @@ header p {
     box-shadow: var(--shadow-md);
 }
 
+/* Welcome to Archive Card */
+.card#welcome {
+    position: relative;
+}
+
+.btn-dismiss-welcome {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card, rgba(255, 255, 255, 0.05));
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    z-index: 2;
+}
+
+.btn-dismiss-welcome:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.35);
+    transform: scale(1.06);
+}
+
 .card h2 {
     font-family: 'Newsreader', Georgia, serif;
     font-size: 1.8rem;

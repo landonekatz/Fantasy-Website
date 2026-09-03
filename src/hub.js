@@ -29,13 +29,58 @@ let currentLeagueCreds = null;
 
     if (session) {
       const persona = AuthEngine.getPersona();
+      const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
       headerAuthContainer.innerHTML = `
         <div class="user-badge-header" style="display: flex; align-items: center; gap: 0.75rem;">
-          <span style="white-space: nowrap; font-weight: 600;" id="btn-header-navigate" title="Go to My Profile">${(session.name || session.email).split(' ')[0]}</span>
+          ${isFounder ? `
+            <div id="hub-founder-switcher" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(212, 175, 55, 0.15); border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 9999px; padding: 2px 8px 2px 10px;">
+              <span style="font-size: 0.72rem; font-weight: 800; color: var(--accent-gold, #b45309); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Founder:</span>
+              <select id="hub-founder-select" style="background: transparent; border: none; color: var(--text-main); font-size: 0.78rem; font-weight: 600; cursor: pointer; outline: none; max-width: 170px;">
+                <option value="" disabled selected>Switch League...</option>
+              </select>
+            </div>
+          ` : ''}
+          <span style="white-space: nowrap; font-weight: 600; cursor: pointer;" id="btn-header-navigate" title="Go to My Profile">${(session.name || session.email).split(' ')[0]}</span>
           <button id="btn-header-leagues" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; background: rgba(0,0,0,0.2); color: var(--text-main); border: 1px solid var(--border-line);">My Leagues</button>
         </div>
         <button id="btn-header-logout" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Logout</button>
       `;
+
+      if (isFounder) {
+        const hubSelect = document.getElementById('hub-founder-select');
+        if (hubSelect) {
+          const populate = (leagues) => {
+            if (!leagues || leagues.length === 0) return;
+            let html = '<option value="" disabled selected>Switch League...</option>';
+            leagues.forEach(l => {
+              const lSlug = (l.slug || '').toLowerCase().trim();
+              const path = (typeof AuthEngine?.resolveLeaguePath === 'function') 
+                ? AuthEngine.resolveLeaguePath(lSlug) 
+                : (l.path || `/${lSlug}`);
+              html += `<option value="${path}">${l.name} (${(l.platform || 'espn').toUpperCase()})${l.isPrivate ? ' [Private]' : ''}</option>`;
+            });
+            hubSelect.innerHTML = html;
+            hubSelect.onchange = function() {
+              if (this.value) {
+                try {
+                  sessionStorage.setItem('vault_founder_nav_toggle', 'true');
+                  sessionStorage.setItem('vault_founder_mode_active', 'true');
+                } catch (e) {}
+                window.location.href = this.value;
+              }
+            };
+          };
+          if (session.allLeagues && session.allLeagues.length > 0) {
+            populate(session.allLeagues);
+          }
+          if (typeof AuthEngine.fetchAllVaultLeagues === 'function') {
+            AuthEngine.fetchAllVaultLeagues().then(leagues => {
+              session.allLeagues = leagues;
+              populate(leagues);
+            });
+          }
+        }
+      }
 
       const btnLogout = document.getElementById('btn-header-logout');
       if (btnLogout) {
@@ -616,8 +661,8 @@ let currentLeagueCreds = null;
       targetSlug = localLastLeague;
     } else if (session?.isFounder) {
       // For founder account, default to gaywoodfantasyfootball or dmsfantasy
-      if (localLastLeague === 'gaywoodfantasyfootball' || localLastLeague === 'gaywoodfantasy' || localLastLeague === 'dmsfantasy') {
-        targetSlug = (localLastLeague === 'gaywoodfantasy') ? 'gaywoodfantasyfootball' : localLastLeague;
+      if (localLastLeague === 'gaywoodfantasyfootball' || localLastLeague === 'dmsfantasy') {
+        targetSlug = localLastLeague;
       } else {
         targetSlug = 'dmsfantasy';
       }
@@ -628,13 +673,16 @@ let currentLeagueCreds = null;
     }
 
     if (targetSlug) {
-      if (targetSlug === 'gaywoodfantasy') targetSlug = 'gaywoodfantasyfootball';
+      try {
+        sessionStorage.removeItem('vault_founder_mode_active');
+        sessionStorage.removeItem('vault_founder_nav_toggle');
+      } catch (e) {}
       if (typeof AuthEngine.recordActiveLeague === 'function') {
         AuthEngine.recordActiveLeague(targetSlug);
       }
       const targetPath = typeof AuthEngine.resolveLeaguePath === 'function'
         ? AuthEngine.resolveLeaguePath(targetSlug)
-        : (targetSlug === 'dmsfantasy' ? '/dmsfantasy/' : `/vault.html?league=${encodeURIComponent(targetSlug)}`);
+        : (targetSlug === 'dmsfantasy' ? '/dmsfantasy/' : `/${encodeURIComponent(targetSlug)}`);
       window.location.href = targetPath;
       return;
     }

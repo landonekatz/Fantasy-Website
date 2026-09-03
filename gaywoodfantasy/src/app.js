@@ -360,6 +360,7 @@ class FantasyApp {
         const founderBar = document.getElementById('founder-control-bar');
         if (founderBar) founderBar.remove();
         this.initPowerRankings();
+        this.initWelcomeCard();
         this.setupH2HControls();
         this.renderH2H();
         this.checkAdminAccess();
@@ -2355,6 +2356,7 @@ class FantasyApp {
                 containerId: 'view-draft',
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: { name: 'Gaywood / Katz League', id: '262404', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false },
@@ -2364,6 +2366,7 @@ class FantasyApp {
             this.draftEngine.updateData({
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: { name: 'Gaywood / Katz League', id: '262404', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false },
@@ -2371,6 +2374,38 @@ class FantasyApp {
             });
         }
         await this.draftEngine.render();
+    }
+
+    initWelcomeCard() {
+        const welcomeCard = document.getElementById('welcome');
+        const welcomePill = document.getElementById('scroller-pill-welcome');
+        const btnDismiss = document.getElementById('btn-dismiss-welcome');
+        if (!welcomeCard) return;
+
+        const storageKey = `vault_dismiss_welcome_gaywoodfantasyfootball`;
+        const isDismissed = localStorage.getItem(storageKey) === 'true' || Boolean(this.leagueSettings?.hide_welcome_card);
+
+        if (isDismissed) {
+            welcomeCard.style.display = 'none';
+            if (welcomePill) welcomePill.style.display = 'none';
+        } else {
+            welcomeCard.style.display = '';
+            if (welcomePill) welcomePill.style.display = '';
+        }
+
+        if (btnDismiss && !btnDismiss._hasClickListener) {
+            btnDismiss._hasClickListener = true;
+            btnDismiss.addEventListener('click', () => {
+                localStorage.setItem(storageKey, 'true');
+                welcomeCard.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                welcomeCard.style.opacity = '0';
+                welcomeCard.style.transform = 'translateY(-6px)';
+                setTimeout(() => {
+                    welcomeCard.style.display = 'none';
+                    if (welcomePill) welcomePill.style.display = 'none';
+                }, 200);
+            });
+        }
     }
 
     setupH2HControls() {

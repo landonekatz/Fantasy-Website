@@ -67,6 +67,10 @@ class FantasyApp {
     }
 
     renderPrivateGuard() {
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const userEmail = (session?.email || '').toLowerCase();
+        if (session?.isFounder || userEmail === 'landonekatz@gmail.com') return;
+
         let overlay = document.getElementById('private-guard-overlay');
         if (overlay) return;
 
@@ -249,26 +253,26 @@ class FantasyApp {
         // 2. Private League Guard (Public by default)
         const isPrivate = Boolean(this.leagueSettings?.is_private);
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const userEmail = (session?.email || '').toLowerCase();
+        const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
 
         if (isPrivate) {
             if (!session) {
                 this.renderPrivateGuard();
                 return;
             }
-            const userEmail = (session.email || '').toLowerCase();
             const adminEmail = (this.leagueSettings?.admin_email || '').toLowerCase();
-            const isLeagueAdmin = (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes('dmsfantasy'));
+            const isLeagueAdmin = isFounder || (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes('dmsfantasy'));
             const hasJoined = session.joinedLeagues && session.joinedLeagues.includes('dmsfantasy');
             const hasClaim = this.claims && Object.values(this.claims).some(c => (c?.userId === session.uid) || (c?.email && c.email.toLowerCase() === userEmail));
-            const isAuthorized = isLeagueAdmin || hasJoined || hasClaim;
+            const isAuthorized = isFounder || isLeagueAdmin || hasJoined || hasClaim;
 
             if (!isAuthorized) {
                 this.renderAccessDenied(session);
                 return;
             }
         } else {
-            if (session) {
-                const userEmail = (session.email || '').toLowerCase();
+            if (session && !isFounder) {
                 const adminEmail = (this.leagueSettings?.admin_email || '').toLowerCase();
                 const isLeagueAdmin = (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes('dmsfantasy'));
                 const hasClaim = this.claims && Object.values(this.claims).some(c => (c?.userId === session.uid) || (c?.email && c.email.toLowerCase() === userEmail));
@@ -751,7 +755,7 @@ class FantasyApp {
         const btnAdmin = document.getElementById('btn-tab-admin');
         if (!btnAdmin) return;
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
-        const isFounder = session && session.isFounder;
+        const isFounder = Boolean(session && (session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com')));
         const isAdmin = session && ((session.adminLeagues && (session.adminLeagues.includes('dmsfantasy') || session.adminLeagues.includes('dms'))) || isFounder);
         if (isAdmin) {
             btnAdmin.style.display = 'inline-flex';
@@ -2103,6 +2107,7 @@ class FantasyApp {
                 containerId: 'view-draft',
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: { name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false },
@@ -2112,6 +2117,7 @@ class FantasyApp {
             this.draftEngine.updateData({
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: { name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false },

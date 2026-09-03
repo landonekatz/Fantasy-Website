@@ -346,6 +346,10 @@ class FantasyApp {
     }
 
     renderPrivateGuard() {
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const userEmail = (session?.email || '').toLowerCase();
+        if (session?.isFounder || userEmail === 'landonekatz@gmail.com') return;
+
         let overlay = document.getElementById('private-guard-overlay');
         if (overlay) return;
 
@@ -478,6 +482,9 @@ class FantasyApp {
     }
 
     renderAccessDenied(session) {
+        const userEmail = (session?.email || '').toLowerCase();
+        if (session?.isFounder || userEmail === 'landonekatz@gmail.com') return;
+
         let overlay = document.getElementById('vault-access-denied-overlay');
         if (overlay) return;
         
@@ -486,13 +493,13 @@ class FantasyApp {
         overlay.className = 'guard-overlay';
         overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 1.5rem;';
         
-        const userEmail = session?.email || 'Your account';
+        const displayEmail = session?.email || 'Your account';
         overlay.innerHTML = `
             <div class="guard-card" style="background: #ffffff; color: #0f172a; max-width: 480px; width: 100%; border-radius: 12px; padding: 2.25rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); text-align: center; border: 1px solid #e2e8f0;">
                 <div style="display: inline-flex; align-items: center; justify-content: center; width: 50px; height: 50px; border-radius: 50%; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 1.4rem; font-weight: 800; margin-bottom: 1rem;">!</div>
                 <h2 style="font-size: 1.35rem; font-family: var(--font-heading, 'Cinzel', serif); font-weight: 800; margin-bottom: 0.5rem; color: #0f172a;">Access Denied</h2>
                 <p style="color: #64748b; font-size: 0.88rem; line-height: 1.55; margin-bottom: 1.5rem;">
-                    Your account (<strong>${userEmail}</strong>) does not have access to this private league. If you are a member of this league, please enter a valid Join Code below or ask your commissioner for an invite link.
+                    Your account (<strong>${displayEmail}</strong>) does not have access to this private league. If you are a member of this league, please enter a valid Join Code below or ask your commissioner for an invite link.
                 </p>
 
                 <!-- Join Code Form -->
@@ -593,10 +600,23 @@ class FantasyApp {
         }
         this.leagueSlug = pathSlug;
         if (pathSlug && pathSlug !== 'vault.html' && pathSlug !== 'vault') {
+            try {
+                sessionStorage.setItem('vault_nav_slug', pathSlug);
+            } catch (e) {}
+            // Normalize address bar from /vault.html?league=slug to clean vanity path /slug
+            if (window.location.pathname.includes('vault.html') || window.location.pathname === '/vault') {
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.delete('league');
+                searchParams.delete('slug');
+                const remainingQuery = searchParams.toString() ? '?' + searchParams.toString() : '';
+                try {
+                    window.history.replaceState({}, '', `/${pathSlug}${remainingQuery}${window.location.hash}`);
+                } catch (e) {}
+            }
             if (window.AuthEngine && typeof window.AuthEngine.recordActiveLeague === 'function') {
                 window.AuthEngine.recordActiveLeague(pathSlug);
             } else {
-                localStorage.setItem('vault_last_league', pathSlug);
+                try { localStorage.setItem('vault_last_league', pathSlug); } catch (e) {}
             }
         }
 
@@ -621,27 +641,27 @@ class FantasyApp {
         // Check Private vs Public League Guarding
         const isPrivate = Boolean(this.leagueSettings?.is_private);
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const userEmail = (session?.email || '').toLowerCase();
+        const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
 
         if (isPrivate) {
             if (!session) {
                 this.renderPrivateGuard();
                 return;
             }
-            const userEmail = (session.email || '').toLowerCase();
             const adminEmail = (this.leagueSettings?.admin_email || '').toLowerCase();
-            const isLeagueAdmin = (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes(this.leagueSlug));
+            const isLeagueAdmin = isFounder || (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes(this.leagueSlug));
             const hasJoined = session.joinedLeagues && session.joinedLeagues.includes(this.leagueSlug);
             const hasClaim = this.claims && Object.values(this.claims).some(c => (c?.userId === session.uid) || (c?.email && c.email.toLowerCase() === userEmail));
-            const isAuthorized = isLeagueAdmin || hasJoined || hasClaim;
+            const isAuthorized = isFounder || isLeagueAdmin || hasJoined || hasClaim;
 
             if (!isAuthorized) {
                 this.renderAccessDenied(session);
                 return;
             }
         } else {
-            // Public league -> Show subtle guest notice if signed in but not claimed/admin
-            if (session) {
-                const userEmail = (session.email || '').toLowerCase();
+            // Public league -> Show subtle guest notice if signed in but not claimed/admin and not founder
+            if (session && !isFounder) {
                 const adminEmail = (this.leagueSettings?.admin_email || '').toLowerCase();
                 const isLeagueAdmin = (adminEmail && userEmail === adminEmail) || (session.adminLeagues && session.adminLeagues.includes(this.leagueSlug));
                 const hasClaim = this.claims && Object.values(this.claims).some(c => (c?.userId === session.uid) || (c?.email && c.email.toLowerCase() === userEmail));
@@ -867,29 +887,6 @@ class FantasyApp {
                 } catch (e) {
                     console.warn('Failed local dms fallback:', e);
                 }
-            } else if (slug === 'gaywoodfantasyfootball' || slug === 'gaywoodfantasy') {
-                try {
-                    const [stands, mat, stats, draft, tx, mgrs, settings] = await Promise.all([
-                        fetch('/gaywoodfantasy/data/league_standings.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/matchups.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/weekly_player_stats.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/draft_results.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/transactions.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/managers.json').then(r => r.json()),
-                        fetch('/gaywoodfantasy/data/league_settings.json').then(r => r.json()).catch(() => ({}))
-                    ]);
-                    bundleData = {
-                        members: mgrs.managers || [],
-                        league_standings: stands,
-                        matchups: mat,
-                        weekly_player_stats: stats,
-                        draft_results: draft,
-                        transactions: tx,
-                        league_settings: { name: 'Gaywood Fantasy Football', subtitle: 'In a league of our own', ...settings }
-                    };
-                } catch (e) {
-                    console.warn('Failed local gaywood fallback:', e);
-                }
             }
         }
 
@@ -1010,14 +1007,38 @@ class FantasyApp {
                 const claimsSnap = await get(dbRef(database, `leagues/${this.leagueSlug}/claims`));
                 if (claimsSnap.exists()) {
                     this.claims = claimsSnap.val() || {};
-                    const list = (this.members && this.members.length > 0) ? this.members : (this.managers || []);
-                    list.forEach(m => {
-                        const claim = this.claims[m.id];
-                        if (claim && claim.nickname !== undefined && !m.nickname) {
-                            m.nickname = claim.nickname;
-                        }
-                    });
                 }
+                // Also scan users table to guarantee 100% complete claim records with registered emails
+                try {
+                    const usersSnap = await get(dbRef(database, 'users'));
+                    if (usersSnap.exists()) {
+                        const usersVal = usersSnap.val() || {};
+                        Object.entries(usersVal).forEach(([uid, uData]) => {
+                            if (uData?.claims?.[this.leagueSlug]) {
+                                const c = uData.claims[this.leagueSlug];
+                                const mId = c.managerId;
+                                if (mId && (!this.claims[mId] || !this.claims[mId].email)) {
+                                    const email = (c.managerName && c.managerName.includes('@')) ? c.managerName : (uData.email || '');
+                                    this.claims[mId] = {
+                                        userId: uid,
+                                        email: email,
+                                        name: c.managerName || email,
+                                        claimedAt: c.claimedAt || Date.now(),
+                                        ...(this.claims[mId] || {})
+                                    };
+                                }
+                            }
+                        });
+                    }
+                } catch (eUsers) {}
+
+                const list = (this.members && this.members.length > 0) ? this.members : (this.managers || []);
+                list.forEach(m => {
+                    const claim = this.claims[m.id] || (m.espn_id && this.claims[m.espn_id]);
+                    if (claim && claim.nickname !== undefined && !m.nickname) {
+                        m.nickname = claim.nickname;
+                    }
+                });
             } catch (e) {
                 console.warn('Could not load claims from RTDB', e);
             }
@@ -1108,6 +1129,8 @@ class FantasyApp {
             containerId: 'rankings',
             adminContainerId: 'admin-sec-power-rankings'
         });
+
+        this.initWelcomeCard();
     }
 
     refreshNicknamesUI() {
@@ -1123,12 +1146,47 @@ class FantasyApp {
             this.draftEngine.updateData({
                 managers: this.managers || this.members,
                 draftResults: this.draftResults,
+                weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 leagueSettings: this.leagueSettings,
                 scoringSettings: this.scoringSettings || this.leagueSettings
             });
             if (this.activeTab === 'draft' || this.activeTab === 'draft-hub') {
                 this.draftEngine.render();
             }
+        }
+        this.initWelcomeCard();
+    }
+
+    initWelcomeCard() {
+        const welcomeCard = document.getElementById('welcome');
+        const welcomePill = document.getElementById('scroller-pill-welcome');
+        const btnDismiss = document.getElementById('btn-dismiss-welcome');
+        if (!welcomeCard) return;
+
+        const storageKey = `vault_dismiss_welcome_${this.leagueSlug || 'league'}`;
+        const isDismissed = localStorage.getItem(storageKey) === 'true' || Boolean(this.leagueSettings?.hide_welcome_card);
+
+        if (isDismissed) {
+            welcomeCard.style.display = 'none';
+            if (welcomePill) welcomePill.style.display = 'none';
+        } else {
+            welcomeCard.style.display = '';
+            if (welcomePill) welcomePill.style.display = '';
+        }
+
+        if (btnDismiss && !btnDismiss._hasClickListener) {
+            btnDismiss._hasClickListener = true;
+            btnDismiss.addEventListener('click', () => {
+                localStorage.setItem(storageKey, 'true');
+                welcomeCard.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+                welcomeCard.style.opacity = '0';
+                welcomeCard.style.transform = 'translateY(-6px)';
+                setTimeout(() => {
+                    welcomeCard.style.display = 'none';
+                    if (welcomePill) welcomePill.style.display = 'none';
+                }, 200);
+            });
         }
     }
 
@@ -1328,6 +1386,7 @@ class FantasyApp {
                 containerId: 'view-draft',
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: this.leagueSettings,
@@ -1337,6 +1396,7 @@ class FantasyApp {
             this.draftEngine.updateData({
                 draftResults: this.draftResults,
                 weeklyPlayerStats: this.playerStats,
+                matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: this.leagueSettings,
@@ -1877,8 +1937,10 @@ class FantasyApp {
         const btnAdmin = document.getElementById('btn-tab-admin');
         if (!btnAdmin) return;
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const userEmail = (session?.email || '').toLowerCase();
+        const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
         const adminEmail = this.leagueSettings?.admin_email || window.FANTASY_DATA?.league_settings?.admin_email;
-        const isLeagueAdmin = Boolean((session && adminEmail && session.email && session.email.toLowerCase() === adminEmail.toLowerCase()) || (session && session.adminLeagues && session.adminLeagues.includes(this.leagueSlug)));
+        const isLeagueAdmin = Boolean(isFounder || (session && adminEmail && userEmail === adminEmail.toLowerCase()) || (session && session.adminLeagues && session.adminLeagues.includes(this.leagueSlug)));
 
         if (isLeagueAdmin) {
             btnAdmin.style.display = 'inline-flex';
@@ -1898,6 +1960,14 @@ class FantasyApp {
         if (!container) return;
 
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const userEmail = (session?.email || '').toLowerCase();
+        const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
+        const adminEmail = (this.leagueSettings?.admin_email || window.FANTASY_DATA?.league_settings?.admin_email || '').toLowerCase();
+        const isDesignatedAdmin = Boolean(adminEmail && userEmail === adminEmail);
+        const isFounderInspection = Boolean(isFounder && !isDesignatedAdmin && this.leagueSlug !== 'dmsfantasy');
+        const isPrivate = Boolean(this.leagueSettings?.is_private);
+        const isWelcomeHidden = Boolean(this.leagueSettings?.hide_welcome_card);
+
         const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
         const leagueSlug = this.leagueSlug || window.location.pathname.substring(1).replace(/\/$/, "") || "league";
@@ -1934,7 +2004,7 @@ class FantasyApp {
 
         // Check if the current admin has claimed a profile in this league
         const currentAdminClaim = session ? (session.claims?.[leagueSlug] || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === session.email)?.[0])) : null;
-        const unclaimedMembers = sortedMembers.filter(m => !this.claims || !this.claims[m.id]);
+        const unclaimedMembers = sortedMembers.filter(m => !this.claims || (!this.claims[m.id] && (!m.espn_id || !this.claims[m.espn_id])));
         
         // Build 3-column table rows: Manager Name (input + Save) | Active Seasons | Account & Actions
         const managerRows = sortedMembers.map(m => {
@@ -1942,7 +2012,12 @@ class FantasyApp {
             const yearsActive = [...new Set(memberMatchups.map(x => x.year || x.season).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
             const yearsStr = yearsActive.length > 0 ? `${yearsActive[0]}–${yearsActive[yearsActive.length - 1]} (${yearsActive.length} yr${yearsActive.length > 1 ? 's' : ''})` : 'Active';
             
-            const claim = this.claims ? this.claims[m.id] : null;
+            const claim = this.claims ? (
+                this.claims[m.id] ||
+                (m.espn_id && this.claims[m.espn_id]) ||
+                (m.espn_ids && m.espn_ids.map(id => this.claims[id]).find(Boolean)) ||
+                Object.values(this.claims).find(c => c.managerId === m.id || (m.espn_id && c.managerId === m.espn_id) || (m.espn_ids && m.espn_ids.includes(c.managerId)))
+            ) : null;
             const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
             const isClaimed = Boolean(claim);
 
@@ -1950,22 +2025,34 @@ class FantasyApp {
                 <tr data-manager-id="${m.id}">
                     <td>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box;">
-                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" style="padding: 5px 12px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; border-radius: 4px;">Save</button>
+                            <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" ${isFounderInspection ? 'disabled title="Editing disabled in Founder Inspection Mode" style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box; background: #f8fafc; cursor: not-allowed;"' : 'style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box;"'}>
+                            <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" ${isFounderInspection ? 'disabled title="Editing disabled in Founder Inspection Mode" style="padding: 5px 12px; font-size: 0.76rem; font-weight: 600; cursor: not-allowed; white-space: nowrap; border-radius: 4px; opacity: 0.5;"' : 'style="padding: 5px 12px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; border-radius: 4px;"'}>Save</button>
                         </div>
                     </td>
                     <td style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap;">${yearsStr}</td>
                     <td>
                         <div class="admin-actions-cell" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             ${isClaimed ? `
-                                <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
-                                    ✓ ${claimEmail}
-                                </span>
-                                <button class="btn-reassign-manager" data-manager-id="${m.id}" data-manager-name="${m.name}" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; cursor: pointer;" title="Unlink / Reassign mapped account">Reassign</button>
+                                <div style="display: inline-flex; flex-direction: column; gap: 2px;">
+                                    <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
+                                        <span style="color: #15803d; font-weight: 800;">✓</span> ${claimEmail}
+                                    </span>
+                                    ${claim.name && claim.email && claim.name !== claim.email ? `
+                                        <span style="font-size: 0.72rem; color: var(--text-muted); padding-left: 2px;">Account: ${claim.name}</span>
+                                    ` : ''}
+                                    ${claim.claimedAt ? `
+                                        <span style="font-size: 0.7rem; color: var(--text-muted); padding-left: 2px;">Joined ${new Date(claim.claimedAt).toLocaleDateString()}</span>
+                                    ` : ''}
+                                </div>
+                                ${!isFounderInspection ? `
+                                    <button class="btn-reassign-manager" data-manager-id="${m.id}" data-manager-name="${m.name}" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; cursor: pointer;" title="Unlink / Reassign mapped account">Reassign</button>
+                                ` : ''}
                             ` : `
                                 <span class="badge-unregistered">Unclaimed</span>
                                 <button class="btn-copy-claim-link btn" data-manager-id="${m.id}" data-manager-name="${m.name}" style="padding: 4px 8px; font-size: 0.72rem; font-weight: 600; background: #f8fafc; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">Copy Link</button>
-                                <button class="btn-email-claim-link btn-primary" data-manager-id="${m.id}" data-manager-name="${m.name}" style="padding: 4px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer; border-radius: 4px;">Email Link</button>
+                                ${!isFounderInspection ? `
+                                    <button class="btn-email-claim-link btn-primary" data-manager-id="${m.id}" data-manager-name="${m.name}" style="padding: 4px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer; border-radius: 4px;">Email Link</button>
+                                ` : ''}
                             `}
                         </div>
                     </td>
@@ -1977,11 +2064,10 @@ class FantasyApp {
         const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
         const unclaimedOptions = unclaimedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 
-const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => b - a);
+        const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => b - a);
         const activeYearsList = distinctYears.length > 0 ? distinctYears : [new Date().getFullYear()];
         const seasonOptions = activeYearsList.map(y => `<option value="${y}">Season ${y}</option>`).join('');
 
-        const isPrivate = Boolean(this.leagueSettings.is_private);
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
 
         container.innerHTML = `
@@ -1992,7 +2078,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                     <div class="admin-sidebar-header">
                         <div class="admin-sidebar-title-row">
                             <span class="admin-sidebar-title">League Settings</span>
-                            <span class="admin-sidebar-badge">Admin</span>
+                            <span class="admin-sidebar-badge">${isFounderInspection ? 'Founder' : 'Admin'}</span>
                         </div>
                         <p class="admin-sidebar-subtitle">Navigation &amp; Controls</p>
                     </div>
@@ -2068,8 +2154,26 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                 <!-- Main Settings Content Area -->
                 <main class="admin-main-content">
 
+                <!-- Founder Inspection Mode Banner -->
+                ${isFounderInspection ? `
+                    <div class="admin-founder-banner">
+                        <div style="flex: 1; min-width: 260px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <span style="font-weight: 800; font-size: 0.85rem; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px;">Founder Inspection Mode (Read-Only)</span>
+                                <span style="background: #fef3c7; color: #92400e; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #fde68a;">Viewing All Settings &amp; Member Accounts</span>
+                            </div>
+                            <p style="margin: 0; font-size: 0.86rem; color: var(--text-secondary); line-height: 1.45;">
+                                You are inspecting this vault as the platform founder. All commissioner configurations, custom rules, member claims, and user accounts are visible exactly as they exist, with editing actions disabled to protect league data.
+                            </p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b; background: #ffffff; padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">Admin: ${adminEmail || 'Commissioner'}</span>
+                        </div>
+                    </div>
+                ` : ''}
+
                 <!-- Retrospective Admin Self-Claim Card (If Admin Has No Claimed Profile) -->
-                ${!currentAdminClaim ? `
+                ${!currentAdminClaim && !isFounderInspection ? `
                     <div class="card admin-section-card" style="margin-top: 1.5rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                             <div>
@@ -2111,8 +2215,8 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                     <div style="margin-top: 1.25rem;">
                         <label for="admin-league-title-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">Custom League Title:</label>
                         <div class="tagline-input-row">
-                            <input type="text" id="admin-league-title-input" class="admin-input" value="${leagueName}" placeholder="e.g. Ironclad Dynasty League HQ">
-                            <button id="btn-save-league-title" class="btn-primary" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Title</button>
+                            <input type="text" id="admin-league-title-input" class="admin-input" value="${leagueName}" placeholder="e.g. Ironclad Dynasty League HQ" ${isFounderInspection ? 'disabled style="background: #f8fafc; cursor: not-allowed;"' : ''}>
+                            <button id="btn-save-league-title" class="btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;"'}>Save Title</button>
                         </div>
                         <div id="title-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
@@ -2131,9 +2235,9 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                         <div class="tagline-input-row">
                             <div style="display: flex; align-items: center; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding-left: 10px; flex: 1;">
                                 <span style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">thefantasyvault.com/</span>
-                                <input type="text" id="admin-league-slug-input" class="admin-input" value="${leagueSlug}" placeholder="your-league" style="border: none; background: transparent; padding-left: 2px;">
+                                <input type="text" id="admin-league-slug-input" class="admin-input" value="${leagueSlug}" placeholder="your-league" ${isFounderInspection ? 'disabled style="border: none; background: transparent; padding-left: 2px; cursor: not-allowed;"' : 'style="border: none; background: transparent; padding-left: 2px;"'}>
                             </div>
-                            <button id="btn-save-league-slug" class="btn-primary" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save URL</button>
+                            <button id="btn-save-league-slug" class="btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;"'}>Save URL</button>
                         </div>
                         <div id="slug-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
@@ -2142,15 +2246,15 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                     <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
                         <label for="admin-tagline-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">League Tagline / Subtitle Motto:</label>
                         <div class="tagline-presets-wrapper">
-                            <button type="button" class="btn-tagline-preset" data-preset="Variance is an excuse for incompetence">"Variance is an excuse for incompetence"</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="Landon is the greatest fantasy player of all time">"Landon is the greatest fantasy player of all time"</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="Fantasy in name only">"Fantasy in name only"</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="Inside joke">"Inside joke"</button>
-                            <button type="button" class="btn-tagline-preset" data-preset="In a league of our own">"In a league of our own"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Variance is an excuse for incompetence" ${isFounderInspection ? 'disabled' : ''}>"Variance is an excuse for incompetence"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Landon is the greatest fantasy player of all time" ${isFounderInspection ? 'disabled' : ''}>"Landon is the greatest fantasy player of all time"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Fantasy in name only" ${isFounderInspection ? 'disabled' : ''}>"Fantasy in name only"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="Inside joke" ${isFounderInspection ? 'disabled' : ''}>"Inside joke"</button>
+                            <button type="button" class="btn-tagline-preset" data-preset="In a league of our own" ${isFounderInspection ? 'disabled' : ''}>"In a league of our own"</button>
                         </div>
                         <div class="tagline-input-row">
-                            <input type="text" id="admin-tagline-input" class="admin-input" value="${currentTagline}" placeholder="Enter your league's custom motto or tagline...">
-                            <button id="btn-save-tagline" class="btn-primary" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;">Save Tagline</button>
+                            <input type="text" id="admin-tagline-input" class="admin-input" value="${currentTagline}" placeholder="Enter your league's custom motto or tagline..." ${isFounderInspection ? 'disabled style="background: #f8fafc; cursor: not-allowed;"' : ''}>
+                            <button id="btn-save-tagline" class="btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;"'}>Save Tagline</button>
                         </div>
                         <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
@@ -2180,11 +2284,29 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                     You and your league members can assign and edit your individual nicknames anytime in the <strong>My Account</strong> tab located in the top right of the navigation bar.
                                 </p>
                             </div>
-                            <button id="btn-toggle-nicknames" class="btn" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #b45309); color:#fff; border:none;'}">
+                            <button id="btn-toggle-nicknames" class="btn" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; border: none; background: #94a3b8; color: #fff; cursor: not-allowed; opacity: 0.7;"' : `style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${allowNicknames ? 'background:#475569; color:#fff; border:none;' : 'background:var(--accent-gold, #b45309); color:#fff; border:none;'}"`}>
                                 ${allowNicknames ? 'Disable League Nicknames' : 'Enable League Nicknames'}
                             </button>
                         </div>
                         <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
+
+                    <!-- Welcome Card Home Display Toggle -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; color: var(--text-primary);">
+                                    Home Screen "Welcome to Archive" Card
+                                </div>
+                                <p style="margin: 0; font-size: 0.84rem; color: var(--text-secondary); line-height: 1.45; max-width: 650px;">
+                                    When enabled, the introductory "Welcome to the Archive" card is displayed on the home page. You can permanently remove it for all league members once the league is established.
+                                </p>
+                            </div>
+                            <button id="btn-toggle-welcome-card" class="btn" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; border: none; background: #94a3b8; color: #fff; cursor: not-allowed; opacity: 0.7;"' : `style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${isWelcomeHidden ? 'background:var(--accent-gold, #b45309); color:#fff; border:none;' : 'background:#dc2626; color:#fff; border:none;'}"`}>
+                                ${isWelcomeHidden ? 'Restore Welcome Card' : 'Remove from Home Screen'}
+                            </button>
+                        </div>
+                        <div id="welcome-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
                 </div>
 
@@ -2213,7 +2335,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                             <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <label for="admin-loser-season-select" style="font-weight: 700; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Select Season:</label>
-                                    <select id="admin-loser-season-select" class="admin-select" style="min-width: 150px; padding: 6px 12px; font-weight: 700; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="admin-loser-season-select" class="admin-select" style="min-width: 150px; padding: 6px 12px; font-weight: 700; font-size: 0.9rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); cursor: pointer;">
                                         ${seasonOptions}
                                     </select>
                                 </div>
@@ -2245,11 +2367,11 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                 Quick Presets:
                             </label>
                             <div class="loser-presets-wrapper">
-                                <button type="button" class="btn-loser-preset" data-preset="standard">12th Place Bracket (Standard)</button>
-                                <button type="button" class="btn-loser-preset" data-preset="full_least_pts">Outright Least Pts (Full Season)</button>
-                                <button type="button" class="btn-loser-preset" data-preset="reg_least_pts">Least Pts (Regular Season)</button>
-                                <button type="button" class="btn-loser-preset" data-preset="worst_record_pts">Worst Record, Tiebreak Least Pts</button>
-                                <button type="button" class="btn-loser-preset" data-preset="non_playoff_least_pts">Non-Playoff Fewest Pts</button>
+                                <button type="button" class="btn-loser-preset" data-preset="standard" ${isFounderInspection ? 'disabled' : ''}>12th Place Bracket (Standard)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="full_least_pts" ${isFounderInspection ? 'disabled' : ''}>Outright Least Pts (Full Season)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="reg_least_pts" ${isFounderInspection ? 'disabled' : ''}>Least Pts (Regular Season)</button>
+                                <button type="button" class="btn-loser-preset" data-preset="worst_record_pts" ${isFounderInspection ? 'disabled' : ''}>Worst Record, Tiebreak Least Pts</button>
+                                <button type="button" class="btn-loser-preset" data-preset="non_playoff_least_pts" ${isFounderInspection ? 'disabled' : ''}>Non-Playoff Fewest Pts</button>
                             </div>
                         </div>
 
@@ -2263,7 +2385,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                 <!-- 1. Scope / Timing -->
                                 <div>
                                     <label for="admin-loser-scope" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">1. Timing Window (Scope):</label>
-                                    <select id="admin-loser-scope" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="admin-loser-scope" class="admin-select" ${isFounderInspection ? 'disabled style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-primary); cursor: not-allowed;"' : 'style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);"'}>
                                         <option value="bracket_playoffs">Playoff Bracket / Consolation Rank</option>
                                         <option value="full_season">Full Season (Regular Season + Playoffs Combined)</option>
                                         <option value="regular_season">Regular Season Only (Weeks 1–14/15)</option>
@@ -2273,7 +2395,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                 <!-- 2. Candidate Pool -->
                                 <div>
                                     <label for="admin-loser-pool" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">2. Eligible Team Pool:</label>
-                                    <select id="admin-loser-pool" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="admin-loser-pool" class="admin-select" ${isFounderInspection ? 'disabled style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-primary); cursor: not-allowed;"' : 'style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);"'}>
                                         <option value="all_teams">All 12 League Members Outright</option>
                                         <option value="non_playoff_teams">Non-Playoff Teams (Bottom 6 Missed Playoffs)</option>
                                         <option value="bracket_consolation">Consolation Bracket Teams</option>
@@ -2283,7 +2405,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                 <!-- 3. Primary Condition -->
                                 <div>
                                     <label for="admin-loser-crit1" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">3. Primary Condition (1st Order):</label>
-                                    <select id="admin-loser-crit1" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="admin-loser-crit1" class="admin-select" ${isFounderInspection ? 'disabled style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-primary); cursor: not-allowed;"' : 'style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);"'}>
                                         <option value="least_points">Least Points Scored (Lowest PF)</option>
                                         <option value="worst_record">Worst Record / Win Percentage</option>
                                         <option value="final_rank">Bracket Placement (12th Place)</option>
@@ -2294,7 +2416,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                 <!-- 4. Secondary Tiebreaker -->
                                 <div>
                                     <label for="admin-loser-crit2" style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;">4. First Tiebreaker (2nd Order):</label>
-                                    <select id="admin-loser-crit2" class="admin-select" style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                                    <select id="admin-loser-crit2" class="admin-select" ${isFounderInspection ? 'disabled style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-primary); cursor: not-allowed;"' : 'style="width: 100%; padding: 8px 10px; font-size: 0.86rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);"'}>
                                         <option value="least_points">Least Points Scored</option>
                                         <option value="worst_record">Worst Record / Win Percentage</option>
                                         <option value="most_points_against">Most Points Against</option>
@@ -2307,7 +2429,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                             <!-- Manual Override Accordion / Checkbox -->
                             <div style="padding-top: 1rem; border-top: 1px solid var(--border-color); margin-bottom: 1.25rem;">
                                 <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); cursor: pointer;">
-                                    <input type="checkbox" id="admin-loser-manual-toggle" style="cursor: pointer;">
+                                    <input type="checkbox" id="admin-loser-manual-toggle" ${isFounderInspection ? 'disabled' : ''} style="cursor: pointer;">
                                     Manually Designate Specific Manager as Loser (Custom Punishment / Exception)
                                 </label>
 
@@ -2315,14 +2437,14 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                                         <div>
                                             <label for="admin-loser-manual-mgr" style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; color: var(--text-secondary);">Select Designated Manager:</label>
-                                            <select id="admin-loser-manual-mgr" class="admin-select" style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);">
+                                            <select id="admin-loser-manual-mgr" class="admin-select" ${isFounderInspection ? 'disabled style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; color: var(--text-primary); cursor: not-allowed;"' : 'style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);"'}>
                                                 <option value="">-- Choose Manager --</option>
                                                 ${managerOptions}
                                             </select>
                                         </div>
                                         <div>
                                             <label for="admin-loser-manual-reason" style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; color: var(--text-secondary);">Custom Reason / Punishment Details:</label>
-                                            <input type="text" id="admin-loser-manual-reason" class="admin-input" placeholder="e.g. Lost custom Week 17 Sacko punishment match" style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); box-sizing: border-box;">
+                                            <input type="text" id="admin-loser-manual-reason" class="admin-input" placeholder="e.g. Lost custom Week 17 Sacko punishment match" ${isFounderInspection ? 'disabled style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: #f8fafc; box-sizing: border-box; cursor: not-allowed;"' : 'style="width: 100%; padding: 6px 10px; font-size: 0.85rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-surface); box-sizing: border-box;"'}>
                                         </div>
                                     </div>
                                 </div>
@@ -2343,16 +2465,16 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
 
                             <!-- Action Buttons -->
                             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                <button id="btn-save-loser-condition" class="btn-primary" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                <button id="btn-save-loser-condition" class="btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;"'}>
                                     Save Rule for <span id="btn-loser-save-year-label">Selected Season</span>
                                 </button>
-                                <button id="btn-apply-future-loser-conditions" class="btn btn-gold" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                <button id="btn-apply-future-loser-conditions" class="btn btn-gold" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;"'}>
                                     Apply Rule as Future Default
                                 </button>
-                                <button id="btn-apply-all-loser-conditions" class="btn btn-secondary-action" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;">
+                                <button id="btn-apply-all-loser-conditions" class="btn btn-secondary-action" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; white-space: nowrap;"'}>
                                     Apply Rule to All Seasons (Past &amp; Future)
                                 </button>
-                                <button id="btn-reset-loser-condition" class="btn" style="padding: 9px 16px; font-weight: 600; font-size: 0.82rem; border-radius: 6px; cursor: pointer; white-space: nowrap; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);">
+                                <button id="btn-reset-loser-condition" class="btn" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 16px; font-weight: 600; font-size: 0.82rem; border-radius: 6px; white-space: nowrap; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 9px 16px; font-weight: 600; font-size: 0.82rem; border-radius: 6px; cursor: pointer; white-space: nowrap; background: transparent; border: 1px solid var(--border-color); color: var(--text-muted);"'}>
                                     Reset to Standard (12th Place)
                                 </button>
                             </div>
@@ -2384,7 +2506,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                         : 'Public vaults allow anyone with your league link to explore your history, record books, and draft analysis.'}
                                 </p>
                             </div>
-                            <button id="btn-toggle-privacy" class="btn" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${isPrivate ? 'background:#15803d; color:#fff; border:none;' : 'background:#475569; color:#fff; border:none;'}">
+                            <button id="btn-toggle-privacy" class="btn" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; border: none; background: #94a3b8; color: #fff; cursor: not-allowed; opacity: 0.7;"' : `style="padding: 8px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: 6px; ${isPrivate ? 'background:#15803d; color:#fff; border:none;' : 'background:#475569; color:#fff; border:none;'}"`}>
                                 ${isPrivate ? 'Make League Public' : 'Make League Private'}
                             </button>
                         </div>
@@ -2397,7 +2519,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                     <div class="admin-card-header">
                         <div>
                             <h2>League Members Roster</h2>
-                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, copy personalized claim links, and manage account assignments.</p>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage manager display names, copy personalized claim links, and view registered member accounts.</p>
                         </div>
                     </div>
 
@@ -2431,7 +2553,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                         <div class="admin-merge-controls">
                             <div class="merge-select-group">
                                 <label for="merge-source-mgr">Source Profile (Old / Duplicate):</label>
-                                <select id="merge-source-mgr" class="admin-select">
+                                <select id="merge-source-mgr" class="admin-select" ${isFounderInspection ? 'disabled style="background:#f8fafc; cursor:not-allowed;"' : ''}>
                                     <option value="">-- Select Source Profile --</option>
                                     ${managerOptions}
                                 </select>
@@ -2439,12 +2561,12 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                             <div class="merge-arrow">➔</div>
                             <div class="merge-select-group">
                                 <label for="merge-target-mgr">Target Profile (Primary / Active):</label>
-                                <select id="merge-target-mgr" class="admin-select">
+                                <select id="merge-target-mgr" class="admin-select" ${isFounderInspection ? 'disabled style="background:#f8fafc; cursor:not-allowed;"' : ''}>
                                     <option value="">-- Select Target Profile --</option>
                                     ${managerOptions}
                                 </select>
                             </div>
-                            <button id="btn-run-merge" class="btn btn-danger" style="padding: 9px 16px; font-weight: 700; height: 38px; border-radius: 4px; white-space: nowrap; cursor: pointer;">Merge Profiles</button>
+                            <button id="btn-run-merge" class="btn btn-danger" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 9px 16px; font-weight: 700; height: 38px; border-radius: 4px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 9px 16px; font-weight: 700; height: 38px; border-radius: 4px; white-space: nowrap; cursor: pointer;"'}>Merge Profiles</button>
                         </div>
                         <div id="manager-merge-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
@@ -2494,10 +2616,14 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                         </div>
                     </div>
                     <div style="margin-top: 1.25rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <div style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-size: 0.85rem; color: var(--text-secondary);">Current Commissioner Account:</span>
+                            <code style="font-size: 0.88rem; font-weight: 700; color: #b45309; font-family: monospace;">${adminEmail || 'Not configured'}</code>
+                        </div>
                         <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 1rem 0;">
                             Need to pass commissioner duties to another league member? You can invite a manager to take over admin status by email or by copying an admin transfer link. When they accept and sign in, full commissioner permissions will be transferred to their account.
                         </p>
-                        <button id="btn-open-transfer-admin-modal" class="btn" style="background: #b45309; color: #fff; padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none;">Transfer Admin Status</button>
+                        <button id="btn-open-transfer-admin-modal" class="btn" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="background: #cbd5e1; color: #64748b; padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: not-allowed; border: none;"' : 'style="background: #b45309; color: #fff; padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none;"'}>Transfer Admin Status</button>
                     </div>
                 </div>
                 </main>
@@ -2624,6 +2750,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const taglineInput = container.querySelector('#admin-tagline-input');
         presetBtns.forEach(btn => {
             btn.addEventListener('click', () => {
+                if (isFounderInspection) return;
                 const text = btn.getAttribute('data-preset');
                 if (taglineInput && text) {
                     taglineInput.value = text;
@@ -2637,6 +2764,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const titleInput = container.querySelector('#admin-league-title-input');
         if (btnSaveTitle && titleInput) {
             btnSaveTitle.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const newTitle = titleInput.value.trim();
                 if (!newTitle) {
                     alert("League title cannot be empty.");
@@ -2651,6 +2779,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const slugInput = container.querySelector('#admin-league-slug-input');
         if (btnSaveSlug && slugInput) {
             btnSaveSlug.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const newSlug = slugInput.value.trim();
                 if (!newSlug) {
                     alert("League URL slug cannot be empty.");
@@ -2664,6 +2793,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const btnSaveTagline = container.querySelector('#btn-save-tagline');
         if (btnSaveTagline && taglineInput) {
             btnSaveTagline.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const newTagline = taglineInput.value.trim();
                 if (!newTagline) return;
                 await this.saveLeagueTagline(newTagline);
@@ -2674,6 +2804,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const renameBtns = container.querySelectorAll('.btn-save-manager-name');
         renameBtns.forEach(btn => {
             btn.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const mgrId = btn.getAttribute('data-manager-id');
                 const row = container.querySelector(`tr[data-manager-id="${mgrId}"]`);
                 const nameInput = row ? row.querySelector('.mgr-rename-input') : null;
@@ -2696,8 +2827,79 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const btnToggleNicknames = container.querySelector('#btn-toggle-nicknames');
         if (btnToggleNicknames) {
             btnToggleNicknames.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const currentAllow = this.leagueSettings?.allow_nicknames !== false;
                 await this.toggleLeagueNicknames(!currentAllow);
+            });
+        }
+
+        // Wire up Toggle Welcome Card button
+        const btnToggleWelcome = container.querySelector('#btn-toggle-welcome-card');
+        if (btnToggleWelcome) {
+            btnToggleWelcome.addEventListener('click', async () => {
+                if (isFounderInspection) return;
+                const currentHidden = Boolean(this.leagueSettings?.hide_welcome_card);
+                const newHidden = !currentHidden;
+                const feedbackEl = document.getElementById('welcome-toggle-feedback');
+                btnToggleWelcome.disabled = true;
+                try {
+                    this.leagueSettings.hide_welcome_card = newHidden;
+                    if (this.leagueSlug) {
+                        const settingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings`);
+                        await update(settingsRef, { hide_welcome_card: newHidden });
+                    }
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ Welcome card is now <strong>${newHidden ? 'Removed from Home Screen' : 'Visible on Home Screen'}</strong>!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    this.initWelcomeCard();
+                    setTimeout(() => { this.renderAdminDashboard(); }, 1200);
+                } catch (e) {
+                    console.error('Failed to toggle welcome card', e);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg error';
+                        feedbackEl.textContent = 'Failed to update welcome card setting.';
+                    }
+                } finally {
+                    btnToggleWelcome.disabled = false;
+                }
+            });
+        }
+
+        // Wire up Toggle Privacy button
+        const btnTogglePrivacy = container.querySelector('#btn-toggle-privacy');
+        if (btnTogglePrivacy) {
+            btnTogglePrivacy.addEventListener('click', async () => {
+                if (isFounderInspection) return;
+                const newPrivate = !Boolean(this.leagueSettings?.is_private);
+                const feedbackEl = document.getElementById('privacy-toggle-feedback');
+                btnTogglePrivacy.disabled = true;
+                try {
+                    this.leagueSettings.is_private = newPrivate;
+                    if (this.leagueSlug) {
+                        const settingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings`);
+                        await update(settingsRef, { is_private: newPrivate });
+                    }
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = `✓ League is now <strong>${newPrivate ? 'Private' : 'Public'}</strong>!`;
+                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                    }
+                    setTimeout(() => { this.renderAdminDashboard(); }, 1200);
+                } catch (e) {
+                    console.error('Failed to toggle privacy', e);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg error';
+                        feedbackEl.textContent = 'Failed to update privacy setting.';
+                    }
+                } finally {
+                    btnTogglePrivacy.disabled = false;
+                }
             });
         }
 
@@ -2707,6 +2909,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const selTarget = container.querySelector('#merge-target-mgr');
         if (btnMerge && selSource && selTarget) {
             btnMerge.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const sourceId = selSource.value;
                 const targetId = selTarget.value;
                 if (!sourceId || !targetId) {
@@ -2845,6 +3048,18 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                 if (loserCrit2Select) loserCrit2Select.value = activeConfig.criteria?.[1]?.type || activeConfig.criteria?.[1] || 'none';
             }
 
+            // Highlight active quick preset button
+            container.querySelectorAll('.btn-loser-preset').forEach(btn => {
+                const presetKey = btn.getAttribute('data-preset');
+                let isMatch = false;
+                if (presetKey === 'standard' && (activeConfig.mode === 'standard' || (activeConfig.scope === 'bracket_playoffs' && activeConfig.pool === 'bracket_consolation'))) isMatch = true;
+                if (presetKey === 'full_least_pts' && activeConfig.scope === 'full_season' && activeConfig.criteria?.[0]?.type === 'least_points') isMatch = true;
+                if (presetKey === 'reg_least_pts' && activeConfig.scope === 'regular_season' && activeConfig.criteria?.[0]?.type === 'least_points') isMatch = true;
+                if (presetKey === 'worst_record_pts' && activeConfig.criteria?.[0]?.type === 'worst_record') isMatch = true;
+                if (presetKey === 'non_playoff_least_pts' && activeConfig.pool === 'non_playoff_teams') isMatch = true;
+                btn.classList.toggle('active', isMatch);
+            });
+
             updateLoserPreview();
         };
 
@@ -2872,6 +3087,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         // Preset buttons
         container.querySelectorAll('.btn-loser-preset').forEach(btn => {
             btn.addEventListener('click', () => {
+                if (isFounderInspection) return;
                 const preset = btn.getAttribute('data-preset');
                 if (loserManualToggle) loserManualToggle.checked = false;
                 if (loserManualFields) loserManualFields.style.display = 'none';
@@ -2910,6 +3126,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const btnSaveLoser = container.querySelector('#btn-save-loser-condition');
         if (btnSaveLoser) {
             btnSaveLoser.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const yr = getSelectedYear();
                 const formConfig = getFormConfig();
                 const feedbackEl = document.getElementById('loser-condition-feedback');
@@ -2943,6 +3160,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const btnApplyFutureLoser = container.querySelector('#btn-apply-future-loser-conditions');
         if (btnApplyFutureLoser) {
             btnApplyFutureLoser.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const formConfig = getFormConfig();
                 const confirmed = window.confirm("Set this rule as the new default loser condition for all future seasons?");
                 if (!confirmed) return;
@@ -2973,6 +3191,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const btnApplyAllLoser = container.querySelector('#btn-apply-all-loser-conditions');
         if (btnApplyAllLoser) {
             btnApplyAllLoser.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const formConfig = getFormConfig();
                 const confirmed = window.confirm("Are you sure you want to apply this loser condition rule to ALL seasons in league history?");
                 if (!confirmed) return;
@@ -3003,6 +3222,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
         const btnResetLoser = container.querySelector('#btn-reset-loser-condition');
         if (btnResetLoser) {
             btnResetLoser.addEventListener('click', async () => {
+                if (isFounderInspection) return;
                 const yr = getSelectedYear();
                 const feedbackEl = document.getElementById('loser-condition-feedback');
                 btnResetLoser.disabled = true;
@@ -3382,7 +3602,7 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
 
             // Immediately redirect to new URL
             setTimeout(() => {
-                window.location.href = `/vault.html?league=${encodeURIComponent(cleanSlug)}`;
+                window.location.href = `/${encodeURIComponent(cleanSlug)}`;
             }, 800);
 
         } catch (e) {

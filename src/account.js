@@ -34,7 +34,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.startDirectManagerClaim = function(leagueSlug, targetManagerId, onSuccess) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasyfootball' ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const managers = app?.members || app?.managers || [];
         const targetMgr = managers.find(m => m.id === targetManagerId) || { id: targetManagerId, name: targetManagerId };
         const session = window.AuthEngine.getSession();
@@ -177,7 +177,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.startAdminTransferFlow = function(leagueSlug, onSuccess) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasyfootball' ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const managers = app?.members || app?.managers || [];
         const session = window.AuthEngine.getSession();
 
@@ -301,7 +301,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.openAdminTransferModal = function(leagueSlug) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasyfootball' ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const transferLink = `${window.location.origin}/${leagueSlug}/?action=transfer_admin&league=${leagueSlug}`;
 
         accountModalContent.innerHTML = `
@@ -427,7 +427,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.openEmailClaimModal = function(leagueSlug, managerId, managerName) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasyfootball' ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const claimLink = `${window.location.origin}/${leagueSlug}/?action=claim_manager&manager=${encodeURIComponent(managerId)}`;
 
         accountModalContent.innerHTML = `
@@ -785,7 +785,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     // ==========================================
     // ACCOUNT MODAL (Clean Light-Themed Dashboard)
     // ==========================================
-    window.renderAccountModal = function() {
+    window.renderAccountModal = async function() {
         if (typeof window.AuthEngine === 'undefined') return;
         const session = window.AuthEngine.getSession();
         
@@ -817,12 +817,15 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         const rawPathSlug = window.location.pathname.replace(/^\/|\/$/g, '') || '';
         const activeSlug = app?.leagueSlug || rawPathSlug || '';
         
-        let joinedList = Array.isArray(session.joinedLeagues) ? [...session.joinedLeagues] : [];
-        if (activeSlug && activeSlug !== 'vault' && activeSlug !== 'index.html' && !joinedList.includes(activeSlug)) {
-            joinedList.push(activeSlug);
-            session.joinedLeagues = joinedList;
+        const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
+        let founderAllLeagues = [];
+        if (isFounder) {
+            if (!session.allLeagues && typeof window.AuthEngine?.fetchAllVaultLeagues === 'function') {
+                session.allLeagues = await window.AuthEngine.fetchAllVaultLeagues();
+            }
         }
 
+        let joinedList = Array.isArray(session.joinedLeagues) ? [...session.joinedLeagues] : [];
         let leaguesListHTML = '';
         if (joinedList.length > 0) {
             leaguesListHTML = joinedList.map(leagueId => {
@@ -844,7 +847,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 let claimId = (session.claims && session.claims[leagueId]) || storedClaim || null;
                 
                 // If on active league page or claims in app instance, check app.claims
-                if (!claimId && app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                if (!claimId && app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')))) {
                     if (app.claims) {
                         const matchedClaim = Object.entries(app.claims).find(([k, v]) => v?.email === session.email || (session.uid && v?.userId === session.uid));
                         if (matchedClaim) {
@@ -858,7 +861,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
                 let mgr = null;
                 if (claimId) {
-                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')))) {
                         mgr = (app?.members ? app.members.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId)) : null) ||
                               (app?.managers ? app.managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId)) : null);
                     }
@@ -869,8 +872,8 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         if (leagueId === 'dmsfantasy' && JOIN_CODES['DNFUAM']?.managers) {
                             mgr = JOIN_CODES['DNFUAM'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase());
                         }
-                        if ((leagueId === 'gaywoodfantasyfootball' || leagueId === 'gaywoodfantasy') && (JOIN_CODES['7AR345']?.managers || JOIN_CODES['Y6CW7J']?.managers)) {
-                            const gwMgrs = (JOIN_CODES['7AR345']?.managers || JOIN_CODES['Y6CW7J']?.managers);
+                        if (leagueId === 'gaywoodfantasyfootball' && JOIN_CODES['7AR345']?.managers) {
+                            const gwMgrs = JOIN_CODES['7AR345'].managers;
                             mgr = gwMgrs.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
                         }
                     }
@@ -948,12 +951,24 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             <div class="joined-leagues" style="margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
                     <h4 style="margin: 0; font-family: var(--font-heading, 'Cinzel', serif); font-size: 1rem; color: var(--accent-gold, #b45309);">Your Leagues</h4>
-                    <span style="font-size: 0.8rem; color: var(--text-muted, #64748b);">${joinedList.length} ${joinedList.length === 1 ? 'league' : 'leagues'}</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted, #64748b);">${joinedList.length} ${(joinedList.length === 1) ? 'league' : 'leagues'}</span>
                 </div>
                 <ul style="list-style: none; padding: 0; margin: 0;">
                     ${leaguesListHTML}
                 </ul>
             </div>
+
+            ${(isFounder && isOwnLeague) ? `
+            <div class="founder-mode-toggle-card" style="margin-bottom: 1.25rem; background: rgba(212, 175, 55, 0.08); padding: 0.85rem 1rem; border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.35); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div>
+                    <h4 style="margin: 0 0 2px 0; font-family: var(--font-heading, 'Cinzel', serif); font-size: 0.88rem; color: var(--accent-gold, #b45309);">Platform Founder View</h4>
+                    <p style="margin: 0; font-size: 0.74rem; color: var(--text-muted, #64748b);">Toggle league switcher at the top to inspect hosted vaults.</p>
+                </div>
+                <button type="button" id="btn-toggle-founder-mode" class="btn-primary" style="padding: 5px 12px; font-size: 0.76rem; font-weight: 700; white-space: nowrap; border-radius: 4px; cursor: pointer;">
+                    ${(sessionStorage.getItem('vault_founder_mode_active') === 'true') ? 'Hide Switcher' : 'Open Switcher'}
+                </button>
+            </div>
+            ` : ''}
 
             <div class="add-league" style="margin-bottom: 1.25rem; background: var(--bg-card-alt, #f8fafc); padding: 1rem; border-radius: 6px; border: 1px solid var(--border-line, #e2e8f0);">
                 <h4 style="margin-top: 0; margin-bottom: 0.5rem; font-family: var(--font-heading, 'Cinzel', serif); font-size: 0.95rem; color: var(--text-primary, #0f172a);">Join Another League</h4>
@@ -978,6 +993,29 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 <button id="btn-account-logout" style="background: none; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-muted, #64748b); padding: 0.4rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">Sign Out</button>
             </div>
         `;
+
+        // Wire founder view toggle button if present
+        const btnToggleFounderMode = document.getElementById('btn-toggle-founder-mode');
+        if (btnToggleFounderMode) {
+            btnToggleFounderMode.addEventListener('click', () => {
+                if (sessionStorage.getItem('vault_founder_mode_active') === 'true') {
+                    sessionStorage.removeItem('vault_founder_mode_active');
+                    sessionStorage.removeItem('vault_founder_nav_toggle');
+                } else {
+                    sessionStorage.setItem('vault_founder_mode_active', 'true');
+                }
+                accountModal.close();
+                updateAccountButtonUI();
+            });
+        }
+
+        // Wire open league buttons to clear founder mode toggle
+        accountModalContent.querySelectorAll('.btn-open-league').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sessionStorage.removeItem('vault_founder_mode_active');
+                sessionStorage.removeItem('vault_founder_nav_toggle');
+            });
+        });
 
         // Wire live input preview on account nicknames
         accountModalContent.querySelectorAll('.input-account-nickname').forEach(inp => {
@@ -1012,7 +1050,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     await update(claimRef, { nickname: newNick }).catch(() => {});
 
                     // 2. If app is currently active for this league, update in-memory
-                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')))) {
                         if (app.claims) {
                             app.claims[managerId] = { ...(app.claims[managerId] || {}), nickname: newNick };
                         }
@@ -1556,9 +1594,107 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             const monogram = displayName.trim().charAt(0).toUpperCase() || 'L';
             btnMyAccount.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg, #d4af37 0%, #b45309 100%); color:#fff; font-weight:800; font-size:0.72rem; margin-right:6px; box-shadow:0 1px 3px rgba(0,0,0,0.15);">${monogram}</span> <span style="font-weight:600;">My Account</span>`;
             btnMyAccount.title = `${displayName} (${session.email || ''})`;
+
+            const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const querySlug = (urlParams.get('league') || urlParams.get('slug') || '').toLowerCase().trim();
+            const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+            const rawSlug = currentPath.replace(/^\//, '').toLowerCase().trim();
+            const activeSlug = (app?.leagueSlug || querySlug || (rawSlug !== 'vault.html' && rawSlug !== 'vault' && rawSlug !== 'index.html' ? rawSlug : '') || '').toLowerCase().trim();
+
+            const isOwnLeague = Boolean(
+                activeSlug === 'dmsfantasy' ||
+                currentPath.includes('dmsfantasy') ||
+                (session.joinedLeagues && session.joinedLeagues.includes(activeSlug))
+            );
+
+            // If a founder navigation was triggered from the dropdown toggle, activate founder mode
+            if (sessionStorage.getItem('vault_founder_nav_toggle') === 'true') {
+                sessionStorage.removeItem('vault_founder_nav_toggle');
+                sessionStorage.setItem('vault_founder_mode_active', 'true');
+            }
+
+            const isFounderModeActive = sessionStorage.getItem('vault_founder_mode_active') === 'true';
+            const shouldShowFounderSwitcher = isFounder && (!isOwnLeague || isFounderModeActive);
+
+            if (shouldShowFounderSwitcher && btnMyAccount.parentNode) {
+                let switcher = document.getElementById('founder-quick-switcher');
+                if (!switcher) {
+                    switcher = document.createElement('div');
+                    switcher.id = 'founder-quick-switcher';
+                    switcher.className = 'founder-quick-switcher';
+                    switcher.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.45); border-radius: 9999px; padding: 2px 8px 2px 10px; margin-right: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); vertical-align: middle;';
+                    switcher.innerHTML = `
+                        <span style="font-size: 0.72rem; font-weight: 800; color: var(--accent-gold, #b45309); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+                            Founder:
+                        </span>
+                        <select id="founder-league-select" aria-label="Switch Vault League" style="background: transparent; border: none; color: var(--text-primary, #0f172a); font-size: 0.8rem; font-weight: 600; cursor: pointer; outline: none; padding: 2px 2px; max-width: 190px;">
+                            <option value="" disabled selected>Loading leagues...</option>
+                        </select>
+                        ${isOwnLeague ? `<button type="button" id="btn-close-founder-switcher" title="Exit Founder View" aria-label="Exit Founder View" style="background: transparent; border: none; color: var(--accent-gold, #b45309); font-size: 0.78rem; font-weight: 700; cursor: pointer; padding: 0 2px 0 4px; line-height: 1; opacity: 0.7; transition: opacity 0.15s ease;">✕</button>` : ''}
+                    `;
+                    btnMyAccount.parentNode.insertBefore(switcher, btnMyAccount);
+                }
+
+                const btnClose = document.getElementById('btn-close-founder-switcher');
+                if (btnClose) {
+                    btnClose.onclick = function(e) {
+                        e.stopPropagation();
+                        sessionStorage.removeItem('vault_founder_mode_active');
+                        sessionStorage.removeItem('vault_founder_nav_toggle');
+                        const sw = document.getElementById('founder-quick-switcher');
+                        if (sw) sw.remove();
+                    };
+                }
+
+                const selectEl = document.getElementById('founder-league-select');
+                if (selectEl) {
+                    const populateOptions = (leagues) => {
+                        if (!leagues || leagues.length === 0) return;
+                        let html = `<option value="" disabled ${(!activeSlug || currentPath === '/') ? 'selected' : ''}>Switch Vault League...</option>`;
+                        leagues.forEach(l => {
+                            const lSlug = (l.slug || '').toLowerCase().trim();
+                            const path = (typeof window.AuthEngine?.resolveLeaguePath === 'function') 
+                                ? window.AuthEngine.resolveLeaguePath(lSlug) 
+                                : (l.path || `/${lSlug}`);
+                            const isMatch = Boolean(
+                                (activeSlug && lSlug === activeSlug) || 
+                                (path === currentPath) || 
+                                (lSlug === 'dmsfantasy' && currentPath.includes('dmsfantasy')) || 
+                                (lSlug === 'gaywoodfantasyfootball' && currentPath.includes('gaywoodfantasyfootball'))
+                            );
+                            html += `<option value="${path}" ${isMatch ? 'selected' : ''}>${l.name} (${(l.platform || 'espn').toUpperCase()})${l.isPrivate ? ' [Private]' : ''}</option>`;
+                        });
+                        selectEl.innerHTML = html;
+                        selectEl.onchange = function() {
+                            if (this.value) {
+                                sessionStorage.setItem('vault_founder_nav_toggle', 'true');
+                                sessionStorage.setItem('vault_founder_mode_active', 'true');
+                                window.location.href = this.value;
+                            }
+                        };
+                    };
+
+                    if (session.allLeagues && session.allLeagues.length > 0) {
+                        populateOptions(session.allLeagues);
+                    }
+                    if (typeof window.AuthEngine?.fetchAllVaultLeagues === 'function') {
+                        window.AuthEngine.fetchAllVaultLeagues().then(leagues => {
+                            session.allLeagues = leagues;
+                            populateOptions(leagues);
+                        });
+                    }
+                }
+            } else {
+                const switcher = document.getElementById('founder-quick-switcher');
+                if (switcher) switcher.remove();
+            }
         } else {
             btnMyAccount.innerHTML = `<span style="font-weight:600;">Sign In</span>`;
             btnMyAccount.title = 'Sign In to Fantasy Vault';
+            const switcher = document.getElementById('founder-quick-switcher');
+            if (switcher) switcher.remove();
         }
     }
 
