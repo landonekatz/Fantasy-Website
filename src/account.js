@@ -34,7 +34,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.startDirectManagerClaim = function(leagueSlug, targetManagerId, onSuccess) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasy' ? 'Gaywood / Katz League' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const managers = app?.members || app?.managers || [];
         const targetMgr = managers.find(m => m.id === targetManagerId) || { id: targetManagerId, name: targetManagerId };
         const session = window.AuthEngine.getSession();
@@ -177,7 +177,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.startAdminTransferFlow = function(leagueSlug, onSuccess) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasy' ? 'Gaywood / Katz League' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const managers = app?.members || app?.managers || [];
         const session = window.AuthEngine.getSession();
 
@@ -301,7 +301,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.openAdminTransferModal = function(leagueSlug) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasy' ? 'Gaywood / Katz League' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const transferLink = `${window.location.origin}/${leagueSlug}/?action=transfer_admin&league=${leagueSlug}`;
 
         accountModalContent.innerHTML = `
@@ -427,7 +427,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     window.openEmailClaimModal = function(leagueSlug, managerId, managerName) {
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
-        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasy' ? 'Gaywood / Katz League' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const leagueName = app?.leagueSettings?.name || ((leagueSlug === 'gaywoodfantasyfootball' || leagueSlug === 'gaywoodfantasy') ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
         const claimLink = `${window.location.origin}/${leagueSlug}/?action=claim_manager&manager=${encodeURIComponent(managerId)}`;
 
         accountModalContent.innerHTML = `
@@ -844,7 +844,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 let claimId = (session.claims && session.claims[leagueId]) || storedClaim || null;
                 
                 // If on active league page or claims in app instance, check app.claims
-                if (!claimId && app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                if (!claimId && app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
                     if (app.claims) {
                         const matchedClaim = Object.entries(app.claims).find(([k, v]) => v?.email === session.email || (session.uid && v?.userId === session.uid));
                         if (matchedClaim) {
@@ -858,7 +858,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
                 let mgr = null;
                 if (claimId) {
-                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
                         mgr = (app?.members ? app.members.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId)) : null) ||
                               (app?.managers ? app.managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId)) : null);
                     }
@@ -869,8 +869,9 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         if (leagueId === 'dmsfantasy' && JOIN_CODES['DNFUAM']?.managers) {
                             mgr = JOIN_CODES['DNFUAM'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase());
                         }
-                        if (leagueId === 'gaywoodfantasy' && JOIN_CODES['Y6CW7J']?.managers) {
-                            mgr = JOIN_CODES['Y6CW7J'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
+                        if ((leagueId === 'gaywoodfantasyfootball' || leagueId === 'gaywoodfantasy') && (JOIN_CODES['7AR345']?.managers || JOIN_CODES['Y6CW7J']?.managers)) {
+                            const gwMgrs = (JOIN_CODES['7AR345']?.managers || JOIN_CODES['Y6CW7J']?.managers);
+                            mgr = gwMgrs.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
                         }
                     }
                 }
@@ -1011,7 +1012,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     await update(claimRef, { nickname: newNick }).catch(() => {});
 
                     // 2. If app is currently active for this league, update in-memory
-                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')) || (leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
                         if (app.claims) {
                             app.claims[managerId] = { ...(app.claims[managerId] || {}), nickname: newNick };
                         }

@@ -8,6 +8,19 @@
   to = "/assets/:splat"
   status = 200
 
+# Deprecated standalone Gaywood portal redirect
+[[redirects]]
+  from = "/gaywoodfantasy"
+  to = "/gaywoodfantasyfootball"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/gaywoodfantasy/*"
+  to = "/gaywoodfantasyfootball"
+  status = 301
+  force = true
+
 # Route Dumbarton League HQ
 [[redirects]]
   from = "/dmsfantasy"

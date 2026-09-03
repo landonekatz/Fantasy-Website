@@ -29,10 +29,10 @@ export class CommissionerNotesEngine {
 
         // Default note data if none exists in RTDB
         const defaultTitle = this.leagueSlug === 'dmsfantasy' ? 'League Updates' : 'Note from the Commissioner';
-        const defaultHeadline = this.leagueSlug === 'dmsfantasy' ? 'Personnel Changes' : (this.leagueSlug === 'gaywoodfantasy' ? 'Welcome to the 2025 Season' : 'Welcome to the Archive');
+        const defaultHeadline = this.leagueSlug === 'dmsfantasy' ? 'Personnel Changes' : ((this.leagueSlug === 'gaywoodfantasyfootball' || this.leagueSlug === 'gaywoodfantasy') ? 'Welcome to the 2025 Season' : 'Welcome to the Archive');
         const defaultBody = this.leagueSlug === 'dmsfantasy'
             ? "The whole league was distraught to learn of perennial loser Jack Lovas's removal. It was not due to their love of Lovas - but the loss of a free win one could pencil in their schedule.\n\nLovas's replacement, Madoc Watson, passed the Commissioner and Committee's physical and mental examinations and will debut in the opening week of the 2026 season. Watson is known for his delusional self-belief and scrappy playstyle and projects as a bottom-to-middle level contender."
-            : (this.leagueSlug === 'gaywoodfantasy'
+            : ((this.leagueSlug === 'gaywoodfantasyfootball' || this.leagueSlug === 'gaywoodfantasy')
                 ? "Welcome to another year of Gaywood / Katz Fantasy Football. Since 2015, this league has been the proving ground for glory and heartbreak. Good luck to all managers this season."
                 : "Welcome to our official league archive. All historical matchups, draft selections, records, and league updates are preserved here.");
 

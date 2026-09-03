@@ -615,9 +615,9 @@ let currentLeagueCreds = null;
     )) {
       targetSlug = localLastLeague;
     } else if (session?.isFounder) {
-      // For founder account, default to gaywoodfantasy or dmsfantasy
-      if (localLastLeague === 'gaywoodfantasy' || localLastLeague === 'dmsfantasy') {
-        targetSlug = localLastLeague;
+      // For founder account, default to gaywoodfantasyfootball or dmsfantasy
+      if (localLastLeague === 'gaywoodfantasyfootball' || localLastLeague === 'gaywoodfantasy' || localLastLeague === 'dmsfantasy') {
+        targetSlug = (localLastLeague === 'gaywoodfantasy') ? 'gaywoodfantasyfootball' : localLastLeague;
       } else {
         targetSlug = 'dmsfantasy';
       }
@@ -628,12 +628,13 @@ let currentLeagueCreds = null;
     }
 
     if (targetSlug) {
+      if (targetSlug === 'gaywoodfantasy') targetSlug = 'gaywoodfantasyfootball';
       if (typeof AuthEngine.recordActiveLeague === 'function') {
         AuthEngine.recordActiveLeague(targetSlug);
       }
       const targetPath = typeof AuthEngine.resolveLeaguePath === 'function'
         ? AuthEngine.resolveLeaguePath(targetSlug)
-        : (targetSlug === 'dmsfantasy' ? '/dmsfantasy/' : (targetSlug === 'gaywoodfantasy' ? '/gaywoodfantasy/' : `/vault.html?league=${encodeURIComponent(targetSlug)}`));
+        : (targetSlug === 'dmsfantasy' ? '/dmsfantasy/' : `/vault.html?league=${encodeURIComponent(targetSlug)}`);
       window.location.href = targetPath;
       return;
     }

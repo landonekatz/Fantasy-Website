@@ -9,14 +9,16 @@ const PERSONA_KEY = 'vault_active_persona';
 // Registered League Join Codes (6-character uppercase alphanumeric)
 const JOIN_CODES = {
   'DNFUAM': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
-  'Y6CW7J': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] },
+  '7AR345': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
+  'Y6CW7J': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
   // Legacy aliases
   'D8M4S2': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   'DMSFANTASY': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
-  'K9Z15A': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] },
-  'KATZ15': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] },
-  'GAYWOODFANTASY': { leagueId: 'gaywoodfantasy', name: 'Gaywood / Katz League', path: '/gaywoodfantasy', managers: [] }
+  'K9Z15A': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
+  'KATZ15': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
+  'GAYWOODFANTASY': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
+  'GAYWOOD': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] }
 };
 
 // Session Management
@@ -25,6 +27,16 @@ try {
   const cached = localStorage.getItem('vault_cached_session');
   if (cached) {
     currentSession = JSON.parse(cached);
+    if (currentSession.last_league === 'gaywoodfantasy') currentSession.last_league = 'gaywoodfantasyfootball';
+    if (currentSession.joinedLeagues && currentSession.joinedLeagues.includes('gaywoodfantasy') && !currentSession.joinedLeagues.includes('gaywoodfantasyfootball')) {
+      currentSession.joinedLeagues.push('gaywoodfantasyfootball');
+    }
+    if (currentSession.adminLeagues && currentSession.adminLeagues.includes('gaywoodfantasy') && !currentSession.adminLeagues.includes('gaywoodfantasyfootball')) {
+      currentSession.adminLeagues.push('gaywoodfantasyfootball');
+    }
+    if (currentSession.claims && currentSession.claims['gaywoodfantasy'] && !currentSession.claims['gaywoodfantasyfootball']) {
+      currentSession.claims['gaywoodfantasyfootball'] = currentSession.claims['gaywoodfantasy'];
+    }
   }
 } catch (e) {
   console.warn("Session cache read error:", e);
@@ -79,7 +91,7 @@ const AuthEngine = {
     if (!slug) return '/';
     const cleanSlug = String(slug).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
     if (cleanSlug === 'dmsfantasy') return '/dmsfantasy/';
-    if (cleanSlug === 'gaywoodfantasy') return '/gaywoodfantasy/';
+    if (cleanSlug === 'gaywoodfantasy' || cleanSlug === 'gaywoodfantasyfootball') return '/gaywoodfantasyfootball';
     return `/vault.html?league=${encodeURIComponent(cleanSlug)}`;
   },
 
@@ -230,7 +242,7 @@ const AuthEngine = {
 
     // If managers array is empty, fetch manager datasets
     if (!league.managers || league.managers.length === 0) {
-      if (window.app && (window.app.leagueSlug === league.leagueId || (league.leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (league.leagueId === 'gaywoodfantasy' && window.location.pathname.includes('gaywoodfantasy')))) {
+      if (window.app && (window.app.leagueSlug === league.leagueId || (league.leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (league.leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')))) {
         league.managers = window.app.members || window.app.managers || [];
       }
       
@@ -238,14 +250,6 @@ const AuthEngine = {
         if (league.leagueId === 'dmsfantasy') {
           try {
             const resp = await fetch('/dmsfantasy/data/managers.json');
-            if (resp.ok) {
-              const d = await resp.json();
-              league.managers = d.managers || [];
-            }
-          } catch (e) {}
-        } else if (league.leagueId === 'gaywoodfantasy') {
-          try {
-            const resp = await fetch('/gaywoodfantasy/data/managers.json');
             if (resp.ok) {
               const d = await resp.json();
               league.managers = d.managers || [];
@@ -618,13 +622,21 @@ onAuthStateChanged(auth, async (user) => {
           }
         }
 
+        if (joinedLeagues.includes('gaywoodfantasy') && !joinedLeagues.includes('gaywoodfantasyfootball')) {
+          joinedLeagues.push('gaywoodfantasyfootball');
+        }
+        if (claims['gaywoodfantasy'] && !claims['gaywoodfantasyfootball']) {
+          claims['gaywoodfantasyfootball'] = claims['gaywoodfantasy'];
+        }
+        if (lastLeague === 'gaywoodfantasy') lastLeague = 'gaywoodfantasyfootball';
+
         currentSession = {
           uid: user.uid,
           email: user.email,
           name: userData.name || user.displayName || user.email.split('@')[0],
           isFounder: isFounder,
           joinedLeagues: joinedLeagues,
-          adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasy', ...adminLeagues] : adminLeagues,
+          adminLeagues: isFounder ? ['dmsfantasy', 'gaywoodfantasyfootball', ...adminLeagues] : adminLeagues,
           leagueDetails: leagueDetails,
           claims: claims,
           last_league: lastLeague

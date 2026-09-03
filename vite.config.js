@@ -68,13 +68,19 @@ function serveMultiLeagueDataPlugin() {
         const urlNoQuery = req.url.split('?')[0];
         const normalized = urlNoQuery.replace(/\/$/, '');
 
+        // Redirect deprecated standalone Gaywood portal to Vault league
+        if (normalized === '/gaywoodfantasy' || normalized.startsWith('/gaywoodfantasy/')) {
+          res.writeHead(301, { Location: '/gaywoodfantasyfootball' });
+          return res.end();
+        }
+
         // Handle standalone Dumbarton portal
         if (normalized === '/dmsfantasy' || urlNoQuery === '/dmsfantasy/index.html') {
           req.url = '/dmsfantasy/index.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
           return next();
         }
 
-        // Fallback for dynamic league vaults (e.g. /gaywoodfantasy, /ironclad, /my-league)
+        // Fallback for dynamic league vaults (e.g. /gaywoodfantasyfootball, /ironclad, /my-league)
         // If the URL has no extension and isn't root or a specific directory
         if (!urlNoQuery.includes('.') && normalized !== '' && normalized !== '/') {
           req.url = '/vault.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
@@ -123,8 +129,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         vault: path.resolve(__dirname, 'vault.html'),
-        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html'),
-        gaywoodfantasy: path.resolve(__dirname, 'gaywoodfantasy/index.html')
+        dmsfantasy: path.resolve(__dirname, 'dmsfantasy/index.html')
       }
     }
   }

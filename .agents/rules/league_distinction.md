@@ -11,22 +11,23 @@ When working on this repository, you MUST maintain the structural separation bet
    - Platform: Yahoo Fantasy (2018–2026)
    - Scope: Dumbarton-specific record books, rivalry week, power rankings, and data (`dmsfantasy/data/`).
 
-3. **Gaywood / Katz Fantasy Football League ("Dad League") (`/gaywoodfantasy`)**:
-   - Location: `gaywoodfantasy/`
-   - Platform: ESPN Fantasy (League ID `262404`, 2015–2025)
-   - Scope: Gaywood-specific record books, ESPN scraper, and data (`gaywoodfantasy/data/`).
+3. **Gaywood / Katz Fantasy Football League ("Dad League") (`/gaywoodfantasyfootball`)**:
+   - Status: Standalone portal (`/gaywoodfantasy`) is deprecated entirely. Hosted as a Vault League.
+   - URL Path: `/gaywoodfantasyfootball`
+   - Platform: ESPN Fantasy (League ID `262404`, 2015-2026)
+   - Scope: Hosted dynamically on The Fantasy Vault engine (`vault.html`), with historical data archive in `gaywoodfantasy/data/`.
 
-Always respect these boundaries. Do NOT mix dataset files or cross-contaminate app logic between `/dmsfantasy` and `/gaywoodfantasy`.
+Always respect these boundaries.
 
 ---
 
 ## 📜 Em-Dash Policy
-Anytime you want to use an em-dash (`—`), use `, as` (comma as) instead. Never use em-dashes across platform code, UI copy, and documentation.
+Anytime you want to use an em-dash (`—`), use `, as` (comma as) instead. Never use em-dash characters across platform code, UI copy, and documentation.
 
 ---
 
 ## 📜 Cross-Platform Parity Rule
-All platform features, fixes, scoring logic, draft calculations, and design polish must be applied consistently across ALL hosted portals: The Fantasy Vault Engine (`/` & `vault.html`), Dumbarton League (`/dmsfantasy`), and Gaywood / Katz League (`/gaywoodfantasy`). Never leave existing leagues on outdated logic.
+All platform features, fixes, scoring logic, draft calculations, and design polish must be applied consistently across hosted experiences: The Fantasy Vault Engine (`/` & `vault.html`, including `/gaywoodfantasyfootball`) and Dumbarton League (`/dmsfantasy`). Never leave existing leagues on outdated logic.
 
 ---
 

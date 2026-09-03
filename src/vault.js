@@ -867,6 +867,29 @@ class FantasyApp {
                 } catch (e) {
                     console.warn('Failed local dms fallback:', e);
                 }
+            } else if (slug === 'gaywoodfantasyfootball' || slug === 'gaywoodfantasy') {
+                try {
+                    const [stands, mat, stats, draft, tx, mgrs, settings] = await Promise.all([
+                        fetch('/gaywoodfantasy/data/league_standings.json').then(r => r.json()),
+                        fetch('/gaywoodfantasy/data/matchups.json').then(r => r.json()),
+                        fetch('/gaywoodfantasy/data/weekly_player_stats.json').then(r => r.json()),
+                        fetch('/gaywoodfantasy/data/draft_results.json').then(r => r.json()),
+                        fetch('/gaywoodfantasy/data/transactions.json').then(r => r.json()),
+                        fetch('/gaywoodfantasy/data/managers.json').then(r => r.json()),
+                        fetch('/gaywoodfantasy/data/league_settings.json').then(r => r.json()).catch(() => ({}))
+                    ]);
+                    bundleData = {
+                        members: mgrs.managers || [],
+                        league_standings: stands,
+                        matchups: mat,
+                        weekly_player_stats: stats,
+                        draft_results: draft,
+                        transactions: tx,
+                        league_settings: { name: 'Gaywood Fantasy Football', subtitle: 'In a league of our own', ...settings }
+                    };
+                } catch (e) {
+                    console.warn('Failed local gaywood fallback:', e);
+                }
             }
         }
 

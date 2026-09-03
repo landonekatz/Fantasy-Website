@@ -8,7 +8,11 @@
   <script>
     (function() {
       var path = window.location.pathname.replace(/^\/|\/$/g, '');
-      var reserved = ['', 'index.html', 'dmsfantasy', 'gaywoodfantasy', 'vault.html', 'privacy', 'terms', 'api'];
+      if (path === 'gaywoodfantasy' || path.startsWith('gaywoodfantasy/')) {
+        window.location.replace('/gaywoodfantasyfootball' + (window.location.search ? window.location.search : '') + window.location.hash);
+        return;
+      }
+      var reserved = ['', 'index.html', 'dmsfantasy', 'vault.html', 'privacy', 'terms', 'api'];
       if (path && !reserved.includes(path) && !path.includes('.') && !path.startsWith('api/')) {
         sessionStorage.setItem('vault_nav_slug', path);
         window.location.replace('/vault.html?league=' + encodeURIComponent(path) + (window.location.search ? '&' + window.location.search.substring(1) : '') + window.location.hash);

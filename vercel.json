@@ -1,6 +1,10 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    { "source": "/gaywoodfantasy", "destination": "/gaywoodfantasyfootball", "permanent": true },
+    { "source": "/gaywoodfantasy/(.*)", "destination": "/gaywoodfantasyfootball", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/dmsfantasy", "destination": "/dmsfantasy/index.html" },
     { "source": "/dmsfantasy/(.*)", "destination": "/dmsfantasy/index.html" },
