@@ -25,7 +25,7 @@ SEASONS_TO_SCRAPE = [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027]
 SCRAPER_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRAPER_ROOT.parent
 RAW_DATA_DIR = SCRAPER_ROOT / "raw_data"
-PROCESSED_DATA_DIR = PROJECT_ROOT / "data"
+PROCESSED_DATA_DIR = PROJECT_ROOT / "dmsfantasy" / "data"
 
 # Browser authentication persistent context
 USER_DATA_DIR = SCRAPER_ROOT / ".browser_context"

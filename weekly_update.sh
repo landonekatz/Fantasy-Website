@@ -11,6 +11,9 @@
 # Exit on any error
 set -e
 
+# Ensure standard binaries and Homebrew tools are on PATH when run by launchd
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
 # 1. Define Paths (Absolute paths ensure cron runs correctly)
 PROJECT_DIR="/Users/Landon/Documents/Fantasy-Website"
 CURRENT_YEAR=2027
@@ -41,7 +44,7 @@ echo "      Cache cleared (played matchups remain cached!)."
 
 # 5. Run the Scraper for the Current Year
 echo "[4/6] Running Playwright Scraper for ${CURRENT_YEAR}..."
-python3 -m scraper.yahoo_scraper --year $CURRENT_YEAR
+python3 -m scraper.yahoo_scraper --year $CURRENT_YEAR --headless
 
 # 6. Run Data Processing Pipeline (Recompiles all weeks & updates manager mappings)
 echo "[5/6] Auto-updating Team Name Mappings..."
@@ -56,9 +59,9 @@ python3 scraper/parse_power_rankings.py
 echo "[5.75/6] Re-bundling Offline Data..."
 python3 scraper/parser.py
 
-# 7. Commit to Git & Push to GitHub Pages
+# 7. Commit to Git & Push to GitHub
 echo "[6/6] Committing updates to GitHub..."
-git add data/
+git add dmsfantasy/data/
 git add scraper/raw_data/${CURRENT_YEAR}/ || true
 
 # If there are changes, commit them

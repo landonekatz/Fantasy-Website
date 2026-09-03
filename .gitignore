@@ -9,6 +9,8 @@ __pycache__/
 .gemini/
 .vscode/
 .idea/
+*.log
+cron_scraper.log
 
 # Temporary mockups (optional - delete if you want them ignored)
 mockup*.html

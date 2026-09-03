@@ -393,16 +393,18 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Yahoo Fantasy Football Scraper")
     parser.add_argument("--year", type=int, help="Specific year to scrape (e.g., 2027). If not provided, scrapes all SEASONS_TO_SCRAPE.")
+    parser.add_argument("--headless", dest="headless", action="store_true", default=True, help="Run browser in headless mode (default: True)")
+    parser.add_argument("--headful", "--no-headless", dest="headless", action="store_false", help="Run browser with visible UI window")
     args = parser.parse_args()
 
     print("=" * 70)
     print("YAHOO FANTASY FOOTBALL - HISTORICAL DATA SCRAPER (2018-2027)")
     print("=" * 70)
-    print("Starting smart-cached, zero-redundancy scrape...")
+    print(f"Starting smart-cached, zero-redundancy scrape (headless={args.headless})...")
     
     seasons = [args.year] if args.year else None
     
-    with YahooFantasyScraper(headless=False, delay=1.0) as scraper:
+    with YahooFantasyScraper(headless=args.headless, delay=1.0) as scraper:
         scraper.scrape_all_seasons(seasons=seasons)
     print("=" * 70)
     print("SCRAPE COMPLETED!")

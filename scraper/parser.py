@@ -1099,7 +1099,7 @@ def parse_all_and_export(seasons=None):
     # 6. Export offline data bundle for frontend usage
     # Load power rankings history
     try:
-        with open("data/power_rankings_history.json", "r", encoding="utf-8") as f:
+        with open(PROCESSED_DATA_DIR / "power_rankings_history.json", "r", encoding="utf-8") as f:
             power_rankings_history = json.load(f)
     except Exception:
         power_rankings_history = []
@@ -1113,12 +1113,13 @@ def parse_all_and_export(seasons=None):
         "team_stats": team_stats,
         "power_rankings_history": power_rankings_history
     }
-    with open("data/data_bundle.js", "w", encoding="utf-8") as f:
+    bundle_path = PROCESSED_DATA_DIR / "data_bundle.js"
+    with open(bundle_path, "w", encoding="utf-8") as f:
         f.write("window.FANTASY_DATA = " + json.dumps(bundle, separators=(",", ":")) + ";")
-    print("  -> Saved offline JS data bundle to /data/data_bundle.js.")
+    print(f"  -> Saved offline JS data bundle to {bundle_path}.")
 
     print("=" * 70)
-    print("ALL DATASETS SUCESSFULLY PARSED AND WRITTEN TO /data/ !")
+    print(f"ALL DATASETS SUCCESSFULLY PARSED AND WRITTEN TO {PROCESSED_DATA_DIR} !")
     print("=" * 70)
 
 
