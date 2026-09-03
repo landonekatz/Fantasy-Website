@@ -1,8 +1,6 @@
-export default async function handler(req, res) {
-  const { leagueId, year, s2, swid, checkOnly } = req.query;
-
+export async function fetchEspnSeasonData({ leagueId, year, s2 = '', swid = '', checkOnly = false }) {
   if (!leagueId || !year) {
-    return res.status(400).json({ error: 'Missing leagueId or year parameter' });
+    throw new Error('Missing leagueId or year parameter');
   }
 
   const yr = parseInt(year);
@@ -17,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   // 1. Check-only mode for year discovery
-  if (checkOnly === 'true') {
+  if (checkOnly === true || checkOnly === 'true') {
     const urlsToTry = [
       `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam`,
       `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/leagueHistory/${leagueId}?seasonId=${year}&view=mTeam`,
@@ -31,12 +29,12 @@ export default async function handler(req, res) {
           const d = await r.json();
           const unwrapped = Array.isArray(d) ? d[0] : d;
           if (unwrapped && (unwrapped.teams || unwrapped.status || unwrapped.members)) {
-            return res.status(200).json({ year: yr, data: unwrapped });
+            return { year: yr, data: unwrapped };
           }
         }
       } catch (e) {}
     }
-    return res.status(404).json({ error: `Season ${year} not found` });
+    return null;
   }
 
   // 2. Full season scrape (Teams, Rosters, Matchups, Settings, Standings, Draft, Transactions)
@@ -59,7 +57,7 @@ export default async function handler(req, res) {
   }
 
   if (!seasonData) {
-    return res.status(404).json({ error: `Failed to fetch season data for ${year}` });
+    return null;
   }
 
   // 3. For 2018+, fetch weekly player-level boxscores to capture starting lineups, bench, projections, and stat lines
@@ -118,5 +116,31 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ year: yr, data: seasonData });
+  return { year: yr, data: seasonData };
+}
+
+export default async function handler(req, res) {
+  const { leagueId, year, s2, swid, checkOnly } = req.query;
+
+  if (!leagueId || !year) {
+    return res.status(400).json({ error: 'Missing leagueId or year parameter' });
+  }
+
+  try {
+    const result = await fetchEspnSeasonData({
+      leagueId,
+      year,
+      s2,
+      swid,
+      checkOnly: checkOnly === 'true'
+    });
+
+    if (!result) {
+      return res.status(404).json({ error: `Season ${year} not found` });
+    }
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'Scrape failed' });
+  }
 }

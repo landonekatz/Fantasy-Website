@@ -1347,6 +1347,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         fetchedLeagueData = {
                             rawName,
                             slug,
+                            platform: platform || 'espn',
                             leagueId,
                             privacy,
                             s2,
@@ -1503,10 +1504,11 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             // Build Action
             document.getElementById('btn-u-import-build')?.addEventListener('click', async () => {
-                const { rawName, slug, leagueId, privacy, s2, swid } = fetchedLeagueData;
+                const { rawName, slug, platform, leagueId, privacy, s2, swid } = fetchedLeagueData;
                 const creatorClaimId = document.getElementById('u-creator-claim')?.value || '';
 
                 const pendingBuildPayload = {
+                    platform: platform || 'espn',
                     leagueId: leagueId,
                     s2: s2,
                     swid: swid,

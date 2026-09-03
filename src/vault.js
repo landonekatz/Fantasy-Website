@@ -252,6 +252,17 @@ class FantasyApp {
                     compiledPayload.league_settings.admin_email = session.email;
                 }
 
+                // Attach platform credentials for automated multi-league sync jobs
+                compiledPayload.credentials = {
+                    platform: creds.platform || 'espn',
+                    leagueId: String(leagueId || ''),
+                    s2: s2 || '',
+                    swid: swid || '',
+                    last_synced: new Date().toISOString()
+                };
+                compiledPayload.league_settings.platform = creds.platform || 'espn';
+                compiledPayload.league_settings.last_synced = new Date().toISOString();
+
                 updateUI(92, "Saving to Vault Database...");
                 const databaseRef = dbRef(database, `leagues/${slug}`);
                 await set(databaseRef, compiledPayload);
@@ -1512,10 +1523,16 @@ class FantasyApp {
         let m1PF = 0, m2PF = 0;
         let m1ProjTotal = 0, m2ProjTotal = 0;
         let m1PlayoffWins = 0, m2PlayoffWins = 0;
-        let maxBlowout = null;
-        let minMargin = null;
+        // Only count actually played games for all-time stats
+        const playedGames = filtered.filter(g => {
+            const isM1Home = g.home_manager_id === m1Id || g.team_1_manager_id === m1Id;
+            const s1 = isM1Home ? (g.home_score !== undefined ? g.home_score : g.team_1_actual_points) : (g.away_score !== undefined ? g.away_score : g.team_2_actual_points);
+            const s2 = isM1Home ? (g.away_score !== undefined ? g.away_score : g.team_2_actual_points) : (g.home_score !== undefined ? g.home_score : g.team_1_actual_points);
+            const winner = g.winner || '';
+            return Number(s1) > 0 || Number(s2) > 0 || (winner && winner !== 'UNDECIDED');
+        });
 
-        filtered.forEach(g => {
+        playedGames.forEach(g => {
             const isM1Home = g.home_manager_id === m1Id || g.team_1_manager_id === m1Id;
             const m1Score = isM1Home ? (g.home_score !== undefined ? g.home_score : g.team_1_actual_points) : (g.away_score !== undefined ? g.away_score : g.team_2_actual_points);
             const m2Score = isM1Home ? (g.away_score !== undefined ? g.away_score : g.team_2_actual_points) : (g.home_score !== undefined ? g.home_score : g.team_1_actual_points);
@@ -1540,7 +1557,7 @@ class FantasyApp {
             if (!minMargin || margin < minMargin.margin) minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.year || g.season, week: g.week };
         });
 
-        const totalGames = filtered.length;
+        const totalGames = playedGames.length;
         const winPct1 = totalGames > 0 ? ((m1Wins + 0.5 * ties) / totalGames * 100).toFixed(1) : '0.0';
 
         const barLeftPct = totalGames > 0 ? (m1Wins / (m1Wins + m2Wins || 1) * 100).toFixed(0) : 50;
@@ -1580,42 +1597,45 @@ class FantasyApp {
             const t1Proj = projMap[`${g.year}_${g.week}_${m1Id}`] || 0;
             const t2Proj = projMap[`${g.year}_${g.week}_${m2Id}`] || 0;
             
-            const isT1Win = (isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY');
-            const isT2Win = !isT1Win;
+            const isPlayed = Number(t1Score) > 0 || Number(t2Score) > 0 || (g.winner && g.winner !== 'UNDECIDED');
+            const isT1Win = isPlayed && ((isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY'));
+            const isT2Win = isPlayed && !isT1Win;
             const isPlayoffs = g.is_playoff;
             const cardClass = isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card';
-            const margin = Math.abs(t1Score - t2Score).toFixed(2);
+            const margin = isPlayed ? Math.abs(t1Score - t2Score).toFixed(2) : null;
 
-            const clickHandler = g.year < 2018
-                ? `onclick="alert('ESPN has removed public access to player boxscore data prior to 2018.')"`
-                : `onclick="window.app.openBoxscoreModal(${g.year}, ${g.week}, '${g.home_manager_id}', '${g.away_manager_id}')"`;
+            const clickHandler = !isPlayed
+                ? `onclick="alert('This matchup has not been played yet.')"`
+                : (g.year < 2018
+                    ? `onclick="alert('ESPN has removed public access to player boxscore data prior to 2018.')"`
+                    : `onclick="window.app.openBoxscoreModal(${g.year}, ${g.week}, '${g.home_manager_id}', '${g.away_manager_id}')"`);
 
             cardsHtml += `
                 <div class="${cardClass}" ${clickHandler}>
                     <div class="matchup-date-badge">
                         <div class="matchup-year-week">${g.year} • Week ${g.week}</div>
-                        <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${isPlayoffs ? 'Playoffs • ' + (g.playoff_round || getPlayoffRoundName(g.year, g.week)) : 'Regular Season'}</div>
+                        <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${!isPlayed ? 'Upcoming Matchup' : (isPlayoffs ? 'Playoffs • ' + (g.playoff_round || getPlayoffRoundName(g.year, g.week)) : 'Regular Season')}</div>
                     </div>
                     <div class="matchup-teams-comparison">
                         <div class="team-box ${isT1Win ? 'winner' : ''}">
                             <div class="team-name-line">${t1Name} (${m1Name})</div>
                             <div class="team-score-line">
-                                <span class="team-score">${t1Score.toFixed(2)} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
+                                <span class="team-score">${isPlayed ? t1Score.toFixed(2) : '-'} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${t1Proj ? t1Proj.toFixed(2) : '-'}</div>
                         </div>
-                        <div class="matchup-margin-badge"><div>VS</div><div style="font-size:0.7rem;opacity:0.8;">+${margin}</div></div>
+                        <div class="matchup-margin-badge"><div>VS</div>${margin !== null ? `<div style="font-size:0.7rem;opacity:0.8;">+${margin}</div>` : ''}</div>
                         <div class="team-box ${isT2Win ? 'winner' : ''}">
                             <div class="team-name-line">${t2Name} (${m2Name})</div>
                             <div class="team-score-line">
-                                <span class="team-score">${t2Score.toFixed(2)} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
+                                <span class="team-score">${isPlayed ? t2Score.toFixed(2) : '-'} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${t2Proj ? t2Proj.toFixed(2) : '-'}</div>
                         </div>
                     </div>
                     <div class="matchup-action-hint">
-                        <span>${g.year < 2018 ? 'No player data available pre-2018' : 'View Boxscore & Roster'}</span>
-                        <span>${g.year < 2018 ? '' : '➔'}</span>
+                        <span>${!isPlayed ? 'Matchup Pending' : (g.year < 2018 ? 'No player data available pre-2018' : 'View Boxscore & Roster')}</span>
+                        <span>${!isPlayed || g.year < 2018 ? '' : '➔'}</span>
                     </div>
                 </div>
             `;

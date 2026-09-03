@@ -216,7 +216,8 @@ let currentLeagueCreds = null;
       const s2 = s2Input ? s2Input.value.trim() : '';
       const swid = swidInput ? swidInput.value.trim() : '';
       const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
-      currentLeagueCreds = { leagueId, s2, swid, customName: rawName };
+      const platform = inputPlatform ? inputPlatform.value : 'espn';
+      currentLeagueCreds = { platform, leagueId, s2, swid, customName: rawName };
 
       if (stepAuth && step1) {
         stepAuth.style.display = 'none';

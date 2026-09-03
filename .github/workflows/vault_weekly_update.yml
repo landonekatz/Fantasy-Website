@@ -1,0 +1,46 @@
+name: Vault Multi-League Automated Update
+
+on:
+  schedule:
+    # Runs every Tuesday at 9:00 AM UTC
+    - cron: '0 9 * * 2'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (no database writes)'
+        required: false
+        default: false
+        type: boolean
+      league:
+        description: 'Specific league slug to update (leave empty for all)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  sync-vault-leagues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Run Multi-League Vault Sync Pipeline
+        run: |
+          CMD="node scripts/update_vault_leagues.js"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+          if [ -n "${{ inputs.league }}" ]; then
+            CMD="$CMD --league=${{ inputs.league }}"
+          fi
+          echo "Executing: $CMD"
+          $CMD

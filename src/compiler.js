@@ -1,6 +1,7 @@
 // Fantasy Vault Data Compiler
 // Replicates the core functionality of the Python scraper/parser for client-side execution.
 import { nflHistoricalTeams } from './nfl_historical_teams.js';
+import { nflGamesService } from './nfl_games.js';
 
 export function generateRandomJoinCode() {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -103,44 +104,23 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     30: 'JAX', 33: 'BAL', 34: 'HOU'
   };
 
-  const nflGames = [];
   if (nflCsvData) {
-     const lines = nflCsvData.split('\n');
-     for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(',');
-        if (parts.length >= 8) {
-           nflGames.push({
-               season: parseInt(parts[1]),
-               week: parseInt(parts[2]),
-               home: parts[4],
-               home_score: parseInt(parts[5]),
-               away: parts[6],
-               away_score: parseInt(parts[7])
-           });
-        }
-     }
+    nflGamesService.loadCsvData(nflCsvData);
   }
 
   const getNflGameResult = (season, week, team) => {
-      const g = nflGames.find(x => x.season === season && x.week === week && (x.home === team || x.away === team));
-      if (!g) return null;
-      const isHome = g.home === team;
-      const tScore = isHome ? g.home_score : g.away_score;
-      const oScore = isHome ? g.away_score : g.home_score;
-      const opp = isHome ? g.away : g.home;
-      if (tScore > oScore) return `W ${tScore}-${oScore} vs ${opp}`;
-      if (tScore < oScore) return `L ${tScore}-${oScore} vs ${opp}`;
-      return `T ${tScore}-${oScore} vs ${opp}`;
+    return nflGamesService.getGameResult(season, week, team);
   };
 
   const playerIdToName = new Map();
   const playerIdToPosition = new Map();
 
-  // 0. Filter out unplayed seasons (where no games have been played)
+  // 0. Filter out unplayed seasons unless a draft has occurred
   let seasonsData = rawSeasonsData.filter(season => {
-    const schedule = season.data.schedule || [];
-    // If there's at least one finished game, keep the season
-    return schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
+    const schedule = season.data?.schedule || [];
+    const hasFinishedGames = schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
+    const hasDraftPicks = (season.data?.draftDetail?.picks?.length || 0) > 0;
+    return hasFinishedGames || hasDraftPicks;
   });
 
   if (seasonsData.length === 0) {
@@ -272,10 +252,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   for (const season of seasonsData) {
     const teams = season.data.teams || [];
     for (const t of teams) {
-      if (!t.record) continue;
-      
-      const overall = t.record.overall || { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 };
-      const teamInfo = teamMap[season.year][t.id];
+      const overall = t.record?.overall || { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 };
+      const teamInfo = teamMap[season.year] && teamMap[season.year][t.id];
       
       if (!teamInfo || !teamInfo.ownerId) continue;
       
@@ -515,16 +493,19 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
           if (!teamScoreLists[year][id]) teamScoreLists[year][id] = [];
         });
 
-        teamPF[year][h_id] += h_score;
-        teamPA[year][h_id] += a_score;
-        teamPF[year][a_id] += a_score;
-        teamPA[year][a_id] += h_score;
+        const gamePlayed = h_score > 0 || a_score > 0 || (winner !== "UNDECIDED" && winner !== "");
+        if (gamePlayed) {
+          teamPF[year][h_id] += h_score;
+          teamPA[year][h_id] += a_score;
+          teamPF[year][a_id] += a_score;
+          teamPA[year][a_id] += h_score;
 
-        teamScoreLists[year][h_id].push({ w: week, s: h_score });
-        teamScoreLists[year][a_id].push({ w: week, s: a_score });
+          teamScoreLists[year][h_id].push({ w: week, s: h_score });
+          teamScoreLists[year][a_id].push({ w: week, s: a_score });
 
-        if (winner === "HOME") { teamWins[year][h_id]++; teamLosses[year][a_id]++; }
-        else if (winner === "AWAY") { teamWins[year][a_id]++; teamLosses[year][h_id]++; }
+          if (winner === "HOME") { teamWins[year][h_id]++; teamLosses[year][a_id]++; }
+          else if (winner === "AWAY") { teamWins[year][a_id]++; teamLosses[year][h_id]++; }
+        }
       }
     }
   }
