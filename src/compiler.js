@@ -119,7 +119,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   let seasonsData = rawSeasonsData.filter(season => {
     const schedule = season.data?.schedule || [];
     const hasFinishedGames = schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
-    const hasDraftPicks = (season.data?.draftDetail?.picks?.length || 0) > 0;
+    const hasDraftPicks = (season.data?.draftDetail?.drafted === true) || (season.data?.draftDetail?.picks || []).some(p => p.playerId > 0);
     return hasFinishedGames || hasDraftPicks;
   });
 
@@ -565,6 +565,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     const year = season.year;
     const picks = season.data.draftDetail?.picks || [];
     for (const pick of picks) {
+      if (!pick.playerId || pick.playerId <= 0) continue;
       const tid = pick.teamId;
       const tinfo = (teamMap[year] && teamMap[year][tid]) || {};
       const pName = playerIdToName.get(pick.playerId) || `Player ID ${pick.playerId}`;

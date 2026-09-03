@@ -138,12 +138,16 @@ async function syncLeague(slug) {
       });
 
       if (seasonRes && seasonRes.data) {
-        const hasPicks = (seasonRes.data.draftDetail?.picks?.length || 0) > 0;
+        const hasPicks = (seasonRes.data.draftDetail?.drafted === true) || (seasonRes.data.draftDetail?.picks || []).some(p => p.playerId > 0);
         const schedule = seasonRes.data.schedule || [];
         const hasGames = schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
 
-        log(`    -> Found ${yr}: ${hasGames ? 'In-Season / Completed Games' : (hasPicks ? 'Draft Completed (Pre-Season)' : 'Scheduled')}`);
-        seasonsData.push(seasonRes);
+        if (hasGames || hasPicks) {
+          log(`    -> Found ${yr}: ${hasGames ? 'In-Season / Completed Games' : 'Draft Completed (Pre-Season)'}`);
+          seasonsData.push(seasonRes);
+        } else {
+          log(`    -> Found ${yr} on ESPN: Scheduled / Pre-Draft order set, but draft has not occurred yet. Skipping.`);
+        }
       } else {
         log(`    -> Season ${yr} not found or inaccessible on ESPN.`);
       }
