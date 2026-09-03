@@ -2029,6 +2029,11 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                                 <span class="admin-nav-item-sub">Renaming, Merging, Claims</span>
                             </a>
 
+                            <a href="#admin-sec-sync" class="admin-nav-item" data-section="admin-sec-sync">
+                                <span class="admin-nav-item-title">Platform Sync</span>
+                                <span class="admin-nav-item-sub">ESPN Live Ingestion &amp; Draft</span>
+                            </a>
+
                             <a href="#admin-sec-invites" class="admin-nav-item" data-section="admin-sec-invites">
                                 <span class="admin-nav-item-title">Invites &amp; Join Codes</span>
                                 <span class="admin-nav-item-sub">Join Code, Direct Links</span>
@@ -2427,7 +2432,55 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                     </div>
                 </div>
 
-                <!-- 6. LEAGUE INVITES & ACCESS -->
+                <!-- 6. PLATFORM SYNC & DRAFT REFRESH -->
+                <div id="admin-sec-sync" class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div>
+                            <h2>Platform Sync &amp; Live Ingestion</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Synchronize with ESPN to ingest your latest draft results, new roster moves, and weekly matchup scores.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.25rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Platform</span>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-top: 4px;">${(this.leagueSettings?.platform || 'ESPN').toUpperCase()}</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">League ID</span>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-top: 4px;">${this.leagueSettings?.id || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Active Season</span>
+                                <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-gold); margin-top: 4px;">${this.leagueSettings?.lastYear || 'N/A'}</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Last Synced</span>
+                                <div style="font-size: 0.85rem; color: var(--text-primary); margin-top: 4px;">${this.leagueSettings?.last_synced ? new Date(this.leagueSettings.last_synced).toLocaleString() : 'Initial build'}</div>
+                            </div>
+                        </div>
+
+                        <div style="padding-top: 1rem; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem;">
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 240px;">
+                                    <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">ESPN S2 Cookie (Required for Private Leagues):</label>
+                                    <input type="text" id="sync-espn-s2" class="form-input" placeholder="AEC..." style="width: 100%; font-family: monospace; font-size: 0.82rem;">
+                                </div>
+                                <div style="flex: 1; min-width: 240px;">
+                                    <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">ESPN SWID (Required for Private Leagues):</label>
+                                    <input type="text" id="sync-espn-swid" class="form-input" placeholder="{...}" style="width: 100%; font-family: monospace; font-size: 0.82rem;">
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                                <button id="btn-sync-league-now" class="btn btn-primary" style="padding: 10px 20px; font-weight: 700; font-size: 0.88rem; border-radius: 6px; cursor: pointer;">Sync Latest Draft &amp; Scores Now</button>
+                                <span style="font-size: 0.8rem; color: var(--text-muted);">Pulls the latest season, imports new draft picks, and enables live LDI tracking.</span>
+                            </div>
+                            <div id="sync-league-feedback" class="admin-feedback-msg" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. LEAGUE INVITES & ACCESS -->
                 <div id="admin-sec-invites" class="card admin-section-card" style="margin-top: 2rem;">
                     <div class="admin-card-header">
                         <div>
@@ -3021,6 +3074,14 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
                 }
             });
         });
+
+        // Wire up Platform Sync button
+        const btnSyncNow = container.querySelector('#btn-sync-league-now');
+        if (btnSyncNow) {
+            btnSyncNow.addEventListener('click', async () => {
+                await this.syncLeagueNow();
+            });
+        }
     }
 
     setupAdminSidebarScrollSpy(container) {
@@ -3068,6 +3129,130 @@ const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year 
             });
 
             sections.forEach(sec => observer.observe(sec));
+        }
+    }
+
+    async syncLeagueNow() {
+        const feedbackEl = document.getElementById('sync-league-feedback');
+        const btn = document.getElementById('btn-sync-league-now');
+        const s2Input = document.getElementById('sync-espn-s2');
+        const swidInput = document.getElementById('sync-espn-swid');
+
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Syncing...';
+        }
+        if (feedbackEl) {
+            feedbackEl.style.display = 'block';
+            feedbackEl.className = 'admin-feedback-msg';
+            feedbackEl.textContent = 'Connecting to ESPN and checking for latest draft / matchup data...';
+        }
+
+        try {
+            const leagueId = this.leagueSettings?.id;
+            if (!leagueId) {
+                throw new Error("League ID is missing from league settings.");
+            }
+
+            // Get existing or newly entered credentials
+            let s2 = s2Input ? s2Input.value.trim() : '';
+            let swid = swidInput ? swidInput.value.trim() : '';
+            if (!s2 || !swid) {
+                const credSnap = await get(dbRef(database, `leagues/${this.leagueSlug}/credentials`));
+                if (credSnap.exists()) {
+                    const c = credSnap.val();
+                    s2 = s2 || c.s2 || '';
+                    swid = swid || c.swid || '';
+                }
+            }
+
+            const currentYear = new Date().getFullYear();
+            const lastYear = Number(this.leagueSettings?.lastYear) || currentYear;
+            const yearsToFetch = [currentYear];
+            if (currentYear !== lastYear && !yearsToFetch.includes(lastYear)) {
+                yearsToFetch.push(lastYear);
+            }
+
+            const fetchedSeasons = [];
+            for (const yr of yearsToFetch) {
+                if (feedbackEl) feedbackEl.textContent = `Fetching ${yr} season data from ESPN...`;
+                const url = `/api/scrape-season?leagueId=${encodeURIComponent(leagueId)}&year=${yr}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
+                const res = await fetch(url);
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json && json.data) {
+                        fetchedSeasons.push(json);
+                    }
+                }
+            }
+
+            if (fetchedSeasons.length === 0) {
+                throw new Error("Could not find new season data on ESPN. If this is a private league, please enter your ESPN S2 and SWID cookies above.");
+            }
+
+            // Save credentials if available
+            if (s2 && swid) {
+                await set(dbRef(database, `leagues/${this.leagueSlug}/credentials`), {
+                    platform: 'espn',
+                    leagueId: String(leagueId),
+                    s2,
+                    swid,
+                    last_synced: new Date().toISOString()
+                });
+            }
+
+            if (feedbackEl) feedbackEl.textContent = 'Compiling league datasets and draft board...';
+
+            // Compile the newly fetched seasons
+            const compiled = compileVaultData(fetchedSeasons, this.members, this.leagueSettings?.name);
+
+            // Merge in historical draft picks, standings, matchups, and stats for seasons not re-fetched
+            const fetchedYearsSet = new Set(fetchedSeasons.map(s => s.year));
+
+            const existingOldDraft = (this.draftResults || []).filter(p => !fetchedYearsSet.has(Number(p.year || p.season)));
+            compiled.draft_results = [...(compiled.draft_results || []), ...existingOldDraft];
+
+            const existingOldStandings = (this.standings || []).filter(s => !fetchedYearsSet.has(Number(s.year || s.season)));
+            compiled.league_standings = [...(compiled.league_standings || []), ...existingOldStandings];
+
+            const existingOldMatchups = (this.matchups || []).filter(m => !fetchedYearsSet.has(Number(m.year || m.season)));
+            compiled.matchups = [...(compiled.matchups || []), ...existingOldMatchups];
+
+            const existingOldStats = (this.weeklyPlayerStats || []).filter(st => !fetchedYearsSet.has(Number(st.year || st.season)));
+            compiled.weekly_player_stats = [...(compiled.weekly_player_stats || []), ...existingOldStats];
+
+            const existingOldTeamStats = (this.teamStats || []).filter(ts => !fetchedYearsSet.has(Number(ts.year || ts.season)));
+            compiled.team_stats = [...(compiled.team_stats || []), ...existingOldTeamStats];
+
+            // Re-sort standings
+            compiled.league_standings.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.final_rank || 99) - (b.final_rank || 99));
+
+            // Attach metadata
+            compiled.league_settings.last_synced = new Date().toISOString();
+            compiled.league_settings.platform = 'espn';
+            if (this.leagueSettings?.admin_email) compiled.league_settings.admin_email = this.leagueSettings.admin_email;
+            if (this.leagueSettings?.join_code) compiled.league_settings.join_code = this.leagueSettings.join_code;
+            if (this.leagueSettings?.loser_conditions) compiled.league_settings.loser_conditions = this.leagueSettings.loser_conditions;
+
+            if (feedbackEl) feedbackEl.textContent = 'Saving to Vault database...';
+            await set(dbRef(database, `leagues/${this.leagueSlug}`), compiled);
+
+            if (feedbackEl) {
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ Successfully synchronized! Latest season (${compiled.league_settings.lastYear}) is now live. Reloading...`;
+            }
+
+            setTimeout(() => { window.location.reload(); }, 1200);
+        } catch (err) {
+            console.error("Sync failed:", err);
+            if (feedbackEl) {
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = `Sync failed: ${err.message}`;
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Sync Latest Draft & Scores Now';
+            }
         }
     }
 
