@@ -296,8 +296,9 @@ export class LDIEngine {
         const numTeams = Number(settings.num_teams || settings.numTeams || 12);
         const totalSeasonWeeks = Number(settings.total_season_weeks || (nflYear >= 2021 ? 17 : 16));
         
-        // G = total_season_weeks - 1 (subtract exactly one week for bye, Section 4.1)
-        const G = Math.max(1, totalSeasonWeeks - 1);
+        // G = total_season_weeks - 1 (subtract exactly one week for bye, Section 4.1; unless in-progress season)
+        const isProgress = Boolean(settings.is_in_progress);
+        const G = Math.max(1, isProgress ? totalSeasonWeeks : (totalSeasonWeeks - 1));
 
         // Percentile-normalized positional rank (P_r / num_teams * 12.0, Section 3.1)
         const normPosRank = (posRank / numTeams) * 12.0;

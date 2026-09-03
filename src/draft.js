@@ -468,18 +468,41 @@ export class VaultDraftEngine {
 
         const nflYear = this.getNflYear(year);
         const leagueSeasonSettings = this.getLeagueSeasonSettings(year);
-        const maxRegularSeasonGames = leagueSeasonSettings.total_season_weeks;
+        const fullRegularSeasonWeeks = leagueSeasonSettings.total_season_weeks;
 
         // Check if this season draft has occurred but is unplayed (0 total stats recorded)
         let totalGamesPlayedInSeason = 0;
+        let maxPlayedWeek = 0;
         yearStats.forEach(st => {
-            if ((st.fantasy_points !== undefined && st.fantasy_points > 0) || (st.fantasyPoints !== undefined && st.fantasyPoints > 0)) {
+            const pts = Number(st.fantasy_points !== undefined ? st.fantasy_points : (st.fantasyPoints !== undefined ? st.fantasyPoints : 0));
+            if (pts > 0) {
                 totalGamesPlayedInSeason++;
+                const wk = Number(st.week) || 1;
+                if (wk > maxPlayedWeek) maxPlayedWeek = wk;
             }
         });
 
-        // If no weekly stats or 0 points/games played, it's an unplayed season
-        const isUnplayedSeason = (yearStats.length === 0 && totalGamesPlayedInSeason === 0);
+        // Also check matchups for completed regular season weeks
+        (this.matchups || []).forEach(m => {
+            if (Number(m.year || m.season) === year && !m.is_playoff) {
+                const s1 = Number(m.home_score !== undefined ? m.home_score : m.team_1_actual_points) || 0;
+                const s2 = Number(m.away_score !== undefined ? m.away_score : m.team_2_actual_points) || 0;
+                if (s1 > 0 || s2 > 0 || (m.winner && m.winner !== 'UNDECIDED')) {
+                    const wk = Number(m.week) || 1;
+                    if (wk > maxPlayedWeek) maxPlayedWeek = wk;
+                }
+            }
+        });
+
+        // Determine season status: unplayed vs in-progress vs completed
+        const isUnplayedSeason = (yearStats.length === 0 && totalGamesPlayedInSeason === 0 && maxPlayedWeek === 0);
+        const isSeasonInProgress = !isUnplayedSeason && (maxPlayedWeek > 0 && maxPlayedWeek < fullRegularSeasonWeeks);
+        const maxRegularSeasonGames = isSeasonInProgress ? maxPlayedWeek : fullRegularSeasonWeeks;
+
+        if (isSeasonInProgress) {
+            leagueSeasonSettings.total_season_weeks = maxPlayedWeek;
+            leagueSeasonSettings.is_in_progress = true;
+        }
 
         // Index all transactions for this season
         const normPlayerName = (name) => {
