@@ -70,7 +70,7 @@
       "id": "madoc",
       "name": "Madoc",
       "status": "current",
-      "logo_url": "https://s.yimg.com/ep/cx/blendr/v2/image-football-1-png_1721174938744.png"
+      "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/3084f051afc41c84bdc73636a81e6f1054349ddce5c32299b1a9a0e5e743fc50.png"
     },
     {
       "id": "luke_b",
@@ -137,7 +137,7 @@
     {
       "year": 2027,
       "team_id": 5,
-      "team_name": "JJ and the Gang",
+      "team_name": "The Upside",
       "manager_id": "isabella"
     },
     {
@@ -167,7 +167,7 @@
     {
       "year": 2027,
       "team_id": 10,
-      "team_name": "Hit Squad Madoc",
+      "team_name": "All roads lead to Rome",
       "manager_id": "madoc"
     },
     {

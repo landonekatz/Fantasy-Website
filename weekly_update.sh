@@ -36,9 +36,9 @@ else
     exit 1
 fi
 
-# 4. Clear current standings and transactions to force fresh pull
-echo "[3/6] Clearing cache for ${CURRENT_YEAR} standings and transactions..."
-rm -f "${PROJECT_DIR}/scraper/raw_data/${CURRENT_YEAR}/league_info/standings.html"
+# 4. Clear current league info and transactions to force fresh pull
+echo "[3/6] Clearing cache for ${CURRENT_YEAR} league info and transactions..."
+rm -rf "${PROJECT_DIR}/scraper/raw_data/${CURRENT_YEAR}/league_info"
 rm -rf "${PROJECT_DIR}/scraper/raw_data/${CURRENT_YEAR}/transactions"
 echo "      Cache cleared (played matchups remain cached!)."
 

@@ -181,6 +181,9 @@ def parse_seasons_metadata_and_standings(seasons, config=None):
     standings_data = []
     metadata_data = []
     team_names_lookup = {}
+    if config and "team_mappings" in config:
+        for m in config["team_mappings"]:
+            team_names_lookup[(m["year"], m["team_id"])] = m["team_name"]
 
     for year in seasons:
         file_path = RAW_DATA_DIR / str(year) / "league_info" / "standings.html"
@@ -252,17 +255,18 @@ def parse_seasons_metadata_and_standings(seasons, config=None):
                 moves_str = "0"
             moves = int(moves_str) if moves_str.isdigit() else 0
 
-            team_names_lookup[(year, team_id)] = team_name
-            mgr = get_canonical_manager(year, team_id, team_name, config)
+            canonical_team_name = team_names_lookup.get((year, team_id)) or team_name
+            team_names_lookup[(year, team_id)] = canonical_team_name
+            mgr = get_canonical_manager(year, team_id, canonical_team_name, config)
             team_record = {
                 "season": year,
                 "rank": rank,
                 "team_id": team_id,
-                "team_name": team_name,
+                "team_name": canonical_team_name,
                 "manager_id": mgr["id"],
                 "manager_name": mgr["name"],
                 "manager_status": mgr["status"],
-                "logo_url": mgr.get("logo_url", ""),
+                "logo_url": mgr.get("logo_url", "") or logo_url,
                 "waiver_order": waiver_order,
                 "faab_balance": faab_balance,
                 "wins": wins,
@@ -378,10 +382,24 @@ def parse_transactions(seasons, config=None):
                     faab_bid = int(faab_match.group(1))
 
                 parts = manager_cell_text.split(" | ")
-                team_name = clean_team_name(parts[0] if len(parts) > 0 else "")
+                raw_team_name = clean_team_name(parts[0] if len(parts) > 0 else "")
                 timestamp_str = parts[-1] if len(parts) > 1 else ""
 
-                mgr = get_canonical_manager(year, None, team_name, config)
+                mgr = get_canonical_manager(year, None, raw_team_name, config)
+
+                # Reflect the season's latest team name everywhere in that season
+                team_name = raw_team_name
+                if mgr and mgr.get("id"):
+                    for m in config.get("team_mappings", []):
+                        if m.get("year") == year and m.get("manager_id") == mgr["id"]:
+                            team_name = m.get("team_name")
+                            break
+
+                if trade_partner_mgr_id:
+                    for m in config.get("team_mappings", []):
+                        if m.get("year") == year and m.get("manager_id") == trade_partner_mgr_id:
+                            trade_partner_team = m.get("team_name")
+                            break
 
                 transactions_data.append({
                     "season": year,
@@ -465,9 +483,17 @@ def parse_draft(seasons, player_lookup=None, config=None):
                         nfl_team = player_lookup[p_lower]["nfl_team"]
                         position = player_lookup[p_lower]["position"]
 
-                team_name = clean_team_name(cells[2].get_text(strip=True))
+                raw_team_name = clean_team_name(cells[2].get_text(strip=True))
 
-                mgr = get_canonical_manager(year, None, team_name, config)
+                mgr = get_canonical_manager(year, None, raw_team_name, config)
+
+                # Reflect the season's latest team name everywhere in that season
+                team_name = raw_team_name
+                if mgr and mgr.get("id"):
+                    for m in config.get("team_mappings", []):
+                        if m.get("year") == year and m.get("manager_id") == mgr["id"]:
+                            team_name = m.get("team_name")
+                            break
 
                 draft_data.append({
                     "season": year,
