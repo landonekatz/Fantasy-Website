@@ -786,50 +786,65 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     // ACCOUNT MODAL (Clean Light-Themed Dashboard)
     // ==========================================
     window.renderAccountModal = async function() {
-        if (typeof window.AuthEngine === 'undefined') return;
-        const session = window.AuthEngine.getSession();
-        
-        if (!session) {
-            accountModalContent.innerHTML = `
-                <div style="text-align: center; padding: 1.5rem 0;">
-                    <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--accent-gold, #b45309); font-size: 1.1rem; font-weight: 800; margin-bottom: 12px;">TFV</div>
-                    <h3 class="modal-title" style="margin-bottom: 0.5rem; color: #0f172a;">Sign In to Fantasy Vault</h3>
-                    <p style="margin-bottom: 1.5rem; color: var(--text-muted, #64748b); font-size: 0.9rem;">Access your leagues, admin tools, and manager profile.</p>
-                    <button id="btn-account-signin" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.65rem;">Sign In / Register &rarr;</button>
-                </div>
-            `;
-            const btnSignin = document.getElementById('btn-account-signin');
-            if (btnSignin) {
-                btnSignin.addEventListener('click', () => {
-                    accountModal.close();
-                    const authModal = document.getElementById('auth-modal');
-                    if (authModal && typeof authModal.showModal === 'function') {
-                        authModal.showModal();
-                    } else {
-                        window.location.href = '/';
-                    }
-                });
-            }
-            return;
-        }
+        try {
+            const accountModal = document.getElementById('account-modal');
+            const accountModalContent = document.getElementById('account-modal-content');
+            if (!accountModalContent) return;
 
-        const app = window.app || window.appInstance;
-        const rawPathSlug = window.location.pathname.replace(/^\/|\/$/g, '') || '';
-        const activeSlug = app?.leagueSlug || rawPathSlug || '';
-        
-        const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
-        let founderAllLeagues = [];
-        if (isFounder) {
-            if (!session.allLeagues && typeof window.AuthEngine?.fetchAllVaultLeagues === 'function') {
-                session.allLeagues = await window.AuthEngine.fetchAllVaultLeagues();
+            if (typeof window.AuthEngine === 'undefined') return;
+            const session = window.AuthEngine.getSession();
+            
+            if (!session) {
+                accountModalContent.innerHTML = `
+                    <div style="text-align: center; padding: 1.5rem 0;">
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--accent-gold, #b45309); font-size: 1.1rem; font-weight: 800; margin-bottom: 12px;">TFV</div>
+                        <h3 class="modal-title" style="margin-bottom: 0.5rem; color: #0f172a;">Sign In to Fantasy Vault</h3>
+                        <p style="margin-bottom: 1.5rem; color: var(--text-muted, #64748b); font-size: 0.9rem;">Access your leagues, admin tools, and manager profile.</p>
+                        <button id="btn-account-signin" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.65rem;">Sign In / Register &rarr;</button>
+                    </div>
+                `;
+                const btnSignin = document.getElementById('btn-account-signin');
+                if (btnSignin) {
+                    btnSignin.addEventListener('click', () => {
+                        if (accountModal && typeof accountModal.close === 'function') accountModal.close();
+                        const authModal = document.getElementById('auth-modal');
+                        if (authModal && typeof authModal.showModal === 'function') {
+                            authModal.showModal();
+                        } else {
+                            window.location.href = '/';
+                        }
+                    });
+                }
+                return;
             }
-        }
+
+            const app = window.app || window.appInstance;
+            const urlParams = new URLSearchParams(window.location.search);
+            const querySlug = (urlParams.get('league') || urlParams.get('slug') || '').toLowerCase().trim();
+            const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+            const rawSlug = currentPath.replace(/^\//, '').toLowerCase().trim();
+            const activeSlug = (app?.leagueSlug || querySlug || (rawSlug !== 'vault.html' && rawSlug !== 'vault' && rawSlug !== 'index.html' ? rawSlug : '') || '').toLowerCase().trim();
+            
+            const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
+            const isOwnLeague = Boolean(
+                activeSlug === 'dmsfantasy' ||
+                currentPath.includes('dmsfantasy') ||
+                (session.joinedLeagues && session.joinedLeagues.includes(activeSlug))
+            );
+
+            // Fetch founder leagues asynchronously without blocking modal render
+            if (isFounder && !session.allLeagues && typeof window.AuthEngine?.fetchAllVaultLeagues === 'function') {
+                window.AuthEngine.fetchAllVaultLeagues().then(leagues => {
+                    session.allLeagues = leagues;
+                }).catch(() => {});
+            }
 
         let joinedList = Array.isArray(session.joinedLeagues) ? [...session.joinedLeagues] : [];
         let leaguesListHTML = '';
         if (joinedList.length > 0) {
+            const joinCodes = window.JOIN_CODES || (typeof JOIN_CODES !== 'undefined' ? JOIN_CODES : null);
             leaguesListHTML = joinedList.map(leagueId => {
-                const info = typeof JOIN_CODES !== 'undefined' ? Object.values(JOIN_CODES).find(l => l.leagueId === leagueId) : null;
+                const info = joinCodes ? Object.values(joinCodes).find(l => l.leagueId === leagueId) : null;
                 const cachedDetails = session.leagueDetails ? session.leagueDetails[leagueId] : null;
                 const localStoredName = localStorage.getItem(`vault_league_name_${leagueId}`);
                 
@@ -839,7 +854,9 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                            localStoredName ||
                            (leagueId.charAt(0).toUpperCase() + leagueId.slice(1) + ' League');
                 
-                const path = (cachedDetails && cachedDetails.path) || (info ? info.path : `/${leagueId}`);
+                const path = (typeof window.AuthEngine?.resolveLeaguePath === 'function')
+                    ? window.AuthEngine.resolveLeaguePath(leagueId)
+                    : ((cachedDetails && cachedDetails.path) || (info ? info.path : `/${leagueId}`));
                 const isUserAdmin = Boolean(session.isFounder || (session.adminLeagues && session.adminLeagues.includes(leagueId)));
                 const isCurrent = (activeSlug === leagueId) || (activeSlug === '' && leagueId === 'vault');
                 
@@ -868,12 +885,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     if (!mgr && info && info.managers) {
                         mgr = info.managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
                     }
-                    if (!mgr && typeof JOIN_CODES !== 'undefined') {
-                        if (leagueId === 'dmsfantasy' && JOIN_CODES['DNFUAM']?.managers) {
-                            mgr = JOIN_CODES['DNFUAM'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase());
+                    if (!mgr && joinCodes) {
+                        if (leagueId === 'dmsfantasy' && joinCodes['DNFUAM']?.managers) {
+                            mgr = joinCodes['DNFUAM'].managers.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase());
                         }
-                        if (leagueId === 'gaywoodfantasyfootball' && JOIN_CODES['7AR345']?.managers) {
-                            const gwMgrs = JOIN_CODES['7AR345'].managers;
+                        if (leagueId === 'gaywoodfantasyfootball' && joinCodes['7AR345']?.managers) {
+                            const gwMgrs = joinCodes['7AR345'].managers;
                             mgr = gwMgrs.find(m => String(m.id).toLowerCase() === String(claimId).toLowerCase() || String(m.espn_id) === String(claimId));
                         }
                     }
@@ -897,7 +914,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                             <div>
                                 ${isCurrent 
                                     ? `<span style="font-size: 0.72rem; padding: 2px 7px; background: #e0f2fe; color: #0284c7; border-radius: 4px; font-weight: 600;">Current Vault</span>`
-                                    : `<a href="${path}" class="btn-primary" style="font-size: 0.78rem; padding: 4px 10px; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">Open &rarr;</a>`
+                                    : `<a href="${path}" class="btn-primary btn-open-league" style="font-size: 0.78rem; padding: 4px 10px; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">Open &rarr;</a>`
                                 }
                             </div>
                         </div>
@@ -1004,8 +1021,13 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 } else {
                     sessionStorage.setItem('vault_founder_mode_active', 'true');
                 }
-                accountModal.close();
-                updateAccountButtonUI();
+                const modal = document.getElementById('account-modal');
+                if (modal && typeof modal.close === 'function') {
+                    modal.close();
+                }
+                if (typeof updateAccountButtonUI === 'function') {
+                    updateAccountButtonUI();
+                }
             });
         }
 
@@ -1145,7 +1167,10 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         if (btnImportLeague) {
             btnImportLeague.addEventListener('click', (e) => {
                 e.preventDefault();
-                accountModal.close();
+                const modal = document.getElementById('account-modal');
+                if (modal && typeof modal.close === 'function') {
+                    modal.close();
+                }
                 window.openImportLeagueModal();
             });
         }
@@ -1154,11 +1179,27 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         const btnLogout = document.getElementById('btn-account-logout');
         if (btnLogout) {
             btnLogout.addEventListener('click', () => {
-                accountModal.close();
+                const modal = document.getElementById('account-modal');
+                if (modal && typeof modal.close === 'function') {
+                    modal.close();
+                }
                 window.AuthEngine.logout();
             });
         }
-    };
+    } catch (err) {
+        console.error('Failed to render account modal:', err);
+        const accountModalContent = document.getElementById('account-modal-content');
+        if (accountModalContent) {
+            accountModalContent.innerHTML = `
+                <div style="text-align: center; padding: 2rem 1rem;">
+                    <h3 style="color: #dc2626; margin-bottom: 0.5rem; font-family: var(--font-heading, 'Cinzel', serif);">Unable to Load Account</h3>
+                    <p style="color: var(--text-muted, #64748b); font-size: 0.88rem; margin-bottom: 1.25rem;">An unexpected error occurred while loading your account information.</p>
+                    <button onclick="window.renderAccountModal()" class="btn-primary" style="padding: 6px 14px; font-size: 0.82rem; cursor: pointer;">Try Again</button>
+                </div>
+            `;
+        }
+    }
+};
 
     // ==========================================
     // UNIVERSAL IN-PLACE LEAGUE IMPORT WIZARD (Clean Light Theme)
