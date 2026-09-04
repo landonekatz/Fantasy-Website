@@ -631,9 +631,12 @@ class FantasyApp {
             }
         });
 
-        // Wait for initial Firebase auth resolution
+        // Wait for initial Firebase auth resolution with timeout protection
         if (typeof window.AuthEngine !== 'undefined' && typeof window.AuthEngine.ready === 'function') {
-            await window.AuthEngine.ready();
+            await Promise.race([
+                window.AuthEngine.ready(),
+                new Promise(resolve => setTimeout(resolve, 800))
+            ]);
         }
 
         await this.loadData();
@@ -1248,6 +1251,9 @@ class FantasyApp {
     initPowerRankings() {
         if (this.notesEngine) {
             this.notesEngine.render();
+        }
+        if (this.powerRankingsEngine) {
+            this.powerRankingsEngine.render();
         }
         // 1. Populate logo, team name, manager name from managers data (DOM-based - chips are hardcoded in HTML)
         const ranks = document.querySelectorAll('.rank[data-manager]');
@@ -3846,12 +3852,17 @@ class FantasyApp {
 window.FantasyApp = FantasyApp;
 const app = new FantasyApp();
 window.app = app;
-document.addEventListener('DOMContentLoaded', () => {
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        app.init();
+    });
+} else {
     app.init();
-});
+}
 
 // Setup modal backdrop click & Escape close
-document.addEventListener('DOMContentLoaded', () => {
+function setupBoxscoreModal() {
     const modal = document.getElementById('boxscore-modal');
     if (modal) {
         modal.addEventListener('click', (e) => {
@@ -3863,4 +3874,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupBoxscoreModal);
+} else {
+    setupBoxscoreModal();
+}
+

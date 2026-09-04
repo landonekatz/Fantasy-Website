@@ -761,6 +761,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         });
 
         document.getElementById('btn-join-as-guest')?.addEventListener('click', async () => {
+            const app = window.app || window.appInstance;
             const leagueId = league.leagueId || league.id || app?.leagueSlug;
             const resGuest = await window.AuthEngine.joinAsGuest(leagueId);
             if (resGuest.success) {
@@ -1628,36 +1629,38 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     }
 
     function updateAccountButtonUI() {
-        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
-        if (!btnMyAccount) return;
-        if (session) {
-            const displayName = session.name || (session.email ? session.email.split('@')[0] : 'User');
-            const monogram = displayName.trim().charAt(0).toUpperCase() || 'L';
-            btnMyAccount.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg, #d4af37 0%, #b45309 100%); color:#fff; font-weight:800; font-size:0.72rem; margin-right:6px; box-shadow:0 1px 3px rgba(0,0,0,0.15);">${monogram}</span> <span style="font-weight:600;">My Account</span>`;
-            btnMyAccount.title = `${displayName} (${session.email || ''})`;
+        try {
+            const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+            if (!btnMyAccount) return;
+            if (session) {
+                const displayName = session.name || (session.email ? session.email.split('@')[0] : 'User');
+                const monogram = displayName.trim().charAt(0).toUpperCase() || 'L';
+                btnMyAccount.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg, #d4af37 0%, #b45309 100%); color:#fff; font-weight:800; font-size:0.72rem; margin-right:6px; box-shadow:0 1px 3px rgba(0,0,0,0.15);">${monogram}</span> <span style="font-weight:600;">My Account</span>`;
+                btnMyAccount.title = `${displayName} (${session.email || ''})`;
 
-            const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
+                const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const querySlug = (urlParams.get('league') || urlParams.get('slug') || '').toLowerCase().trim();
-            const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
-            const rawSlug = currentPath.replace(/^\//, '').toLowerCase().trim();
-            const activeSlug = (app?.leagueSlug || querySlug || (rawSlug !== 'vault.html' && rawSlug !== 'vault' && rawSlug !== 'index.html' ? rawSlug : '') || '').toLowerCase().trim();
+                const app = window.app || window.appInstance;
+                const urlParams = new URLSearchParams(window.location.search);
+                const querySlug = (urlParams.get('league') || urlParams.get('slug') || '').toLowerCase().trim();
+                const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+                const rawSlug = currentPath.replace(/^\//, '').toLowerCase().trim();
+                const activeSlug = (app?.leagueSlug || querySlug || (rawSlug !== 'vault.html' && rawSlug !== 'vault' && rawSlug !== 'index.html' ? rawSlug : '') || '').toLowerCase().trim();
 
-            const isOwnLeague = Boolean(
-                activeSlug === 'dmsfantasy' ||
-                currentPath.includes('dmsfantasy') ||
-                (session.joinedLeagues && session.joinedLeagues.includes(activeSlug))
-            );
+                const isOwnLeague = Boolean(
+                    activeSlug === 'dmsfantasy' ||
+                    currentPath.includes('dmsfantasy') ||
+                    (session.joinedLeagues && session.joinedLeagues.includes(activeSlug))
+                );
 
-            // If a founder navigation was triggered from the dropdown toggle, activate founder mode
-            if (sessionStorage.getItem('vault_founder_nav_toggle') === 'true') {
-                sessionStorage.removeItem('vault_founder_nav_toggle');
-                sessionStorage.setItem('vault_founder_mode_active', 'true');
-            }
+                // If a founder navigation was triggered from the dropdown toggle, activate founder mode
+                if (sessionStorage.getItem('vault_founder_nav_toggle') === 'true') {
+                    sessionStorage.removeItem('vault_founder_nav_toggle');
+                    sessionStorage.setItem('vault_founder_mode_active', 'true');
+                }
 
-            const isFounderModeActive = sessionStorage.getItem('vault_founder_mode_active') === 'true';
-            const shouldShowFounderSwitcher = isFounder && (!isOwnLeague || isFounderModeActive);
+                const isFounderModeActive = sessionStorage.getItem('vault_founder_mode_active') === 'true';
+                const shouldShowFounderSwitcher = isFounder && (!isOwnLeague || isFounderModeActive);
 
             if (shouldShowFounderSwitcher && btnMyAccount.parentNode) {
                 let switcher = document.getElementById('founder-quick-switcher');
@@ -1737,7 +1740,10 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             const switcher = document.getElementById('founder-quick-switcher');
             if (switcher) switcher.remove();
         }
+    } catch (err) {
+        console.warn('Error updating account button UI:', err);
     }
+}
 
     // Check URL parameters for direct claim or admin transfer actions
     function checkUrlActions() {

@@ -33,6 +33,7 @@ export class PowerRankingsEngine {
         this.initialized = false;
         this.allBlurbsOpen = null; // null = follow default (live=open, archive=closed)
 
+        this.loadInitialFallback();
         this.init();
     }
 
@@ -41,14 +42,21 @@ export class PowerRankingsEngine {
             const rankingsRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings`);
             onValue(rankingsRef, (snapshot) => {
                 const val = snapshot.val();
-                if (val) {
+                if (val && (val.current_ranking || (Array.isArray(val.archived_rankings) && val.archived_rankings.length > 0))) {
                     this.data = {
                         allowed_editors: val.allowed_editors || [],
                         current_ranking: this.normalizeEdition(val.current_ranking),
                         archived_rankings: Array.isArray(val.archived_rankings) ? val.archived_rankings.map(item => this.normalizeEdition(item)) : []
                     };
+                    if (!this.data.current_ranking && this.data.archived_rankings.length > 0) {
+                        this.data.current_ranking = this.data.archived_rankings[0];
+                        this.data.archived_rankings = this.data.archived_rankings.slice(1);
+                    }
                 } else {
                     this.loadInitialFallback();
+                    if (val && val.allowed_editors) {
+                        this.data.allowed_editors = val.allowed_editors;
+                    }
                 }
                 this.initialized = true;
                 this.render();
@@ -108,9 +116,15 @@ export class PowerRankingsEngine {
     }
 
     loadInitialFallback() {
-        // Fallback from app.powerRankingsHistory if available
-        if (this.app && this.app.powerRankingsHistory && this.app.powerRankingsHistory.length > 0) {
-            const sorted = [...this.app.powerRankingsHistory].sort((a, b) => (b.week || 0) - (a.week || 0));
+        // Fallback from app.powerRankingsHistory or window.FANTASY_DATA if available
+        const history = (this.app && Array.isArray(this.app.powerRankingsHistory) && this.app.powerRankingsHistory.length > 0)
+            ? this.app.powerRankingsHistory
+            : (window.FANTASY_DATA && Array.isArray(window.FANTASY_DATA.power_rankings_history) && window.FANTASY_DATA.power_rankings_history.length > 0)
+                ? window.FANTASY_DATA.power_rankings_history
+                : [];
+
+        if (history.length > 0) {
+            const sorted = [...history].sort((a, b) => (b.week || 0) - (a.week || 0));
             const latest = sorted[0];
             const archives = sorted.slice(1);
 
@@ -263,6 +277,10 @@ export class PowerRankingsEngine {
     render() {
         const container = document.getElementById(this.containerId);
         if (!container) return;
+
+        if (!this.data.current_ranking) {
+            this.loadInitialFallback();
+        }
 
         const allRankings = this.getAllRankings();
         const total = allRankings.length;

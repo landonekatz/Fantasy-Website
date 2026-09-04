@@ -19,7 +19,8 @@ function serveMultiLeagueDataPlugin() {
           const relPath = cleanUrl.replace('/dmsfantasy/data/', '');
           const filePath = path.join(__dirname, 'dmsfantasy', 'data', relPath);
           if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-            res.setHeader('Content-Type', 'application/json');
+            const contentType = relPath.endsWith('.js') ? 'text/javascript' : 'application/json';
+            res.setHeader('Content-Type', contentType);
             res.setHeader('Access-Control-Allow-Origin', '*');
             return fs.createReadStream(filePath).pipe(res);
           }

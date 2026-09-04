@@ -243,9 +243,12 @@ class FantasyApp {
         this.setupNavigation();
         this.checkAdminAccess();
 
-        // Wait for initial Firebase auth resolution
+        // Wait for initial Firebase auth resolution with timeout protection
         if (typeof window.AuthEngine !== 'undefined' && typeof window.AuthEngine.ready === 'function') {
-            await window.AuthEngine.ready();
+            await Promise.race([
+                window.AuthEngine.ready(),
+                new Promise(resolve => setTimeout(resolve, 800))
+            ]);
         }
 
         await this.loadData();
@@ -429,7 +432,8 @@ class FantasyApp {
         // Support both fetch and offline FANTASY_DATA window variable fallback
         const fetchOrFallback = async (filename, bundleKey) => {
             try {
-                const res = await fetch(`data/${filename}?v=${Date.now()}`, { cache: 'no-store' });
+                const basePath = window.location.pathname.includes('dmsfantasy') ? '/dmsfantasy/data/' : 'data/';
+                const res = await fetch(`${basePath}${filename}?v=${Date.now()}`, { cache: 'no-store' });
                 if (res.ok) {
                     return await res.json();
                 }
@@ -2693,12 +2697,17 @@ class FantasyApp {
 window.FantasyApp = FantasyApp;
 const app = new FantasyApp();
 window.app = app;
-document.addEventListener('DOMContentLoaded', () => {
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        app.init();
+    });
+} else {
     app.init();
-});
+}
 
 // Setup modal backdrop click & Escape close
-document.addEventListener('DOMContentLoaded', () => {
+function setupBoxscoreModal() {
     const modal = document.getElementById('boxscore-modal');
     if (modal) {
         modal.addEventListener('click', (e) => {
@@ -2710,4 +2719,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupBoxscoreModal);
+} else {
+    setupBoxscoreModal();
+}
+
