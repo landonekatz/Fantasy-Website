@@ -19,6 +19,7 @@ import fs from 'fs';
 import path from 'path';
 import { fetchEspnSeasonData } from '../api/scrape-season.js';
 import { fetchYahooSeasonData } from '../api/scrape-yahoo-season.js';
+import { fetchSleeperSeasonData } from '../api/scrape-sleeper-season.js';
 import { compileVaultData } from '../src/compiler.js';
 import { nflGamesService } from '../src/nfl_games.js';
 
@@ -235,8 +236,22 @@ async function syncLeague(slug) {
       // Rate-limit pause
       await sleep(500);
     }
+  } else if (platform === 'sleeper') {
+    const activeLeagueId = (credentials.canonicalSeasons && credentials.canonicalSeasons[currentYear]) || leagueId;
+    log(`  Checking active season on Sleeper API (leagueId: ${activeLeagueId})...`);
+    try {
+      const seasonRes = await fetchSleeperSeasonData({ leagueId: activeLeagueId, year: currentYear });
+      if (seasonRes && seasonRes.data) {
+        log(`    -> Found Sleeper Season ${seasonRes.year} (${seasonRes.data.teams?.length || 0} teams, ${seasonRes.data.schedule?.length || 0} matchups, ${seasonRes.data.draftDetail?.picks?.length || 0} draft picks)`);
+        seasonsData.push(seasonRes);
+      } else {
+        log(`    -> No season data returned from Sleeper API for /${slug}.`);
+      }
+    } catch (err) {
+      log(`    -> Error fetching Sleeper season for /${slug}: ${err.message}`);
+    }
   } else {
-    log(`  [Notice] Automated synchronization currently targets Yahoo and ESPN API platforms.`);
+    log(`  [Notice] Automated synchronization currently targets Yahoo, ESPN, and Sleeper API platforms.`);
     return;
   }
 

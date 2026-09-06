@@ -299,46 +299,76 @@ class FantasyApp {
             const slug = window.location.pathname.substring(1).replace(/\/$/, "");
 
             try {
-                const currentYear = new Date().getFullYear();
-                const possibleYears = Array.from({ length: 30 }, (_, i) => currentYear - i);
-                
-                updateUI(5, "Discovering league history...");
+                let seasonsData = [];
 
-                const validYears = [];
-                const checkPromises = possibleYears.map(async (year) => {
-                    const checkUrl = `/api/scrape-season?leagueId=${leagueId}&year=${year}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}&checkOnly=true`;
-                    try {
-                        const res = await fetch(checkUrl);
-                        if (res.ok) validYears.push(year);
-                    } catch (e) {
-                        // ignore fetch failures
-                    }
-                });
+                if (creds.platform === 'sleeper') {
+                    updateUI(10, "Fetching Sleeper league seasons...");
+                    const canonicalSeasons = creds.canonicalSeasons || {};
+                    const seasonEntries = Object.entries(canonicalSeasons).sort((a, b) => Number(b[0]) - Number(a[0]));
 
-                await Promise.all(checkPromises);
-                
-                // Sort descending
-                validYears.sort((a, b) => b - a);
-
-                if (validYears.length === 0) {
-                    throw new Error("No data found for this league.");
-                }
-
-                const seasonsData = [];
-                let completed = 0;
-                for (const year of validYears) {
-                    updateUI(15 + (completed / validYears.length) * 70, `Syncing ${year} season...`);
-                    const url = `/api/scrape-season?leagueId=${leagueId}&year=${year}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.data) {
-                            seasonsData.push(data);
+                    if (seasonEntries.length > 0) {
+                        let completed = 0;
+                        for (const [yr, sLeagueId] of seasonEntries) {
+                            updateUI(15 + (completed / seasonEntries.length) * 70, `Syncing Sleeper ${yr} season...`);
+                            const url = `/api/scrape-sleeper-season?leagueId=${encodeURIComponent(sLeagueId)}&year=${encodeURIComponent(yr)}`;
+                            const res = await fetch(url);
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data && data.data) seasonsData.push(data);
+                            }
+                            completed++;
                         }
-                    } else if (res.status !== 404) {
-                        console.warn(`Failed to fetch ${year}:`, res.status);
+                    } else {
+                        const sLeagueId = String(leagueId || '');
+                        updateUI(30, `Syncing Sleeper season...`);
+                        const url = `/api/scrape-sleeper-season?leagueId=${encodeURIComponent(sLeagueId)}`;
+                        const res = await fetch(url);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.data) seasonsData.push(data);
+                        }
                     }
-                    completed++;
+                } else {
+                    const currentYear = new Date().getFullYear();
+                    const possibleYears = Array.from({ length: 30 }, (_, i) => currentYear - i);
+                    
+                    updateUI(5, "Discovering league history...");
+
+                    const validYears = [];
+                    const checkPromises = possibleYears.map(async (year) => {
+                        const checkUrl = `/api/scrape-season?leagueId=${leagueId}&year=${year}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}&checkOnly=true`;
+                        try {
+                            const res = await fetch(checkUrl);
+                            if (res.ok) validYears.push(year);
+                        } catch (e) {
+                            // ignore fetch failures
+                        }
+                    });
+
+                    await Promise.all(checkPromises);
+                    
+                    // Sort descending
+                    validYears.sort((a, b) => b - a);
+
+                    if (validYears.length === 0) {
+                        throw new Error("No data found for this league.");
+                    }
+
+                    let completed = 0;
+                    for (const year of validYears) {
+                        updateUI(15 + (completed / validYears.length) * 70, `Syncing ${year} season...`);
+                        const url = `/api/scrape-season?leagueId=${leagueId}&year=${year}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
+                        const res = await fetch(url);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.data) {
+                                seasonsData.push(data);
+                            }
+                        } else if (res.status !== 404) {
+                            console.warn(`Failed to fetch ${year}:`, res.status);
+                        }
+                        completed++;
+                    }
                 }
 
                 if (seasonsData.length === 0) {
@@ -367,6 +397,7 @@ class FantasyApp {
                     leagueId: String(leagueId || ''),
                     s2: s2 || '',
                     swid: swid || '',
+                    canonicalSeasons: creds.canonicalSeasons || null,
                     last_synced: new Date().toISOString()
                 };
                 compiledPayload.league_settings.platform = creds.platform || 'espn';
@@ -381,7 +412,7 @@ class FantasyApp {
                     await window.AuthEngine.linkUserLeague(slug, 'admin', customName || compiledPayload.league_settings?.name);
                     if (creds.creatorClaimId && typeof window.AuthEngine.claimManagerProfile === 'function') {
                         const claimedMgr = compiledPayload.members?.find(m => m.id === creds.creatorClaimId);
-                        await window.AuthEngine.claimManagerProfile(slug, creds.creatorClaimId, claimedMgr?.name || creds.creatorClaimId);
+                        await window.AuthEngine.claimManagerProfile(slug, creds.creatorClaimId, claimedMgr?.name || creds.creatorClaimId, creds.favoriteNflTeam);
                     }
                 } else {
                     localStorage.setItem('vault_last_league', slug);
@@ -2692,9 +2723,13 @@ const matchupsData = bundleData.matchups || [];
                         </p>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <select id="banner-admin-claim-select" class="admin-select" style="min-width: 180px; padding: 7px 10px; font-size: 0.88rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                        <select id="banner-admin-claim-select" class="admin-select" style="min-width: 170px; padding: 7px 10px; font-size: 0.88rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
                             <option value="">-- Select Your Team --</option>
                             ${optionsHtml}
+                        </select>
+                        <select id="banner-admin-nfl-select" class="admin-select" title="Favorite NFL Team (trust us, this will be important later)" style="min-width: 170px; padding: 7px 10px; font-size: 0.88rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                            <option value="">-- Favorite NFL Team --</option>
+                            ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(session?.favorite_team) : '')}
                         </select>
                         <button id="btn-banner-admin-claim" class="btn-primary" style="padding: 7px 18px; font-size: 0.88rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">Link Team</button>
                     </div>
@@ -2705,12 +2740,19 @@ const matchupsData = bundleData.matchups || [];
 
         const btnClaim = bannerContainer.querySelector('#btn-banner-admin-claim');
         const selectClaim = bannerContainer.querySelector('#banner-admin-claim-select');
+        const selectNfl = bannerContainer.querySelector('#banner-admin-nfl-select');
         const feedbackEl = bannerContainer.querySelector('#banner-admin-claim-feedback');
 
         btnClaim?.addEventListener('click', async () => {
             const mgrId = selectClaim?.value;
             if (!mgrId) {
                 alert('Please select your manager profile.');
+                return;
+            }
+            const favoriteTeam = selectNfl?.value || '';
+            if (!favoriteTeam) {
+                alert('Please select your favorite NFL team. Trust us, this will be important later.');
+                if (selectNfl) selectNfl.focus();
                 return;
             }
             const targetMgr = sortedMembers.find(m => m.id === mgrId);
@@ -2720,7 +2762,7 @@ const matchupsData = bundleData.matchups || [];
 
             try {
                 if (typeof window.AuthEngine?.claimManagerProfile === 'function') {
-                    await window.AuthEngine.claimManagerProfile(this.leagueSlug, mgrId, mgrName);
+                    await window.AuthEngine.claimManagerProfile(this.leagueSlug, mgrId, mgrName, favoriteTeam);
                     await window.AuthEngine.linkUserLeague(this.leagueSlug, 'admin', this.leagueSettings?.name || 'League');
                 }
                 if (!this.claims) this.claims = {};
@@ -3005,9 +3047,13 @@ const matchupsData = bundleData.matchups || [];
                                 </p>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <select id="admin-self-claim-select" class="admin-select" style="min-width: 180px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                                <select id="admin-self-claim-select" class="admin-select" style="min-width: 170px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
                                     <option value="">-- Select Your Team --</option>
                                     ${unclaimedOptions}
+                                </select>
+                                <select id="admin-self-claim-nfl" class="admin-select" title="Favorite NFL Team (trust us, this will be important later)" style="min-width: 170px; padding: 6px 10px; font-size: 0.85rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                                    <option value="">-- Favorite NFL Team --</option>
+                                    ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(session?.favorite_team) : '')}
                                 </select>
                                 <button id="btn-admin-self-claim" class="btn-primary" style="padding: 7px 14px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">Claim Profile</button>
                             </div>
@@ -3606,6 +3652,7 @@ const matchupsData = bundleData.matchups || [];
         // Wire up Retrospective Admin Self-Claim
         const btnSelfClaim = container.querySelector('#btn-admin-self-claim');
         const selectSelfClaim = container.querySelector('#admin-self-claim-select');
+        const selectSelfNfl = container.querySelector('#admin-self-claim-nfl');
         if (btnSelfClaim && selectSelfClaim) {
             btnSelfClaim.addEventListener('click', async () => {
                 const mgrId = selectSelfClaim.value;
@@ -3613,11 +3660,17 @@ const matchupsData = bundleData.matchups || [];
                     alert('Please select your manager profile.');
                     return;
                 }
+                const favoriteTeam = selectSelfNfl?.value || '';
+                if (!favoriteTeam) {
+                    alert('Please select your favorite NFL team. Trust us, this will be important later.');
+                    if (selectSelfNfl) selectSelfNfl.focus();
+                    return;
+                }
                 const selectedMgr = sortedMembers.find(m => m.id === mgrId);
                 btnSelfClaim.disabled = true;
                 btnSelfClaim.textContent = 'Claiming...';
                 try {
-                    await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, selectedMgr?.name || mgrId);
+                    await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, selectedMgr?.name || mgrId, favoriteTeam);
                     await window.AuthEngine.linkUserLeague(leagueSlug, 'admin', leagueName);
                     const feedbackEl = document.getElementById('admin-self-claim-feedback');
                     if (feedbackEl) {

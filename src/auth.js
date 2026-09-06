@@ -16,6 +16,49 @@ const JOIN_CODES = {
   'DMSFANTASY': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] }
 };
 
+export const NFL_FRANCHISES = [
+  { code: 'ARI', name: 'Arizona Cardinals' },
+  { code: 'ATL', name: 'Atlanta Falcons' },
+  { code: 'BAL', name: 'Baltimore Ravens' },
+  { code: 'BUF', name: 'Buffalo Bills' },
+  { code: 'CAR', name: 'Carolina Panthers' },
+  { code: 'CHI', name: 'Chicago Bears' },
+  { code: 'CIN', name: 'Cincinnati Bengals' },
+  { code: 'CLE', name: 'Cleveland Browns' },
+  { code: 'DAL', name: 'Dallas Cowboys' },
+  { code: 'DEN', name: 'Denver Broncos' },
+  { code: 'DET', name: 'Detroit Lions' },
+  { code: 'GB',  name: 'Green Bay Packers' },
+  { code: 'HOU', name: 'Houston Texans' },
+  { code: 'IND', name: 'Indianapolis Colts' },
+  { code: 'JAX', name: 'Jacksonville Jaguars' },
+  { code: 'KC',  name: 'Kansas City Chiefs' },
+  { code: 'LV',  name: 'Las Vegas Raiders' },
+  { code: 'LAC', name: 'Los Angeles Chargers' },
+  { code: 'LAR', name: 'Los Angeles Rams' },
+  { code: 'MIA', name: 'Miami Dolphins' },
+  { code: 'MIN', name: 'Minnesota Vikings' },
+  { code: 'NE',  name: 'New England Patriots' },
+  { code: 'NO',  name: 'New Orleans Saints' },
+  { code: 'NYG', name: 'New York Giants' },
+  { code: 'NYJ', name: 'New York Jets' },
+  { code: 'PHI', name: 'Philadelphia Eagles' },
+  { code: 'PIT', name: 'Pittsburgh Steelers' },
+  { code: 'SF',  name: 'San Francisco 49ers' },
+  { code: 'SEA', name: 'Seattle Seahawks' },
+  { code: 'TB',  name: 'Tampa Bay Buccaneers' },
+  { code: 'TEN', name: 'Tennessee Titans' },
+  { code: 'WAS', name: 'Washington Commanders' }
+];
+
+export function renderNflTeamSelectOptions(selectedVal = '') {
+  const norm = (selectedVal || '').trim().toUpperCase();
+  return NFL_FRANCHISES.map(team => {
+    const isSel = norm === team.code || norm === team.name.toUpperCase();
+    return `<option value="${team.name}" data-code="${team.code}" ${isSel ? 'selected' : ''}>${team.name}</option>`;
+  }).join('');
+}
+
 export function formatCapitalizedName(name, email) {
   if (email && email.toLowerCase() === 'landonekatz@gmail.com') return 'Landon Katz';
   if (name && typeof name === 'string' && name.trim()) {
@@ -414,7 +457,7 @@ const AuthEngine = {
     return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
   },
 
-  async finalizeJoin(code, managerId) {
+  async finalizeJoin(code, managerId, favoriteTeam = null) {
     const cleanCode = (code || '').trim().toUpperCase();
     let info = JOIN_CODES[cleanCode];
     if (!info || !info.managers || info.managers.length === 0) {
@@ -429,7 +472,7 @@ const AuthEngine = {
     try {
       await this.linkUserLeague(info.leagueId, 'member', info.name);
       if (managerId && managerId !== 'unknown' && managerId !== 'guest') {
-        await this.claimManagerProfile(info.leagueId, managerId, session.email);
+        await this.claimManagerProfile(info.leagueId, managerId, session.email, favoriteTeam);
       }
       await this.recordActiveLeague(info.leagueId);
       window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
@@ -440,27 +483,42 @@ const AuthEngine = {
     }
   },
 
-  async claimManagerProfile(leagueId, managerId, managerName) {
+  async claimManagerProfile(leagueId, managerId, managerName, favoriteTeam = null) {
     const session = this.getSession();
     if (!session) return { success: false, message: "Not signed in" };
     if (!database) return { success: false, message: "Database not connected" };
 
     try {
       const cleanManagerName = formatCapitalizedName(managerName || session.name, session.email);
-      const claimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
-      await rtdbSet(claimRef, {
+      const teamValue = (favoriteTeam || session.favorite_team || '').trim();
+
+      const claimData = {
         userId: session.uid,
         email: session.email,
         name: cleanManagerName,
         claimedAt: Date.now()
-      });
+      };
+      if (teamValue) claimData.favorite_team = teamValue;
 
-      const userClaimRef = dbRef(database, `users/${session.uid}/claims/${leagueId}`);
-      await rtdbSet(userClaimRef, {
+      const claimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
+      await rtdbSet(claimRef, claimData);
+
+      const userClaimData = {
         managerId: managerId,
         managerName: cleanManagerName,
         claimedAt: Date.now()
-      });
+      };
+      if (teamValue) userClaimData.favorite_team = teamValue;
+
+      const userClaimRef = dbRef(database, `users/${session.uid}/claims/${leagueId}`);
+      await rtdbSet(userClaimRef, userClaimData);
+
+      if (teamValue) {
+        const userFavRef = dbRef(database, `users/${session.uid}/favorite_team`);
+        await rtdbSet(userFavRef, teamValue);
+        session.favorite_team = teamValue;
+        if (currentSession) currentSession.favorite_team = teamValue;
+      }
 
       if (!session.claims) session.claims = {};
       session.claims[leagueId] = managerId;
@@ -719,27 +777,27 @@ onAuthStateChanged(auth, async (user) => {
               }
             });
           }
-        }
+          // Check user's favorite NFL team
+          let favoriteTeam = '';
+          const userFavSnap = await rtdbGet(dbRef(database, `users/${user.uid}/favorite_team`));
+          if (userFavSnap.exists()) {
+            favoriteTeam = userFavSnap.val() || '';
+          }
 
-        let allLeagues = [];
-        if (isFounder) {
-          allLeagues = await AuthEngine.fetchAllVaultLeagues();
-          joinedLeagues = ['dmsfantasy'];
-          adminLeagues = ['dmsfantasy'];
+          currentSession = {
+            uid: user.uid,
+            email: user.email,
+            name: formatCapitalizedName(userData.name || user.displayName, user.email),
+            isFounder: isFounder,
+            joinedLeagues: isFounder ? ['dmsfantasy'] : joinedLeagues,
+            adminLeagues: isFounder ? ['dmsfantasy'] : adminLeagues,
+            leagueDetails: leagueDetails,
+            claims: claims,
+            favorite_team: favoriteTeam,
+            last_league: lastLeague,
+            allLeagues: allLeagues
+          };
         }
-
-        currentSession = {
-          uid: user.uid,
-          email: user.email,
-          name: formatCapitalizedName(userData.name || user.displayName, user.email),
-          isFounder: isFounder,
-          joinedLeagues: isFounder ? ['dmsfantasy'] : joinedLeagues,
-          adminLeagues: isFounder ? ['dmsfantasy'] : adminLeagues,
-          leagueDetails: leagueDetails,
-          claims: claims,
-          last_league: lastLeague,
-          allLeagues: allLeagues
-        };
         try {
           localStorage.setItem('vault_cached_session', JSON.stringify(currentSession));
           if (lastLeague) localStorage.setItem('vault_last_league', lastLeague);
@@ -762,6 +820,8 @@ onAuthStateChanged(auth, async (user) => {
 
 window.AuthEngine = AuthEngine;
 window.JOIN_CODES = JOIN_CODES;
+window.NFL_FRANCHISES = NFL_FRANCHISES;
+window.renderNflTeamSelectOptions = renderNflTeamSelectOptions;
 
 // Instantly notify listeners if we had a synchronously cached session
 if (currentSession) {

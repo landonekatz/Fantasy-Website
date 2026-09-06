@@ -150,9 +150,22 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             <div style="text-align: center; padding: 1rem 0;">
                 <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: #dcfce7; border: 1px solid #bbf7d0; color: #15803d; font-size: 1.1rem; font-weight: 800; margin-bottom: 12px;">✓</div>
                 <h3 class="modal-title" style="margin-bottom: 0.5rem;">Link Manager Profile</h3>
-                <p style="color: var(--text-secondary, #475569); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.5rem;">
+                <p style="color: var(--text-secondary, #475569); font-size: 0.92rem; line-height: 1.5; margin-bottom: 1.25rem;">
                     Confirm linking your account (<strong>${session.email}</strong>) to <strong>${targetName}</strong> in <strong>${leagueName}</strong>.
                 </p>
+                <div style="margin-bottom: 1.25rem; text-align: left; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid var(--border-line, #e2e8f0); border-radius: 6px;">
+                    <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: var(--text-primary, #0f172a); margin-bottom: 0.25rem;">
+                        <span>Favorite NFL Team</span>
+                        <span style="color: var(--accent-gold, #b45309); font-size: 0.74rem; font-weight: 800; text-transform: uppercase;">Required</span>
+                    </label>
+                    <p style="font-size: 0.78rem; color: var(--text-muted, #64748b); margin-bottom: 0.5rem; font-style: italic;">
+                        Trust us, this will be important later.
+                    </p>
+                    <select id="direct-claim-nfl-team" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: var(--text-primary, #0f172a); font-size: 0.88rem;">
+                        <option value="">-- Select Your Favorite NFL Team --</option>
+                        ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(session?.favorite_team) : '')}
+                    </select>
+                </div>
                 <div style="display: flex; gap: 0.75rem;">
                     <button type="button" id="btn-cancel-direct-claim" style="flex: 1; background: none; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-muted, #64748b); padding: 0.65rem; border-radius: 4px; cursor: pointer; font-weight: 600;">
                         Cancel
@@ -168,8 +181,19 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         }
 
         document.getElementById('btn-confirm-direct-claim')?.addEventListener('click', async () => {
+            const favTeamSelect = document.getElementById('direct-claim-nfl-team');
+            const favoriteTeam = favTeamSelect?.value || '';
+            if (!favoriteTeam) {
+                if (favTeamSelect) {
+                    favTeamSelect.style.border = '2px solid #dc2626';
+                    favTeamSelect.style.background = '#fff1f2';
+                    favTeamSelect.focus();
+                }
+                alert('Please select your favorite NFL team before continuing. Trust us, this will be important later.');
+                return;
+            }
             await window.AuthEngine.linkUserLeague(leagueSlug, 'member', leagueName);
-            await window.AuthEngine.claimManagerProfile(leagueSlug, targetManagerId, targetName);
+            await window.AuthEngine.claimManagerProfile(leagueSlug, targetManagerId, targetName, favoriteTeam);
             alert(`Profile successfully linked! Welcome, ${targetName}.`);
             accountModal.close();
             if (onSuccess) onSuccess();
@@ -343,9 +367,21 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 </p>
                 <div style="margin-bottom: 1.25rem; padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line, #e2e8f0); border-radius: 6px;">
                     <label for="modal-admin-claim-select" style="display: block; font-size: 0.82rem; font-weight: 700; color: #b45309; margin-bottom: 0.35rem;">Select Your Manager Profile</label>
-                    <select id="modal-admin-claim-select" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; font-size: 0.88rem; background: #fff; color: #0f172a;">
+                    <select id="modal-admin-claim-select" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; font-size: 0.88rem; background: #fff; color: #0f172a; margin-bottom: 0.85rem;">
                         <option value="">-- Select Your Team --</option>
                         ${optionsHtml}
+                    </select>
+
+                    <label for="modal-admin-claim-nfl" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 700; color: #b45309; margin-bottom: 0.25rem;">
+                        <span>Favorite NFL Team</span>
+                        <span style="color: var(--accent-gold, #b45309); font-size: 0.72rem; font-weight: 800; text-transform: uppercase;">Required</span>
+                    </label>
+                    <p style="font-size: 0.76rem; color: var(--text-muted, #64748b); margin-bottom: 0.35rem; font-style: italic;">
+                        Trust us, this will be important later.
+                    </p>
+                    <select id="modal-admin-claim-nfl" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; font-size: 0.88rem; background: #fff; color: #0f172a;">
+                        <option value="">-- Select Your Favorite NFL Team --</option>
+                        ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(session?.favorite_team) : '')}
                     </select>
                 </div>
                 <div id="modal-admin-claim-feedback" style="display: none; font-size: 0.84rem; margin-bottom: 1rem;"></div>
@@ -362,6 +398,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
         document.getElementById('btn-confirm-admin-claim')?.addEventListener('click', async () => {
             const selectEl = document.getElementById('modal-admin-claim-select');
+            const nflSelect = document.getElementById('modal-admin-claim-nfl');
             const feedbackEl = document.getElementById('modal-admin-claim-feedback');
             const btn = document.getElementById('btn-confirm-admin-claim');
             if (!selectEl || !selectEl.value) {
@@ -372,6 +409,16 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 }
                 return;
             }
+            const favoriteTeam = nflSelect?.value || '';
+            if (!favoriteTeam) {
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#dc2626';
+                    feedbackEl.textContent = 'Please select your favorite NFL team. Trust us, this will be important later.';
+                }
+                if (nflSelect) nflSelect.focus();
+                return;
+            }
             const mgrId = selectEl.value;
             const targetMgr = sortedMembers.find(m => m.id === mgrId);
             const mgrName = targetMgr?.canonical_name || targetMgr?.name || mgrId;
@@ -379,7 +426,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             btn.textContent = 'Linking...';
 
             try {
-                await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, mgrName);
+                await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, mgrName, favoriteTeam);
                 await window.AuthEngine.linkUserLeague(leagueSlug, 'admin', leagueName);
                 if (!session.claims) session.claims = {};
                 session.claims[leagueSlug] = mgrId;
@@ -839,6 +886,19 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     </div>
                     ${claimedHtml}
                     ${availableManagers.length > 0 ? `
+                        <div style="margin-top: 0.85rem; margin-bottom: 1rem; padding: 0.85rem 1rem; background: #f8fafc; border: 1px solid var(--border-line, #e2e8f0); border-radius: 6px;">
+                            <label for="claim-favorite-nfl-team" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: var(--text-primary, #0f172a); margin-bottom: 0.25rem;">
+                                <span>Favorite NFL Team</span>
+                                <span style="color: var(--accent-gold, #b45309); font-size: 0.74rem; font-weight: 800; text-transform: uppercase;">Required</span>
+                            </label>
+                            <p style="font-size: 0.78rem; color: var(--text-muted, #64748b); margin-bottom: 0.5rem; font-style: italic;">
+                                Trust us, this will be important later.
+                            </p>
+                            <select id="claim-favorite-nfl-team" required style="width: 100%; padding: 0.55rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: var(--text-primary, #0f172a); font-size: 0.88rem;">
+                                <option value="">-- Select Your Favorite NFL Team --</option>
+                                ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(session?.favorite_team) : '')}
+                            </select>
+                        </div>
                         <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-weight: 700; font-size: 0.95rem; margin-top: 0.5rem;">Confirm &amp; Join League &rarr;</button>
                     ` : ''}
                     
@@ -863,10 +923,22 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 return;
             }
 
+            const favTeamSelect = document.getElementById('claim-favorite-nfl-team');
+            const favoriteTeam = favTeamSelect?.value || '';
+            if (!favoriteTeam) {
+                if (favTeamSelect) {
+                    favTeamSelect.style.border = '2px solid #dc2626';
+                    favTeamSelect.style.background = '#fff1f2';
+                    favTeamSelect.focus();
+                }
+                alert('Please select your favorite NFL team before joining. Trust us, this will be important later.');
+                return;
+            }
+
             const btn = e.target.querySelector('button[type="submit"]');
             if (btn) { btn.disabled = true; btn.textContent = 'Linking Profile...'; }
 
-            const finalRes = await window.AuthEngine.finalizeJoin(code, selected.value);
+            const finalRes = await window.AuthEngine.finalizeJoin(code, selected.value, favoriteTeam);
             if (finalRes.success) {
                 if (typeof window.AuthEngine.recordActiveLeague === 'function') {
                     window.AuthEngine.recordActiveLeague(league.leagueId);
@@ -1470,6 +1542,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         }
 
         let fetchedLeagueData = null;
+        let cachedSleeperData = null;
 
         const renderStep1 = () => {
             importModal.innerHTML = `
@@ -1496,12 +1569,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         <div>
                             <label class="form-label" style="display: block; font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem;">Platform</label>
                             <select id="u-import-platform" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
-                                <option value="espn" selected>ESPN Fantasy</option>
+                                <option value="sleeper" selected>Sleeper</option>
+                                <option value="espn">ESPN Fantasy</option>
                                 <option value="yahoo" disabled>Yahoo Fantasy (Coming Soon)</option>
-                                <option value="sleeper" disabled>Sleeper (Coming Soon)</option>
                             </select>
                         </div>
-                        <div>
+                        <div id="u-privacy-container" style="display: none;">
                             <label class="form-label" style="display: block; font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem;">Privacy Setting</label>
                             <select id="u-import-privacy" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
                                 <option value="public" selected>Public (Link Access)</option>
@@ -1510,10 +1583,10 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         </div>
                     </div>
 
-                    <div style="margin-bottom: 1rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
-                        <label class="form-label" style="display: block; font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem;">ESPN League ID</label>
-                        <input type="text" id="u-import-league-id" required placeholder="e.g. 12345678" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
-                        <div style="font-size: 0.78rem; color: #64748b; margin-top: 0.35rem;">Found in your league's browser URL (e.g. <code>leagueId=12345678</code>).</div>
+                    <div id="u-id-container" style="margin-bottom: 1rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                        <label id="u-import-id-label" class="form-label" style="display: block; font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem;">Sleeper Username or League ID</label>
+                        <input type="text" id="u-import-league-id" required placeholder="e.g. mistrfistr or 1387183026630332416" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
+                        <div id="u-import-id-hint" style="font-size: 0.78rem; color: #64748b; margin-top: 0.35rem;">Enter your Sleeper username (@username) to discover all your leagues, or enter a specific League ID.</div>
                     </div>
 
                     <div id="u-espn-private-box" style="display: none; margin-bottom: 1.25rem; padding: 1.15rem; background: rgba(251, 188, 5, 0.05); border-radius: 8px; border: 1px solid var(--border-gold, #fde047);">
@@ -1589,12 +1662,40 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 });
             }
 
-            // Privacy toggle
+            // Platform change handler
+            const platformSelect = document.getElementById('u-import-platform');
+            const privacyContainer = document.getElementById('u-privacy-container');
             const privacySelect = document.getElementById('u-import-privacy');
             const espnPrivateBox = document.getElementById('u-espn-private-box');
+            const idLabel = document.getElementById('u-import-id-label');
+            const idInput = document.getElementById('u-import-league-id');
+            const idHint = document.getElementById('u-import-id-hint');
+
+            if (platformSelect) {
+                platformSelect.addEventListener('change', () => {
+                    const isSleeper = platformSelect.value === 'sleeper';
+                    if (isSleeper) {
+                        if (privacyContainer) privacyContainer.style.display = 'none';
+                        if (espnPrivateBox) espnPrivateBox.style.display = 'none';
+                        if (idLabel) idLabel.textContent = 'Sleeper Username or League ID';
+                        if (idInput) idInput.placeholder = 'e.g. mistrfistr or 1387183026630332416';
+                        if (idHint) idHint.innerHTML = 'Enter your Sleeper username (@username) to discover all your leagues, or enter a specific League ID.';
+                    } else {
+                        if (privacyContainer) privacyContainer.style.display = 'block';
+                        if (idLabel) idLabel.textContent = 'ESPN League ID';
+                        if (idInput) idInput.placeholder = 'e.g. 12345678';
+                        if (idHint) idHint.innerHTML = 'Found in your league\'s browser URL (e.g. <code>leagueId=12345678</code>).';
+                        if (espnPrivateBox) espnPrivateBox.style.display = privacySelect?.value === 'private' ? 'block' : 'none';
+                    }
+                });
+            }
+
+            // Privacy toggle (for ESPN)
             if (privacySelect && espnPrivateBox) {
                 privacySelect.addEventListener('change', () => {
-                    espnPrivateBox.style.display = privacySelect.value === 'private' ? 'block' : 'none';
+                    if (platformSelect?.value === 'espn') {
+                        espnPrivateBox.style.display = privacySelect.value === 'private' ? 'block' : 'none';
+                    }
                 });
             }
 
@@ -1630,15 +1731,16 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 });
             }
 
-            // Form Submit -> Fetch ESPN Data
+            // Form Submit -> Fetch Platform Data
             const form = document.getElementById('universal-import-form');
             if (form) {
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const rawName = nameInput.value.trim();
                     const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const leagueId = document.getElementById('u-import-league-id').value.trim();
-                    const privacy = privacySelect.value;
+                    const platform = platformSelect?.value || 'sleeper';
+                    const leagueIdInput = document.getElementById('u-import-league-id').value.trim();
+                    const privacy = privacySelect ? privacySelect.value : 'public';
                     const s2 = document.getElementById('u-import-s2')?.value.trim() || '';
                     const swid = document.getElementById('u-import-swid')?.value.trim() || '';
 
@@ -1646,16 +1748,77 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         alert("Please enter a valid league name.");
                         return;
                     }
-                    if (!leagueId) {
-                        alert("Please enter a valid ESPN League ID.");
+                    if (!leagueIdInput) {
+                        alert("Please enter a valid league identifier or username.");
                         return;
                     }
 
-                    // Loading screen
+                    if (platform === 'sleeper') {
+                        renderLoading("Connecting to Sleeper & discovering historical seasons...");
+                        try {
+                            // 1. Try username lookup first
+                            let sleeperData = null;
+                            const userUrl = `/api/sleeper?action=user_leagues&username=${encodeURIComponent(leagueIdInput)}`;
+                            const userRes = await fetch(userUrl);
+                            if (userRes.ok) {
+                                sleeperData = await userRes.json();
+                            }
+
+                            // 2. If username lookup failed and input looks like a numeric league ID, try league preview
+                            if (!sleeperData && /^\d+$/.test(leagueIdInput)) {
+                                const prevUrl = `/api/sleeper?action=league_preview&leagueId=${encodeURIComponent(leagueIdInput)}`;
+                                const prevRes = await fetch(prevUrl);
+                                if (prevRes.ok) {
+                                    const preview = await prevRes.json();
+                                    sleeperData = {
+                                        user: {
+                                            userId: '',
+                                            username: leagueIdInput,
+                                            displayName: preview.name || 'Sleeper League'
+                                        },
+                                        years: [
+                                            {
+                                                year: parseInt(preview.season || new Date().getFullYear(), 10),
+                                                leagues: [
+                                                    {
+                                                        leagueId: preview.leagueId,
+                                                        name: preview.name,
+                                                        year: parseInt(preview.season || new Date().getFullYear(), 10),
+                                                        totalRosters: preview.totalRosters,
+                                                        filledRosters: preview.members?.length || 0,
+                                                        draftStatus: preview.draftStatus,
+                                                        draftPicks: 0,
+                                                        totalMoves: 0,
+                                                        myTeamName: 'My Team',
+                                                        myRecord: '0-0',
+                                                        isGhost: false,
+                                                        memberOverlapPct: 100,
+                                                        isRecommended: true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    };
+                                }
+                            }
+
+                            if (!sleeperData || !sleeperData.years || sleeperData.years.length === 0) {
+                                throw new Error(`Could not find any Sleeper leagues for "${leagueIdInput}". Please verify your username or League ID.`);
+                            }
+
+                            renderStepThroughLine(sleeperData, rawName, slug);
+                        } catch (err) {
+                            alert("Sleeper Connection Failed: " + err.message);
+                            renderStep1();
+                        }
+                        return;
+                    }
+
+                    // ESPN Handling
                     renderLoading("Connecting to ESPN & discovering historical seasons...");
 
                     try {
-                        const url = `/api/espn?leagueId=${encodeURIComponent(leagueId)}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
+                        const url = `/api/espn?leagueId=${encodeURIComponent(leagueIdInput)}&s2=${encodeURIComponent(s2)}&swid=${encodeURIComponent(swid)}`;
                         const res = await fetch(url);
                         const json = await res.json();
 
@@ -1666,8 +1829,8 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         fetchedLeagueData = {
                             rawName,
                             slug,
-                            platform: platform || 'espn',
-                            leagueId,
+                            platform: 'espn',
+                            leagueId: leagueIdInput,
                             privacy,
                             s2,
                             swid,
@@ -1691,6 +1854,168 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     <p style="color: #64748b; font-size: 0.9rem;">${msg}</p>
                 </div>
             `;
+        };
+
+        const renderStepThroughLine = (sleeperData, rawName, slug) => {
+            cachedSleeperData = sleeperData;
+            const yearsList = sleeperData.years || [];
+
+            const yearsHtml = yearsList.map(yrObj => {
+                const yr = yrObj.year;
+                const leagues = yrObj.leagues || [];
+
+                const leagueCardsHtml = leagues.map(l => {
+                    const isChecked = l.isRecommended || (leagues.length === 1 && !l.isGhost);
+                    const statusBadge = !l.isGhost
+                        ? `<span style="display:inline-block; font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: #ecfdf5; color: #047857; font-weight: 700; border: 1px solid #a7f3d0;">Active Season</span>`
+                        : `<span style="display:inline-block; font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: #f1f5f9; color: #64748b; font-weight: 600; border: 1px solid #cbd5e1;">Ghost / Inactive</span>`;
+
+                    const overlapBadge = (l.memberOverlapPct !== undefined && l.memberOverlapPct > 0)
+                        ? `<span style="display:inline-block; font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: #eff6ff; color: #1d4ed8; font-weight: 700; border: 1px solid #bfdbfe;">${l.memberOverlapPct}% Member Overlap</span>`
+                        : '';
+
+                    const myTeamBadge = (l.myTeamName)
+                        ? `<span style="display:inline-block; font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: #faf5ff; color: #7e22ce; font-weight: 600; border: 1px solid #e9d5ff;">My Team: ${l.myTeamName} (${l.myRecord || '0-0'})</span>`
+                        : '';
+
+                    const recBadge = l.isRecommended
+                        ? `<span style="display:inline-block; font-size: 0.72rem; padding: 2px 7px; border-radius: 4px; background: #fefce8; color: #854d0e; font-weight: 800; border: 1px solid #fde047;">Recommended</span>`
+                        : '';
+
+                    const draftBadge = `<span style="display:inline-block; font-size: 0.72rem; color: #64748b;">${l.totalRosters || 12} Teams · ${l.draftStatus === 'complete' ? 'Drafted' : (l.draftStatus || 'No Draft')}${l.totalMoves ? ` · ${l.totalMoves} Moves` : ''}</span>`;
+
+                    return `
+                        <label style="display: block; cursor: pointer; margin-bottom: 0.6rem;">
+                            <div style="display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 0.85rem; background: ${l.isRecommended ? '#fffdf5' : (l.isGhost ? '#f8fafc' : '#ffffff')}; border: 1px solid ${l.isRecommended ? '#fde047' : '#e2e8f0'}; border-radius: 6px; transition: border-color 0.2s ease;">
+                                <input type="radio" name="canonical_sleeper_year_${yr}" value="${l.leagueId}" ${isChecked ? 'checked' : ''} style="margin-top: 4px; cursor: pointer; transform: scale(1.15);">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem;">
+                                        <div style="font-weight: 700; font-size: 0.92rem; color: #0f172a;">${l.name}</div>
+                                        <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                                            ${recBadge}
+                                            ${statusBadge}
+                                            ${overlapBadge}
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.78rem;">
+                                        ${draftBadge}
+                                        ${myTeamBadge}
+                                    </div>
+                                </div>
+                            </div>
+                        </label>
+                    `;
+                }).join('');
+
+                const skipCardHtml = `
+                    <label style="display: block; cursor: pointer; margin-bottom: 0.25rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 0.85rem; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 6px;">
+                            <input type="radio" name="canonical_sleeper_year_${yr}" value="skip" style="cursor: pointer;">
+                            <span style="font-size: 0.8rem; color: #64748b; font-style: italic;">Do not include a league for ${yr} (skip season)</span>
+                        </div>
+                    </label>
+                `;
+
+                return `
+                    <div style="margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid #f1f5f9;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <div style="font-size: 0.88rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px;">${yr} Season</div>
+                            <span style="font-size: 0.75rem; color: #64748b;">${leagues.length} candidate ${leagues.length === 1 ? 'league' : 'leagues'} found</span>
+                        </div>
+                        ${leagueCardsHtml}
+                        ${skipCardHtml}
+                    </div>
+                `;
+            }).join('');
+
+            importModal.innerHTML = `
+                <button id="close-universal-import-modal" class="modal-close-x" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer;">&times;</button>
+                
+                <h3 class="modal-title" style="font-family: var(--font-heading, 'Cinzel', serif); color: #b45309; margin-top: 0; margin-bottom: 0.35rem; font-size: 1.35rem;">Select Canonical Through-Line</h3>
+                <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.4;">
+                    We scanned historical seasons for <strong>@${sleeperData.user?.username || sleeperData.user?.displayName || 'user'}</strong>. Sleeper commissioners often renew or restart leagues multiple times, as evidenced by ghost or duplicate seasons. Verify which league is canonical for each year:
+                </p>
+
+                <div style="max-height: 380px; overflow-y: auto; margin-bottom: 1.25rem; padding-right: 0.5rem;">
+                    ${yearsHtml}
+                </div>
+
+                <div style="display: flex; gap: 0.75rem;">
+                    <button type="button" id="btn-u-throughline-back" style="flex: 1; background: none; border: 1px solid #cbd5e1; color: #64748b; padding: 0.75rem; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                        &larr; Back
+                    </button>
+                    <button type="button" id="btn-u-throughline-continue" class="btn-primary" style="flex: 2; justify-content: center; padding: 0.75rem; font-size: 0.95rem; font-weight: 600; cursor: pointer;">
+                        Confirm Lineage &amp; Review Managers &rarr;
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('close-universal-import-modal')?.addEventListener('click', () => {
+                importModal.close();
+            });
+
+            document.getElementById('btn-u-throughline-back')?.addEventListener('click', () => {
+                renderStep1();
+            });
+
+            document.getElementById('btn-u-throughline-continue')?.addEventListener('click', async () => {
+                const canonicalSeasons = {};
+                yearsList.forEach(yrObj => {
+                    const sel = document.querySelector(`input[name="canonical_sleeper_year_${yrObj.year}"]:checked`);
+                    if (sel && sel.value && sel.value !== 'skip') {
+                        canonicalSeasons[yrObj.year] = sel.value;
+                    }
+                });
+
+                const sortedYears = Object.keys(canonicalSeasons).map(Number).sort((a, b) => b - a);
+                if (sortedYears.length === 0) {
+                    alert('Please select at least one season league to import.');
+                    return;
+                }
+
+                const anchorYear = sortedYears[0];
+                const anchorLeagueId = canonicalSeasons[anchorYear];
+
+                renderLoading("Loading league rosters & managers from Sleeper...");
+
+                try {
+                    const previewRes = await fetch(`/api/sleeper?action=league_preview&leagueId=${encodeURIComponent(anchorLeagueId)}`);
+                    const preview = await previewRes.json();
+                    if (!previewRes.ok) {
+                        throw new Error(preview.error || 'Failed to load Sleeper league preview.');
+                    }
+
+                    const members = (preview.members || []).map(m => ({
+                        id: m.id,
+                        name: m.displayName || m.username,
+                        handle: m.username,
+                        alias: m.displayName || m.username,
+                        teamName: m.teamName,
+                        avatar: m.avatar,
+                        isActive: true,
+                        mergedInto: ''
+                    }));
+
+                    fetchedLeagueData = {
+                        rawName: rawName || preview.name,
+                        slug,
+                        platform: 'sleeper',
+                        leagueId: anchorLeagueId,
+                        canonicalSeasons,
+                        sleeperUserId: sleeperData.user?.userId || '',
+                        creatorClaimId: sleeperData.user?.userId || '',
+                        espnData: {
+                            members,
+                            seasons: sortedYears
+                        }
+                    };
+
+                    renderStep2();
+                } catch (err) {
+                    alert('Preview Failed: ' + err.message);
+                    renderStepThroughLine(sleeperData, rawName, slug);
+                }
+            });
         };
 
         const renderStep2 = () => {
@@ -1774,7 +2099,11 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 `;
             });
 
-            const creatorClaimOptions = activeMembers.map(am => `<option value="${am.id}">${am.name}</option>`).join('');
+            const creatorClaimOptions = activeMembers.map(am => {
+                const isSelected = (fetchedLeagueData.creatorClaimId && fetchedLeagueData.creatorClaimId === am.id) ||
+                                   (fetchedLeagueData.sleeperUserId && fetchedLeagueData.sleeperUserId === am.id);
+                return `<option value="${am.id}" ${isSelected ? 'selected' : ''}>${am.name}${am.handle ? ' (@' + am.handle + ')' : ''}</option>`;
+            }).join('');
 
             importModal.innerHTML = `
                 <button id="close-universal-import-modal" class="modal-close-x" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer;">&times;</button>
@@ -1795,6 +2124,20 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         <option value="">-- Select Which Manager You Are --</option>
                         ${creatorClaimOptions}
                     </select>
+
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed rgba(180, 83, 9, 0.25);">
+                        <label for="u-creator-nfl-team" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #854d0e; margin-bottom: 0.25rem;">
+                            <span>Favorite NFL Team</span>
+                            <span style="color: #dc2626; font-size: 0.74rem; font-weight: 800; text-transform: uppercase;">Required</span>
+                        </label>
+                        <p style="font-size: 0.78rem; color: #713f12; margin-bottom: 0.5rem; font-style: italic;">
+                            Trust us, this will be important later.
+                        </p>
+                        <select id="u-creator-nfl-team" required style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; font-size: 0.88rem;">
+                            <option value="">-- Select Your Favorite NFL Team --</option>
+                            ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(window.AuthEngine?.getSession()?.favorite_team) : '')}
+                        </select>
+                    </div>
                 </div>
 
                 <div style="max-height: 280px; overflow-y: auto; margin-bottom: 1.25rem; padding-right: 0.5rem;">
@@ -1831,7 +2174,11 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             // Back button
             document.getElementById('btn-u-import-back')?.addEventListener('click', () => {
-                renderStep1();
+                if (fetchedLeagueData && fetchedLeagueData.platform === 'sleeper' && cachedSleeperData) {
+                    renderStepThroughLine(cachedSleeperData, fetchedLeagueData.rawName, fetchedLeagueData.slug);
+                } else {
+                    renderStep1();
+                }
             });
 
             // Checkbox changes
@@ -1870,6 +2217,8 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 const { rawName, slug, platform, leagueId, privacy, s2, swid } = fetchedLeagueData;
                 const creatorClaimSelect = document.getElementById('u-creator-claim');
                 const creatorClaimId = creatorClaimSelect?.value || '';
+                const creatorNflSelect = document.getElementById('u-creator-nfl-team');
+                const favoriteNflTeam = creatorNflSelect?.value || '';
 
                 if (!creatorClaimId) {
                     if (creatorClaimSelect) {
@@ -1882,6 +2231,17 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     return;
                 }
 
+                if (!favoriteNflTeam) {
+                    if (creatorNflSelect) {
+                        creatorNflSelect.style.border = '2px solid #dc2626';
+                        creatorNflSelect.style.background = '#fff1f2';
+                        creatorNflSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        creatorNflSelect.focus();
+                    }
+                    alert('Please select your favorite NFL team before proceeding. Trust us, this will be important later.');
+                    return;
+                }
+
                 const pendingBuildPayload = {
                     platform: platform || 'espn',
                     leagueId: leagueId,
@@ -1890,7 +2250,9 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     customName: rawName,
                     isPrivate: privacy === 'private',
                     members: members,
-                    creatorClaimId: creatorClaimId
+                    creatorClaimId: creatorClaimId,
+                    favoriteNflTeam: favoriteNflTeam,
+                    canonicalSeasons: fetchedLeagueData.canonicalSeasons || null
                 };
 
                 sessionStorage.setItem('pendingVaultBuild', JSON.stringify(pendingBuildPayload));

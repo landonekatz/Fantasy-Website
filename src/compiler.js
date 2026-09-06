@@ -136,6 +136,63 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     25: ["Kicking", "Extra Point Missed"]
   };
 
+  const SLEEPER_STAT_MAP = {
+    // Passing
+    pass_yd: ["Passing", "Passing Yards (per yard)"],
+    pass_td: ["Passing", "TD Pass"],
+    pass_2pt: ["Passing", "2pt Passing Conversion"],
+    pass_int: ["Passing", "Interceptions Thrown"],
+    pass_int_td: ["Passing", "Pick Six Thrown"],
+    pass_comp: ["Passing", "Pass Completion"],
+    pass_inc: ["Passing", "Pass Incompletion"],
+    pass_att: ["Passing", "Pass Attempt"],
+    
+    // Rushing
+    rush_yd: ["Rushing", "Rushing Yards (per yard)"],
+    rush_td: ["Rushing", "TD Rush"],
+    rush_2pt: ["Rushing", "2pt Rushing Conversion"],
+    rush_att: ["Rushing", "Rush Attempt"],
+    
+    // Receiving
+    rec: ["Receiving", "Each Reception (PPR)"],
+    rec_yd: ["Receiving", "Receiving Yards (per yard)"],
+    rec_td: ["Receiving", "TD Reception"],
+    rec_2pt: ["Receiving", "2pt Receiving Conversion"],
+    
+    // Miscellaneous
+    fum_lost: ["Miscellaneous", "Total Fumbles Lost"],
+    fum: ["Miscellaneous", "Fumbles"],
+    fum_rec_td: ["Miscellaneous", "Fumble Recovery TD"],
+    
+    // Kicking
+    fgm_0_19: ["Kicking", "FG Made (0-19 yards)"],
+    fgm_20_29: ["Kicking", "FG Made (20-29 yards)"],
+    fgm_30_39: ["Kicking", "FG Made (30-39 yards)"],
+    fgm_40_49: ["Kicking", "FG Made (40-49 yards)"],
+    fgm_50_59: ["Kicking", "FG Made (50-59 yards)"],
+    fgm_50p: ["Kicking", "FG Made (50+ yards)"],
+    fgm_60p: ["Kicking", "FG Made (60+ yards)"],
+    xpm: ["Kicking", "Each PAT Made"],
+    fgmiss: ["Kicking", "FG Missed"],
+    xpmiss: ["Kicking", "Extra Point Missed"],
+    
+    // Defense / Special Teams
+    sack: ["Team Defense and Special Teams", "Each Sack"],
+    int: ["Team Defense and Special Teams", "Each Interception"],
+    fum_rec: ["Team Defense and Special Teams", "Each Fumble Recovered"],
+    safe: ["Team Defense and Special Teams", "Each Safety"],
+    def_td: ["Team Defense and Special Teams", "Defensive TD"],
+    st_td: ["Team Defense and Special Teams", "Special Teams TD"],
+    blk_kick: ["Team Defense and Special Teams", "Blocked Kick"],
+    pts_allow_0: ["Team Defense and Special Teams", "0 points allowed"],
+    pts_allow_1_6: ["Team Defense and Special Teams", "1-6 points allowed"],
+    pts_allow_7_13: ["Team Defense and Special Teams", "7-13 points allowed"],
+    pts_allow_14_20: ["Team Defense and Special Teams", "14-20 points allowed"],
+    pts_allow_21_27: ["Team Defense and Special Teams", "21-27 points allowed"],
+    pts_allow_28_34: ["Team Defense and Special Teams", "28-34 points allowed"],
+    pts_allow_35p: ["Team Defense and Special Teams", "35+ points allowed"]
+  };
+
   const NFL_TEAMS = {
     0: 'FA', 1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL', 7: 'DEN', 8: 'DET', 9: 'GB',
     10: 'TEN', 11: 'IND', 12: 'KC', 13: 'LV', 14: 'LAR', 15: 'MIA', 16: 'MIN', 17: 'NE', 18: 'NO', 19: 'NYG',
@@ -866,6 +923,19 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
           let [category, name] = YAHOO_STAT_MAP[sid];
           if (!yearRules[category]) yearRules[category] = [];
           yearRules[category].push({ name, points: val, stat_id: sid });
+        }
+      }
+    }
+
+    // Check Sleeper stat rules
+    const sleeperRules = season.data.settings?.scoringSettings?.sleeperRules;
+    if (sleeperRules && typeof sleeperRules === 'object') {
+      for (const [key, val] of Object.entries(sleeperRules)) {
+        const numVal = parseFloat(val);
+        if (SLEEPER_STAT_MAP[key] && numVal !== 0) {
+          let [category, name] = SLEEPER_STAT_MAP[key];
+          if (!yearRules[category]) yearRules[category] = [];
+          yearRules[category].push({ name, points: numVal, stat_id: key });
         }
       }
     }
