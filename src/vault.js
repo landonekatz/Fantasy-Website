@@ -294,6 +294,8 @@ class FantasyApp {
                 resolve();
                 return;
             }
+            // Consume immediately so that browser back button or refresh cannot re-trigger building
+            sessionStorage.removeItem('pendingVaultBuild');
             const creds = JSON.parse(pendingRaw);
             const { leagueId, s2, swid, customName } = creds;
             const slug = window.location.pathname.substring(1).replace(/\/$/, "");
@@ -402,6 +404,22 @@ class FantasyApp {
                 };
                 compiledPayload.league_settings.platform = creds.platform || 'espn';
                 compiledPayload.league_settings.last_synced = new Date().toISOString();
+
+                // Strict Overwrite Protection: Never overwrite an existing league without verified commissioner authorization
+                const existingSnap = await get(dbRef(database, `leagues/${slug}`));
+                if (existingSnap.exists()) {
+                    const existingData = existingSnap.val();
+                    const isProtectedSystemLeague = slug === 'dmsfantasy' || slug === 'gaywoodfantasyfootball';
+                    const isExistingAdmin = session && session.email && (
+                        existingData.league_settings?.admin_email === session.email ||
+                        session.adminLeagues?.includes(slug) ||
+                        session.isFounder
+                    );
+
+                    if (isProtectedSystemLeague || (!isExistingAdmin && existingData.league_settings)) {
+                        throw new Error(`The league "${slug}" already exists in The Fantasy Vault and is protected from being overwritten. Please choose a different league name.`);
+                    }
+                }
 
                 updateUI(92, "Saving to Vault Database...");
                 const databaseRef = dbRef(database, `leagues/${slug}`);
@@ -1039,9 +1057,22 @@ class FantasyApp {
 
         if (!bundleData) {
             document.body.innerHTML = `
-                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#1a1d21; color:#fff; text-align:center; padding: 2rem;">
-                    <h1 style="color:#ff6b6b;">Vault Not Found</h1>
-                    <p>No data exists for this league yet, or it is currently being built.</p>
+                <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f172a; color: #f8fafc; text-align: center; padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <div style="max-width: 520px; width: 90%; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 12px; padding: 2.5rem 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                        <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(212, 175, 55, 0.15); color: #d4af37; font-weight: 800; font-size: 1.1rem; margin-bottom: 1.25rem;">TFV</div>
+                        <h1 style="font-family: 'Cinzel', serif, Georgia; font-size: 1.6rem; color: #d4af37; margin: 0 0 0.75rem 0;">Vault Not Found</h1>
+                        <p style="color: #94a3b8; font-size: 0.92rem; line-height: 1.5; margin: 0 0 1.75rem 0;">
+                            No historical archive exists for <code>/${encodeURIComponent(slug || 'league')}</code>, as this league has not been registered yet. All existing league archives are protected from accidental overwrites.
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <a href="/" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #d4af37; color: #000; padding: 0.75rem 1.25rem; border-radius: 6px; font-weight: 700; text-decoration: none; font-size: 0.95rem;">
+                                Return to The Fantasy Vault Hub &rarr;
+                            </a>
+                            <a href="/#register" style="display: inline-flex; align-items: center; justify-content: center; background: transparent; color: #94a3b8; border: 1px solid #334155; padding: 0.7rem 1.25rem; border-radius: 6px; font-weight: 600; text-decoration: none; font-size: 0.88rem;">
+                                Register or Import a New League
+                            </a>
+                        </div>
+                    </div>
                 </div>
             `;
             return;

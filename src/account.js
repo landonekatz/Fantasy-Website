@@ -1543,6 +1543,11 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
         let fetchedLeagueData = null;
         let cachedSleeperData = null;
+        let savedFormState = {
+            rawName: initialParams.rawName || '',
+            platform: initialParams.platform || 'sleeper',
+            leagueId: initialParams.leagueId || ''
+        };
 
         const renderStep1 = () => {
             importModal.innerHTML = `
@@ -1585,7 +1590,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
                     <div id="u-id-container" style="margin-bottom: 1rem; padding: 1rem; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
                         <label id="u-import-id-label" class="form-label" style="display: block; font-size: 0.85rem; font-weight: 600; color: #0f172a; margin-bottom: 0.35rem;">Sleeper Username or League ID</label>
-                        <input type="text" id="u-import-league-id" required placeholder="e.g. mistrfistr or 1387183026630332416" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
+                        <input type="text" id="u-import-league-id" required placeholder="e.g. username or 1234567890" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
                         <div id="u-import-id-hint" style="font-size: 0.78rem; color: #64748b; margin-top: 0.35rem;">Enter your Sleeper username (@username) to discover all your leagues, or enter a specific League ID.</div>
                     </div>
 
@@ -1678,7 +1683,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         if (privacyContainer) privacyContainer.style.display = 'none';
                         if (espnPrivateBox) espnPrivateBox.style.display = 'none';
                         if (idLabel) idLabel.textContent = 'Sleeper Username or League ID';
-                        if (idInput) idInput.placeholder = 'e.g. mistrfistr or 1387183026630332416';
+                        if (idInput) idInput.placeholder = 'e.g. username or 1234567890';
                         if (idHint) idHint.innerHTML = 'Enter your Sleeper username (@username) to discover all your leagues, or enter a specific League ID.';
                     } else {
                         if (privacyContainer) privacyContainer.style.display = 'block';
@@ -1731,18 +1736,22 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 });
             }
 
-            // Pre-fill from initialParams if provided
-            if (initialParams.rawName && nameInput) {
-                nameInput.value = initialParams.rawName;
-                const slug = initialParams.rawName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'league';
+            // Pre-fill from savedFormState or initialParams if provided
+            const activeRawName = savedFormState.rawName || initialParams.rawName || '';
+            const activePlatform = savedFormState.platform || initialParams.platform || 'sleeper';
+            const activeLeagueId = savedFormState.leagueId || initialParams.leagueId || '';
+
+            if (activeRawName && nameInput) {
+                nameInput.value = activeRawName;
+                const slug = activeRawName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'league';
                 if (slugPreview) slugPreview.textContent = slug;
             }
-            if (initialParams.platform && platformSelect) {
-                platformSelect.value = initialParams.platform;
+            if (activePlatform && platformSelect) {
+                platformSelect.value = activePlatform;
                 platformSelect.dispatchEvent(new Event('change'));
             }
-            if (initialParams.leagueId && idInput) {
-                idInput.value = initialParams.leagueId;
+            if (activeLeagueId && idInput) {
+                idInput.value = activeLeagueId;
             }
 
             // Form Submit -> Fetch Platform Data
@@ -1757,6 +1766,11 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     const privacy = privacySelect ? privacySelect.value : 'public';
                     const s2 = document.getElementById('u-import-s2')?.value.trim() || '';
                     const swid = document.getElementById('u-import-swid')?.value.trim() || '';
+
+                    // Save form state so Back button restores it perfectly
+                    savedFormState.rawName = rawName;
+                    savedFormState.platform = platform;
+                    savedFormState.leagueId = leagueIdInput;
 
                     if (!slug) {
                         alert("Please enter a valid league name.");
@@ -2008,28 +2022,71 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 const anchorYear = sortedYears[0];
                 const anchorLeagueId = canonicalSeasons[anchorYear];
 
-                renderLoading("Loading league rosters & managers from Sleeper...");
+                renderLoading("Loading all historical rosters & managers from Sleeper...");
 
                 try {
-                    const previewRes = await fetch(`/api/sleeper?action=league_preview&leagueId=${encodeURIComponent(anchorLeagueId)}`);
-                    const preview = await previewRes.json();
-                    if (!previewRes.ok) {
-                        throw new Error(preview.error || 'Failed to load Sleeper league preview.');
+                    // Fetch previews for all selected canonical seasons in parallel
+                    const seasonPreviewPromises = sortedYears.map(async (yr) => {
+                        const sId = canonicalSeasons[yr];
+                        try {
+                            const res = await fetch(`/api/sleeper?action=league_preview&leagueId=${encodeURIComponent(sId)}`);
+                            if (res.ok) {
+                                const data = await res.json();
+                                return { year: yr, data };
+                            }
+                        } catch (e) {
+                            console.warn(`Failed to fetch preview for season ${yr}:`, e);
+                        }
+                        return { year: yr, data: null };
+                    });
+
+                    const seasonPreviews = await Promise.all(seasonPreviewPromises);
+                    const anchorPreview = seasonPreviews.find(p => p.year === anchorYear)?.data;
+                    if (!anchorPreview) {
+                        throw new Error('Failed to load current Sleeper league preview.');
                     }
 
-                    const members = (preview.members || []).map(m => ({
-                        id: m.id,
-                        name: m.displayName || m.username,
-                        handle: m.username,
-                        alias: m.displayName || m.username,
-                        teamName: m.teamName,
-                        avatar: m.avatar,
-                        isActive: true,
-                        mergedInto: ''
-                    }));
+                    // Map all members across all canonical seasons
+                    // Active members = members present in the latest anchor season
+                    const allMembersMap = new Map();
+
+                    // 1. Add anchor season members (marked active)
+                    (anchorPreview.members || []).forEach(m => {
+                        allMembersMap.set(m.id, {
+                            id: m.id,
+                            name: m.displayName || m.username,
+                            handle: m.username,
+                            alias: m.displayName || m.username,
+                            teamName: m.teamName,
+                            avatar: m.avatar,
+                            isActive: true,
+                            mergedInto: ''
+                        });
+                    });
+
+                    // 2. Add historical members from earlier seasons if not already in anchor
+                    seasonPreviews.forEach(sp => {
+                        if (!sp.data || !sp.data.members) return;
+                        sp.data.members.forEach(m => {
+                            if (!allMembersMap.has(m.id)) {
+                                allMembersMap.set(m.id, {
+                                    id: m.id,
+                                    name: m.displayName || m.username,
+                                    handle: m.username,
+                                    alias: m.displayName || m.username,
+                                    teamName: m.teamName,
+                                    avatar: m.avatar,
+                                    isActive: false, // Historical manager not in latest season
+                                    mergedInto: ''
+                                });
+                            }
+                        });
+                    });
+
+                    const members = Array.from(allMembersMap.values());
 
                     fetchedLeagueData = {
-                        rawName: rawName || preview.name,
+                        rawName: rawName || anchorPreview.name,
                         slug,
                         platform: 'sleeper',
                         leagueId: anchorLeagueId,
@@ -2280,6 +2337,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     s2: s2,
                     swid: swid,
                     customName: rawName,
+                    slug: slug,
                     isPrivate: privacy === 'private',
                     members: members,
                     creatorClaimId: creatorClaimId,
@@ -2287,10 +2345,135 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     canonicalSeasons: fetchedLeagueData.canonicalSeasons || null
                 };
 
-                sessionStorage.setItem('pendingVaultBuild', JSON.stringify(pendingBuildPayload));
+                const triggerBuild = async () => {
+                    // Double check overwrite protection right before navigating
+                    try {
+                        const checkRes = await fetch(`https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues/${slug}.json?shallow=true`);
+                        const existsData = await checkRes.json();
+                        if (existsData !== null) {
+                            const curSession = window.AuthEngine ? window.AuthEngine.getSession() : null;
+                            const isMyExistingAdmin = curSession?.adminLeagues?.includes(slug);
+                            if (!isMyExistingAdmin) {
+                                alert(`The league URL /${slug} already exists in The Fantasy Vault. To protect existing league records, please choose a different league name.`);
+                                renderStep1();
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Pre-build overwrite check bypassed:", e);
+                    }
+
+                    sessionStorage.setItem('pendingVaultBuild', JSON.stringify(pendingBuildPayload));
+                    window.location.href = '/' + slug + '?building=true';
+                };
+
+                const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+                const isAuthenticated = session && session.uid && session.email;
+
+                if (isAuthenticated) {
+                    triggerBuild();
+                } else {
+                    renderStepAuth(pendingBuildPayload, triggerBuild);
+                }
+            });
+        };
+
+        const renderStepAuth = (pendingBuildPayload, onAuthenticated) => {
+            importModal.innerHTML = `
+                <button id="close-universal-import-modal" class="modal-close-x" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer;">&times;</button>
                 
-                // Immediately navigate to the new league page with building flag
-                window.location.href = '/' + slug + '?building=true';
+                <div style="text-align: center; padding: 0.5rem 0;">
+                    <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--accent-gold, #b45309); font-size: 1.1rem; font-weight: 800; margin-bottom: 12px;">TFV</div>
+                    <h3 class="modal-title" style="font-family: var(--font-heading, 'Cinzel', serif); color: #b45309; margin-top: 0; margin-bottom: 0.35rem; font-size: 1.35rem;">Create Your Commissioner Account</h3>
+                    <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 1.25rem; line-height: 1.4;">
+                        Sign in or register to claim ownership of <strong>${pendingBuildPayload.customName}</strong>. This links your administrator profile, unlocks your commissioner dashboard, and secures your manager profile.
+                    </p>
+
+                    <button type="button" id="btn-u-auth-google" class="btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; margin-bottom: 1rem; cursor: pointer; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; font-weight: 600; border-radius: 6px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                        Continue with Google
+                    </button>
+
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; color: #64748b; font-size: 0.78rem;">
+                        <hr style="flex: 1; border: none; border-top: 1px solid #e2e8f0;">
+                        <span>OR EMAIL &amp; PASSWORD</span>
+                        <hr style="flex: 1; border: none; border-top: 1px solid #e2e8f0;">
+                    </div>
+
+                    <form id="u-auth-email-form">
+                        <input type="email" id="u-auth-email" class="form-input" placeholder="Your Email Address" required style="width: 100%; margin-bottom: 0.65rem; box-sizing: border-box; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.88rem; background: #fff; color: #0f172a;">
+                        <input type="password" id="u-auth-password" class="form-input" placeholder="Password (min. 6 characters)" required style="width: 100%; margin-bottom: 1rem; box-sizing: border-box; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.88rem; background: #fff; color: #0f172a;">
+                        
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" id="btn-u-auth-back" style="flex: 1; background: none; border: 1px solid #cbd5e1; color: #64748b; padding: 0.75rem; border-radius: 4px; cursor: pointer; font-weight: 600;">
+                                &larr; Back
+                            </button>
+                            <button type="submit" id="btn-u-auth-submit" class="btn-primary" style="flex: 2; justify-content: center; padding: 0.75rem; font-size: 0.95rem; font-weight: 600; cursor: pointer;">
+                                Sign In / Register &amp; Build Vault &rarr;
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            document.getElementById('close-universal-import-modal')?.addEventListener('click', () => {
+                importModal.close();
+            });
+
+            document.getElementById('btn-u-auth-back')?.addEventListener('click', () => {
+                renderStep2();
+            });
+
+            document.getElementById('btn-u-auth-google')?.addEventListener('click', async () => {
+                try {
+                    await window.AuthEngine.loginWithGoogle();
+                    const s = window.AuthEngine.getSession();
+                    if (s && s.uid) {
+                        onAuthenticated();
+                    }
+                } catch (err) {
+                    console.error("Google sign in failed:", err);
+                    alert("Google sign in failed: " + err.message);
+                }
+            });
+
+            document.getElementById('u-auth-email-form')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const em = document.getElementById('u-auth-email').value.trim();
+                const pw = document.getElementById('u-auth-password').value;
+                if (!em || !pw) return;
+
+                const submitBtn = document.getElementById('btn-u-auth-submit');
+                const prevText = submitBtn ? submitBtn.textContent : '';
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Authenticating...';
+                }
+
+                try {
+                    // Try registration first
+                    try {
+                        await window.AuthEngine.registerWithEmail(em, pw);
+                    } catch (regErr) {
+                        if (regErr.code === 'auth/email-already-in-use' || regErr.message?.includes('email-already-in-use')) {
+                            await window.AuthEngine.loginWithEmail(em, pw);
+                        } else {
+                            throw regErr;
+                        }
+                    }
+
+                    const s = window.AuthEngine.getSession();
+                    if (s && s.uid) {
+                        onAuthenticated();
+                    }
+                } catch (err) {
+                    console.error("Authentication error:", err);
+                    alert("Authentication failed: " + err.message);
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = prevText;
+                    }
+                }
             });
         };
 
