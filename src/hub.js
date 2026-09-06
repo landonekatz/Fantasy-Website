@@ -207,6 +207,17 @@ let currentLeagueCreds = null;
           console.error("Failed to check duplicate league name", err);
       }
 
+      const platform = inputPlatform ? inputPlatform.value : 'sleeper';
+
+      // Delegate directly to the Universal Import Modal (with Sleeper throughline, ghost detection, and favorite NFL team picker)
+      if (typeof window.openImportLeagueModal === 'function') {
+        if (registerModal && typeof registerModal.close === 'function' && registerModal.open) {
+          registerModal.close();
+        }
+        window.openImportLeagueModal({ rawName, platform });
+        return;
+      }
+
       if (modalGeneratedUrl) {
         modalGeneratedUrl.textContent = `thefantasyvault.com/${slug}`;
       }
@@ -237,6 +248,19 @@ let currentLeagueCreds = null;
   if (btnAuthContinue) {
     btnAuthContinue.addEventListener('click', async () => {
       const platform = inputPlatform ? inputPlatform.value : 'espn';
+
+      if (platform === 'sleeper') {
+        const sleeperInput = document.getElementById('input-sleeper-id');
+        const sId = sleeperInput ? sleeperInput.value.trim() : '';
+        const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'Sleeper League';
+        if (registerModal && typeof registerModal.close === 'function') {
+          registerModal.close();
+        }
+        if (typeof window.openImportLeagueModal === 'function') {
+          window.openImportLeagueModal({ rawName, platform: 'sleeper', leagueId: sId, autoSubmit: !!sId });
+        }
+        return;
+      }
 
       if (platform === 'yahoo') {
         const yahooLeagueIdInput = document.getElementById('input-yahoo-id');
@@ -277,7 +301,7 @@ let currentLeagueCreds = null;
         return;
       }
 
-      if (platform !== 'espn') {
+      if (platform !== 'espn' && platform !== 'sleeper' && platform !== 'yahoo') {
         const plat = platform.charAt(0).toUpperCase() + platform.slice(1);
         alert(`${plat} integration is coming soon!`);
         return;
@@ -767,6 +791,7 @@ let currentLeagueCreds = null;
     if (!inputPlatform) return;
     const isEspn = inputPlatform.value === 'espn' && (!inputLeagueType || inputLeagueType.value !== 'multiple-diff');
     const isYahoo = inputPlatform.value === 'yahoo';
+    const isSleeper = inputPlatform.value === 'sleeper';
     
     // Only show League ID input if they have selected a privacy option
     const modalInputAccess = document.getElementById('modal-input-access');
@@ -783,6 +808,21 @@ let currentLeagueCreds = null;
     const modalYahooSection = document.getElementById('modal-yahoo-section');
     if (modalYahooSection) {
       modalYahooSection.style.display = (isYahoo && privacySelected) ? 'block' : 'none';
+    }
+
+    const modalSleeperSection = document.getElementById('modal-sleeper-section');
+    if (modalSleeperSection) {
+      modalSleeperSection.style.display = isSleeper ? 'block' : 'none';
+    }
+
+    const accessGroup = modalInputAccess ? modalInputAccess.closest('.form-group') : null;
+    const authPlatformPrompt = document.querySelector('#register-step-auth .modal-text');
+    if (isSleeper) {
+      if (accessGroup) accessGroup.style.display = 'none';
+      if (authPlatformPrompt) authPlatformPrompt.style.display = 'none';
+    } else {
+      if (accessGroup) accessGroup.style.display = 'block';
+      if (authPlatformPrompt) authPlatformPrompt.style.display = 'block';
     }
   }
 

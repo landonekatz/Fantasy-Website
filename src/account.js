@@ -1515,7 +1515,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     // ==========================================
     // UNIVERSAL IN-PLACE LEAGUE IMPORT WIZARD (Clean Light Theme)
     // ==========================================
-    window.openImportLeagueModal = function() {
+    window.openImportLeagueModal = function(initialParams = {}) {
         let importModal = document.getElementById('universal-import-modal');
         if (!importModal) {
             importModal = document.createElement('dialog');
@@ -1731,6 +1731,20 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 });
             }
 
+            // Pre-fill from initialParams if provided
+            if (initialParams.rawName && nameInput) {
+                nameInput.value = initialParams.rawName;
+                const slug = initialParams.rawName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'league';
+                if (slugPreview) slugPreview.textContent = slug;
+            }
+            if (initialParams.platform && platformSelect) {
+                platformSelect.value = initialParams.platform;
+                platformSelect.dispatchEvent(new Event('change'));
+            }
+            if (initialParams.leagueId && idInput) {
+                idInput.value = initialParams.leagueId;
+            }
+
             // Form Submit -> Fetch Platform Data
             const form = document.getElementById('universal-import-form');
             if (form) {
@@ -1751,6 +1765,18 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     if (!leagueIdInput) {
                         alert("Please enter a valid league identifier or username.");
                         return;
+                    }
+
+                    // Check duplicate league name early
+                    try {
+                        const checkRes = await fetch(`https://fantasy-vault-4f8da-default-rtdb.firebaseio.com/leagues/${slug}.json?shallow=true`);
+                        const existsData = await checkRes.json();
+                        if (existsData !== null) {
+                            alert(`The league name "${rawName}" (URL: /${slug}) already exists in our system. Please choose a different name so you don't overwrite an existing league!`);
+                            return;
+                        }
+                    } catch (err) {
+                        console.error("Duplicate check error:", err);
                     }
 
                     if (platform === 'sleeper') {
@@ -1843,6 +1869,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         renderStep1();
                     }
                 });
+            }
+
+            if (initialParams.autoSubmit && initialParams.leagueId && form) {
+                setTimeout(() => {
+                    form.dispatchEvent(new Event('submit'));
+                }, 50);
             }
         };
 

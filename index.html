@@ -60,7 +60,7 @@
     <div class="hero-tag">A Dedicated Home for Fantasy Football History</div>
     <h1 class="hero-title">Your league is storied.<br>Tell it.</h1>
     <p class="hero-subtitle">
-      The Fantasy Vault automatically imports your league's past seasons from ESPN and Yahoo, turning your history into live record books, detailed matchup cards, and weekly newsletters.
+      The Fantasy Vault automatically imports your league's past seasons from ESPN, Yahoo, and Sleeper, turning your history into live record books, detailed matchup cards, and weekly newsletters.
     </p>
     <div class="hero-actions">
       <a href="#register" class="btn-primary">Register Your League URL</a>
@@ -96,7 +96,7 @@
         <div class="feature-eyebrow">STEP 01</div>
         <h3 class="feature-title">Connect Your League</h3>
         <p class="feature-desc">
-          Enter your ESPN League ID or connect Yahoo Fantasy. The Fantasy Vault imports your complete history, as past seasons, week-by-week scores, rosters, draft picks, and managers.
+          Connect Sleeper, enter your ESPN League ID, or connect Yahoo Fantasy. The Fantasy Vault imports your complete history, as past seasons, week-by-week scores, rosters, draft picks, and managers.
         </p>
       </div>
 
@@ -334,6 +334,18 @@
         <div style="margin-top: 1rem; border-top: 1px dashed var(--border-line); padding-top: 0.75rem;">
           <label for="input-yahoo-id" class="form-label" style="font-size: 0.8rem; font-weight: 600;">Or Enter Yahoo League ID Directly:</label>
           <input type="text" id="input-yahoo-id" class="form-input" placeholder="e.g. 123456" style="font-size: 0.85rem;">
+        </div>
+      <!-- Sleeper Specific Fields -->
+      <div id="modal-sleeper-section" style="display: none; margin-bottom: 1rem; padding: 1.15rem; background: rgba(2, 132, 199, 0.06); border-radius: 8px; border: 1px solid rgba(2, 132, 199, 0.3);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.5rem; flex-wrap: wrap;">
+          <h4 style="margin: 0; color: #0284c7; font-size: 0.95rem;">Sleeper League Discovery</h4>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.85rem; line-height: 1.45;">
+          Enter your Sleeper username or a League ID to discover all your league seasons, roster history, and matchups. No passwords or cookies required.
+        </p>
+        <div style="margin-bottom: 0.5rem;">
+          <label for="input-sleeper-id" class="form-label" style="font-size: 0.8rem; font-weight: 600;">Sleeper Username or League ID:</label>
+          <input type="text" id="input-sleeper-id" class="form-input" placeholder="e.g. @mistrfistr or 1387183026630332416" style="font-size: 0.85rem;">
         </div>
       </div>
 
