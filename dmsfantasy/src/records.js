@@ -7,13 +7,20 @@ import { calculateSeasonLoser } from '../../src/compiler.js';
 const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
 Object.assign(TargetApp.prototype, {
 
-    // Helper: format season year with asterisk for 2018-2019
+    // Helper: format season year with convention support and asterisk for 2018-2019
     formatSeasonYear(year) {
-        const y = Number(year);
-        if (y === 2018 || y === 2019) {
-            return `${y}*`;
+        if (year === undefined || year === null) return "";
+        const num = Number(year);
+        if (isNaN(num)) return `${year}`;
+        const isChampionship = Boolean(
+            this.seasonLabelConvention === 'championship' || 
+            this.isChampionshipYearConvention
+        );
+        const displayYear = isChampionship ? num : (num - 1);
+        if (num === 2018 || num === 2019) {
+            return `${displayYear}*`;
         }
-        return `${y}`;
+        return `${displayYear}`;
     },
 
     formatDumbartonPlayoffRound(roundStr) {

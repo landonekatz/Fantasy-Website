@@ -26,9 +26,8 @@ Object.assign(TargetApp.prototype, {
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
         const isChampionship = Boolean(
-            this.isChampionshipYearConvention || 
             this.seasonLabelConvention === 'championship' || 
-            this.leagueSettings?.seasonLabelConvention === 'championship'
+            this.isChampionshipYearConvention
         );
         const isRawChampionship = this.isRawChampionshipYearBasis();
         const displayYear = isRawChampionship 

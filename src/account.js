@@ -296,6 +296,123 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     };
 
     // ==========================================
+    // ADMIN DASHBOARD & MASTHEAD: ADMIN SELF-CLAIM MODAL
+    // ==========================================
+    window.openAdminClaimModal = function(leagueSlug, onSuccess) {
+        if (typeof window.AuthEngine === 'undefined') return;
+        const session = window.AuthEngine.getSession();
+        if (!session) {
+            alert('Please sign in to claim your manager profile.');
+            return;
+        }
+        const app = window.app || window.appInstance;
+        const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasyfootball' ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
+        const memberList = (app?.members && app.members.length > 0) ? app.members : (app?.managers || window.FANTASY_DATA?.members || window.FANTASY_DATA?.managers || []);
+        const sortedMembers = [...memberList].sort((a, b) => (a.canonical_name || a.name || '').localeCompare(b.canonical_name || b.name || ''));
+        const claims = app?.claims || {};
+        const unclaimed = sortedMembers.filter(m => !claims[m.id] && (!m.espn_id || !claims[m.espn_id]));
+        const optionsList = unclaimed.length > 0 ? unclaimed : sortedMembers;
+
+        const optionsHtml = optionsList.map(m => {
+            const mName = m.canonical_name || m.name || m.id;
+            const isLandonMatch = session?.email?.toLowerCase().includes('landon') && (mName.toLowerCase().includes('landon') || m.id.toLowerCase().includes('landon'));
+            return `<option value="${m.id}" ${isLandonMatch ? 'selected' : ''}>${mName}</option>`;
+        }).join('');
+
+        accountModalContent.innerHTML = `
+            <div style="text-align: left; padding: 6px 0;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                    <div style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: #fef3c7; border: 1px solid #fde68a; color: #b45309; font-size: 1.1rem; font-weight: 800;">Admin</div>
+                    <div>
+                        <h3 class="modal-title" style="margin: 0; font-size: 1.25rem;">Link Manager Profile</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: var(--text-muted, #64748b);">${leagueName}</p>
+                    </div>
+                </div>
+                <p style="font-size: 0.88rem; color: var(--text-secondary, #334155); margin-bottom: 1.25rem; line-height: 1.5;">
+                    You are recognized as the administrator of this league (<strong>${session.email}</strong>), but haven't linked your manager profile yet. Select your team to connect your personal career stats, win/loss records, and head-to-head history.
+                </p>
+                <div style="margin-bottom: 1.25rem; padding: 1rem; background: #f8fafc; border: 1px solid var(--border-line, #e2e8f0); border-radius: 6px;">
+                    <label for="modal-admin-claim-select" style="display: block; font-size: 0.82rem; font-weight: 700; color: #b45309; margin-bottom: 0.35rem;">Select Your Manager Profile</label>
+                    <select id="modal-admin-claim-select" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; font-size: 0.88rem; background: #fff; color: #0f172a;">
+                        <option value="">-- Select Your Team --</option>
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div id="modal-admin-claim-feedback" style="display: none; font-size: 0.84rem; margin-bottom: 1rem;"></div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button type="button" id="btn-cancel-admin-claim" style="flex: 1; background: none; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-muted, #64748b); padding: 0.65rem; border-radius: 4px; cursor: pointer; font-weight: 600;">Cancel</button>
+                    <button type="button" id="btn-confirm-admin-claim" class="btn-primary" style="flex: 2; justify-content: center; padding: 0.65rem; font-weight: 600; cursor: pointer;">Confirm &amp; Link Profile &rarr;</button>
+                </div>
+            </div>
+        `;
+
+        if (typeof accountModal.showModal === 'function' && !accountModal.open) {
+            accountModal.showModal();
+        }
+
+        document.getElementById('btn-confirm-admin-claim')?.addEventListener('click', async () => {
+            const selectEl = document.getElementById('modal-admin-claim-select');
+            const feedbackEl = document.getElementById('modal-admin-claim-feedback');
+            const btn = document.getElementById('btn-confirm-admin-claim');
+            if (!selectEl || !selectEl.value) {
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#dc2626';
+                    feedbackEl.textContent = 'Please choose a manager profile to link.';
+                }
+                return;
+            }
+            const mgrId = selectEl.value;
+            const targetMgr = sortedMembers.find(m => m.id === mgrId);
+            const mgrName = targetMgr?.canonical_name || targetMgr?.name || mgrId;
+            btn.disabled = true;
+            btn.textContent = 'Linking...';
+
+            try {
+                await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, mgrName);
+                await window.AuthEngine.linkUserLeague(leagueSlug, 'admin', leagueName);
+                if (!session.claims) session.claims = {};
+                session.claims[leagueSlug] = mgrId;
+                try { localStorage.setItem(`vault_claim_${leagueSlug}`, mgrId); } catch(e){}
+
+                if (app) {
+                    if (!app.claims) app.claims = {};
+                    app.claims[mgrId] = {
+                        userId: session.uid,
+                        email: session.email,
+                        name: mgrName,
+                        claimedAt: Date.now()
+                    };
+                    if (typeof app.updateAdminTabVisibility === 'function') app.updateAdminTabVisibility();
+                    if (typeof app.checkAdminAccess === 'function') app.checkAdminAccess();
+                    if (typeof app.renderAdminClaimPrompt === 'function') app.renderAdminClaimPrompt();
+                    if (app.activeTab === 'admin' && typeof app.renderAdminDashboard === 'function') {
+                        app.renderAdminDashboard();
+                    }
+                }
+
+                alert(`Profile successfully linked to ${mgrName}!`);
+                accountModal.close();
+                if (onSuccess) onSuccess();
+                else window.location.reload();
+            } catch (e) {
+                console.error('Error claiming admin profile:', e);
+                btn.disabled = false;
+                btn.textContent = 'Confirm & Link Profile →';
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#dc2626';
+                    feedbackEl.textContent = 'Failed to link profile. Please try again.';
+                }
+            }
+        });
+
+        document.getElementById('btn-cancel-admin-claim')?.addEventListener('click', () => {
+            accountModal.close();
+        });
+    };
+
+    // ==========================================
     // ADMIN DASHBOARD: INITIATE ADMIN TRANSFER MODAL
     // ==========================================
     window.openAdminTransferModal = function(leagueSlug) {
@@ -951,15 +1068,21 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                                     <div class="account-nickname-feedback" data-league-id="${leagueId}" style="display: none; font-size: 0.78rem; margin-top: 4px; color: #15803d; font-weight: 600;"></div>
                                 </div>
                             ` : `
-                                <div style="margin-top: 4px;">
+                                <div style="margin-top: 6px;">
                                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
-                                        <span style="font-size: 0.78rem; color: var(--text-muted, #64748b);">Linked Profile: <em style="color: #94a3b8; font-weight: 600;">Unlinked</em></span>
-                                        <button class="btn-toggle-link-profile btn btn-sm btn-primary" data-league-id="${leagueId}" style="padding: 3px 10px; font-size: 0.74rem; font-weight: 700; border-radius: 4px; cursor: pointer;">Link Manager Profile</button>
+                                        <span style="font-size: 0.78rem; color: ${isUserAdmin ? '#b45309' : 'var(--text-muted, #64748b)'}; font-weight: 700;">
+                                            ${isUserAdmin ? 'Admin Status: <em style="color: #d97706; font-style: normal;">Profile Unlinked</em>' : 'Linked Profile: <em style="color: #94a3b8; font-weight: 600;">Unlinked</em>'}
+                                        </span>
+                                        <button class="btn-toggle-link-profile btn btn-sm btn-primary" data-league-id="${leagueId}" style="padding: 3px 10px; font-size: 0.74rem; font-weight: 700; border-radius: 4px; cursor: pointer;">
+                                            ${isUserAdmin ? 'Select Your Team' : 'Link Manager Profile'}
+                                        </button>
                                     </div>
-                                    <div class="link-profile-drawer" id="link-drawer-${leagueId}" style="display: none; padding: 8px 10px; background: #ffffff; border: 1px solid var(--border-line, #cbd5e1); border-radius: 6px; margin-top: 6px;">
-                                        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary, #475569); margin-bottom: 4px;">Select Your Team / Manager:</div>
+                                    <div class="link-profile-drawer" id="link-drawer-${leagueId}" style="display: ${isUserAdmin ? 'block' : 'none'}; padding: 10px 12px; background: ${isUserAdmin ? '#fffbeb' : '#ffffff'}; border: 1px solid ${isUserAdmin ? '#fde047' : 'var(--border-line, #cbd5e1)'}; border-radius: 6px; margin-top: 6px;">
+                                        <div style="font-size: 0.78rem; font-weight: 700; color: ${isUserAdmin ? '#854d0e' : 'var(--text-secondary, #475569)'}; margin-bottom: 5px;">
+                                            ${isUserAdmin ? 'Admin Action: Select which team belongs to you to link your profile:' : 'Select Your Team / Manager:'}
+                                        </div>
                                         <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                                            <select class="select-claim-manager" id="select-claim-${leagueId}" style="flex: 1; min-width: 140px; padding: 5px 8px; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;">
+                                            <select class="select-claim-manager" id="select-claim-${leagueId}" style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.84rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;">
                                                 <option value="">-- Select Your Manager Profile --</option>
                                                 ${(leagueManagers || []).map(m => {
                                                     const mName = m.canonical_name || m.name || m.id;
@@ -967,7 +1090,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                                                     return `<option value="${m.id}" ${isDefaultMatch ? 'selected' : ''}>${mName}</option>`;
                                                 }).join('')}
                                             </select>
-                                            <button class="btn-confirm-link-profile btn btn-sm btn-primary" data-league-id="${leagueId}" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 700; border-radius: 4px; cursor: pointer;">Confirm Link</button>
+                                            <button class="btn-confirm-link-profile btn btn-sm btn-primary" data-league-id="${leagueId}" style="padding: 6px 14px; font-size: 0.8rem; font-weight: 700; border-radius: 4px; cursor: pointer;">Confirm Link</button>
                                         </div>
                                         <div class="link-profile-feedback" id="link-feedback-${leagueId}" style="display: none; font-size: 0.78rem; margin-top: 4px; font-weight: 600;"></div>
                                     </div>
@@ -1653,9 +1776,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
                 <!-- Claim Identity during setup -->
                 <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; background: #fefce8; border: 1px solid #fde047; border-radius: 6px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 700; color: #854d0e; margin-bottom: 0.35rem;">Claim Your Manager Profile (League Creator)</label>
-                    <p style="font-size: 0.78rem; color: #713f12; margin-bottom: 0.5rem;">Select which team belongs to you so your user account is linked immediately:</p>
-                    <select id="u-creator-claim" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; font-size: 0.88rem;">
+                    <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; font-weight: 700; color: #854d0e; margin-bottom: 0.35rem;">
+                        <span>Claim Your Manager Profile (League Creator)</span>
+                        <span style="color: #dc2626; font-size: 0.74rem; font-weight: 800; text-transform: uppercase;">Required</span>
+                    </label>
+                    <p style="font-size: 0.78rem; color: #713f12; margin-bottom: 0.5rem;">Select which team belongs to you so your administrator account is linked immediately:</p>
+                    <select id="u-creator-claim" required style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; font-size: 0.88rem;">
                         <option value="">-- Select Which Manager You Are --</option>
                         ${creatorClaimOptions}
                     </select>
@@ -1732,7 +1858,19 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             // Build Action
             document.getElementById('btn-u-import-build')?.addEventListener('click', async () => {
                 const { rawName, slug, platform, leagueId, privacy, s2, swid } = fetchedLeagueData;
-                const creatorClaimId = document.getElementById('u-creator-claim')?.value || '';
+                const creatorClaimSelect = document.getElementById('u-creator-claim');
+                const creatorClaimId = creatorClaimSelect?.value || '';
+
+                if (!creatorClaimId) {
+                    if (creatorClaimSelect) {
+                        creatorClaimSelect.style.border = '2px solid #dc2626';
+                        creatorClaimSelect.style.background = '#fff1f2';
+                        creatorClaimSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        creatorClaimSelect.focus();
+                    }
+                    alert('Please select which manager profile belongs to you. As the league administrator, you must be linked to your manager profile to continue.');
+                    return;
+                }
 
                 const pendingBuildPayload = {
                     platform: platform || 'espn',

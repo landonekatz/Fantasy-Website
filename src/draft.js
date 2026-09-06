@@ -42,6 +42,9 @@ export class VaultDraftEngine {
         this.scoringSettings = options.scoringSettings || {};
         this.options = options;
         this.seasonLabelConvention = options.seasonLabelConvention || options.leagueSettings?.seasonLabelConvention || 'kickoff';
+        if (this.leagueSettings) {
+            this.leagueSettings.seasonLabelConvention = this.seasonLabelConvention;
+        }
         
         this.subTab = 'yearly'; // 'yearly' | 'overall' | 'team'
         this.nameMode = 'manager'; // 'manager' | 'team'
@@ -84,7 +87,7 @@ export class VaultDraftEngine {
         if (year === undefined || year === null) return "";
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
-        const isChampionship = (this.seasonLabelConvention === 'championship' || this.leagueSettings?.seasonLabelConvention === 'championship');
+        const isChampionship = (this.seasonLabelConvention === 'championship');
         const isRawChampionship = this.isRawChampionshipYearBasis();
         const displayYear = isRawChampionship 
             ? (isChampionship ? num : (num - 1))
@@ -150,12 +153,14 @@ export class VaultDraftEngine {
         }
         if (options.leagueSettings !== undefined) {
             this.leagueSettings = options.leagueSettings || {};
-            if (this.leagueSettings.seasonLabelConvention) {
-                this.seasonLabelConvention = this.leagueSettings.seasonLabelConvention;
-            }
         }
         if (options.seasonLabelConvention !== undefined) {
             this.seasonLabelConvention = options.seasonLabelConvention;
+        } else if (this.leagueSettings?.seasonLabelConvention) {
+            this.seasonLabelConvention = this.leagueSettings.seasonLabelConvention;
+        }
+        if (this.leagueSettings) {
+            this.leagueSettings.seasonLabelConvention = this.seasonLabelConvention;
         }
         if (options.scoringSettings !== undefined) {
             this.scoringSettings = options.scoringSettings || {};
@@ -1811,7 +1816,7 @@ export class VaultDraftEngine {
             <div class="top5-item-row">
                 <span class="top5-rank">#${i + 1}</span>
                 <div class="top5-info">
-                    <div class="top5-title clickable-mgr" data-mgr-id="${d.managerId}">${d.managerName} <small>(${d.seasonYear})</small></div>
+                    <div class="top5-title clickable-mgr" data-mgr-id="${d.managerId}">${d.managerName} <small>(${this.formatSeasonYear(d.seasonYear)})</small></div>
                     <div class="top5-sub">${d.teamName} · ${d.hits} Hits</div>
                 </div>
                 <div class="top5-score-badge" style="color: ${d.gradeInfo?.color || '#10b981'};">
@@ -1825,7 +1830,7 @@ export class VaultDraftEngine {
             <div class="top5-item-row">
                 <span class="top5-rank">#${i + 1}</span>
                 <div class="top5-info">
-                    <div class="top5-title clickable-mgr" data-mgr-id="${d.managerId}">${d.managerName} <small>(${d.seasonYear})</small></div>
+                    <div class="top5-title clickable-mgr" data-mgr-id="${d.managerId}">${d.managerName} <small>(${this.formatSeasonYear(d.seasonYear)})</small></div>
                     <div class="top5-sub">${d.teamName} · ${d.busts} Busts</div>
                 </div>
                 <div class="top5-score-badge" style="color: ${d.gradeInfo?.color || '#ef4444'};">
@@ -1839,7 +1844,7 @@ export class VaultDraftEngine {
             <div class="top5-item-row">
                 <span class="top5-rank">#${i + 1}</span>
                 <div class="top5-info">
-                    <div class="top5-title">${p.playerName} <small>(${p.seasonYear})</small></div>
+                    <div class="top5-title">${p.playerName} <small>(${this.formatSeasonYear(p.seasonYear)})</small></div>
                     <div class="top5-sub">${p.position} · Rd ${p.round} (#${p.overallPick}) · <span class="clickable-mgr" data-mgr-id="${p.managerId}">${p.managerName}</span></div>
                 </div>
                 <div class="top5-score-badge" style="color: #10b981;">
@@ -1853,7 +1858,7 @@ export class VaultDraftEngine {
             <div class="top5-item-row">
                 <span class="top5-rank">#${i + 1}</span>
                 <div class="top5-info">
-                    <div class="top5-title">${p.playerName} <small>(${p.seasonYear})</small></div>
+                    <div class="top5-title">${p.playerName} <small>(${this.formatSeasonYear(p.seasonYear)})</small></div>
                     <div class="top5-sub">${p.position} · Rd ${p.round} (#${p.overallPick}) · <span class="clickable-mgr" data-mgr-id="${p.managerId}">${p.managerName}</span></div>
                 </div>
                 <div class="top5-score-badge" style="color: #ef4444;">
@@ -1867,7 +1872,7 @@ export class VaultDraftEngine {
             <div class="top5-item-row">
                 <span class="top5-rank">#${i + 1}</span>
                 <div class="top5-info">
-                    <div class="top5-title">${p.playerName} <small>(${p.seasonYear})</small></div>
+                    <div class="top5-title">${p.playerName} <small>(${this.formatSeasonYear(p.seasonYear)})</small></div>
                     <div class="top5-sub">${p.position} · Missed ${p.gamesMissed} Games · <span class="clickable-mgr" data-mgr-id="${p.managerId}">${p.managerName}</span></div>
                 </div>
                 <div class="top5-score-badge" style="color: #a855f7;">
@@ -2199,7 +2204,7 @@ export class VaultDraftEngine {
         const bestPicksRowsHTML = bestPicks.map((p, i) => `
             <tr>
                 <td class="col-rank">#${i + 1}</td>
-                <td><strong>${p.playerName}</strong> <small class="text-muted">(${p.seasonYear})</small></td>
+                <td><strong>${p.playerName}</strong> <small class="text-muted">(${this.formatSeasonYear(p.seasonYear)})</small></td>
                 <td><span class="pick-pos-pill pos-${(p.position || '').toLowerCase()}">${p.position}</span></td>
                 <td>Rd ${p.round} (#${p.overallPick})</td>
                 <td>${p.draftedPosRank} &rarr; ${p.finishPosRank}</td>
@@ -2210,7 +2215,7 @@ export class VaultDraftEngine {
         const worstPicksRowsHTML = worstPicks.map((p, i) => `
             <tr>
                 <td class="col-rank">#${i + 1}</td>
-                <td><strong>${p.playerName}</strong> <small class="text-muted">(${p.seasonYear})</small></td>
+                <td><strong>${p.playerName}</strong> <small class="text-muted">(${this.formatSeasonYear(p.seasonYear)})</small></td>
                 <td><span class="pick-pos-pill pos-${(p.position || '').toLowerCase()}">${p.position}</span></td>
                 <td>Rd ${p.round} (#${p.overallPick})</td>
                 <td>${p.draftedPosRank} &rarr; ${p.finishPosRank}</td>
@@ -2227,7 +2232,7 @@ export class VaultDraftEngine {
                 <div class="solo-season-card ${isCardSelected ? 'card-selected-highlight' : ''}" style="${!isMatch ? 'opacity: 0.45;' : ''}">
                     <div class="solo-season-header">
                         <div>
-                            <span class="solo-season-year">${s.seasonYear} Draft</span>
+                            <span class="solo-season-year">${this.formatSeasonYear(s.seasonYear)} Draft</span>
                             <span class="solo-season-team">${s.teamName}</span>
                         </div>
                         <div class="solo-season-grade" style="color: ${sGrade.color};">
@@ -2249,7 +2254,7 @@ export class VaultDraftEngine {
                         </div>
                     </div>
                     <div class="solo-season-actions">
-                        <button class="btn-jump-year" data-year="${s.seasonYear}">View ${s.seasonYear} Board &rarr;</button>
+                        <button class="btn-jump-year" data-year="${s.seasonYear}">View ${this.formatSeasonYear(s.seasonYear)} Board &rarr;</button>
                     </div>
                 </div>
             `;
@@ -2314,7 +2319,7 @@ export class VaultDraftEngine {
                                 <select id="solo-filter-year-select" class="draft-filter-select">
                                     <option value="all" ${['all', '2020-present', 'custom'].includes(this.soloYearFilter) ? 'selected' : ''}>-- Single Class --</option>
                                     ${sortedAllSeasons.map(s => `
-                                        <option value="${s.seasonYear}" ${String(this.soloYearFilter) === String(s.seasonYear) ? 'selected' : ''}>${s.seasonYear} Class (${s.draftIndex}/100)</option>
+                                        <option value="${s.seasonYear}" ${String(this.soloYearFilter) === String(s.seasonYear) ? 'selected' : ''}>${this.formatSeasonYear(s.seasonYear)} Class (${s.draftIndex}/100)</option>
                                     `).join('')}
                                 </select>
                             </div>

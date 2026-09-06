@@ -64,14 +64,27 @@ class FantasyApp {
             join_code: 'DNFUAM',
             tagline: '8 Seasons • 15 Managers • One Vault'
         };
+        this.seasonLabelConvention = 'kickoff';
+        this.isChampionshipYearConvention = false;
+    }
+
+    isRawChampionshipYearBasis() {
+        return true;
     }
 
     formatSeasonYear(year) {
         if (year === undefined || year === null) return "";
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
-        if (num === 2018 || num === 2019) return `${num}*`;
-        return `${num}`;
+        const isChampionship = Boolean(
+            this.seasonLabelConvention === 'championship' || 
+            this.isChampionshipYearConvention
+        );
+        const isRawChampionship = this.isRawChampionshipYearBasis();
+        const displayYear = isRawChampionship 
+            ? (isChampionship ? num : (num - 1))
+            : (isChampionship ? (num + 1) : num);
+        return `${displayYear}`;
     }
 
     getMatchupRoundLabel(m) {
@@ -530,6 +543,8 @@ class FantasyApp {
             ]);
             if (settingsSnap && settingsSnap.exists()) {
                 this.leagueSettings = { ...this.leagueSettings, ...settingsSnap.val() };
+                this.seasonLabelConvention = this.leagueSettings.seasonLabelConvention || 'kickoff';
+                this.isChampionshipYearConvention = (this.seasonLabelConvention === 'championship');
             }
             if (claimsSnap && claimsSnap.exists()) {
                 this.claims = claimsSnap.val() || {};
@@ -569,6 +584,7 @@ class FantasyApp {
                         if (target) target.nickname = nick || '';
                     });
                     this.refreshNicknamesUI();
+                    this.checkAdminAccess();
                 });
             } catch (e) {}
         } catch (e) {
@@ -802,18 +818,154 @@ class FantasyApp {
 
     checkAdminAccess() {
         const btnAdmin = document.getElementById('btn-tab-admin');
-        if (!btnAdmin) return;
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const leagueSlug = "dmsfantasy";
         const isFounder = Boolean(session && (session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com')));
-        const isAdmin = session && ((session.adminLeagues && (session.adminLeagues.includes('dmsfantasy') || session.adminLeagues.includes('dms'))) || isFounder);
-        if (isAdmin) {
-            btnAdmin.style.display = 'inline-flex';
-        } else {
-            btnAdmin.style.display = 'none';
+        const isSettingsAdmin = Boolean(session && this.leagueSettings?.admin_email && session.email && this.leagueSettings.admin_email.toLowerCase() === session.email.toLowerCase());
+        const isAdmin = Boolean(session && ((session.adminLeagues && (session.adminLeagues.includes('dmsfantasy') || session.adminLeagues.includes('dms'))) || isFounder || isSettingsAdmin));
+        
+        if (btnAdmin) {
+            if (isAdmin) {
+                btnAdmin.style.display = 'inline-flex';
+            } else {
+                btnAdmin.style.display = 'none';
+            }
         }
+
+        const currentAdminClaim = session ? (session.claims?.[leagueSlug] || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email && session.email && v.email.toLowerCase() === session.email.toLowerCase())?.[0]) || (this.claims && session.uid && Object.entries(this.claims).find(([k, v]) => v?.userId === session.uid)?.[0])) : null;
+
+        const btnClaimAdmin = document.getElementById('btn-claim-admin-profile');
+        if (btnClaimAdmin) {
+            if (isAdmin && !currentAdminClaim) {
+                btnClaimAdmin.style.display = 'inline-flex';
+                btnClaimAdmin.onclick = () => {
+                    if (typeof window.openAdminClaimModal === 'function') {
+                        window.openAdminClaimModal(leagueSlug, () => {
+                            this.checkAdminAccess();
+                        });
+                    }
+                };
+            } else {
+                btnClaimAdmin.style.display = 'none';
+            }
+        }
+
+        this.renderAdminClaimPrompt(isAdmin, currentAdminClaim);
+
         if (this.notesEngine) {
             this.notesEngine.render();
         }
+    }
+
+    renderAdminClaimPrompt(isAdmin, currentAdminClaim) {
+        let bannerContainer = document.getElementById('admin-unclaimed-banner-container');
+        if (!bannerContainer) {
+            const homeView = document.getElementById('view-home');
+            if (homeView) {
+                bannerContainer = document.createElement('div');
+                bannerContainer.id = 'admin-unclaimed-banner-container';
+                homeView.insertBefore(bannerContainer, homeView.firstChild);
+            }
+        }
+        if (!bannerContainer) return;
+
+        if (!isAdmin || currentAdminClaim) {
+            bannerContainer.innerHTML = '';
+            bannerContainer.style.display = 'none';
+            return;
+        }
+
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const memberList = (this.managers && this.managers.length > 0) ? this.managers : (window.FANTASY_DATA?.members || []);
+        const sortedMembers = [...memberList].sort((a, b) => (a.canonical_name || a.name || '').localeCompare(b.canonical_name || b.name || ''));
+        const unclaimed = sortedMembers.filter(m => !this.claims || !this.claims[m.id]);
+        const optionsList = unclaimed.length > 0 ? unclaimed : sortedMembers;
+
+        const optionsHtml = optionsList.map(m => {
+            const mName = m.canonical_name || m.name || m.id;
+            const isLandonMatch = session?.email?.toLowerCase().includes('landon') && (mName.toLowerCase().includes('landon') || m.id.toLowerCase().includes('landon'));
+            return `<option value="${m.id}" ${isLandonMatch ? 'selected' : ''}>${mName}</option>`;
+        }).join('');
+
+        bannerContainer.style.display = 'block';
+        bannerContainer.innerHTML = `
+            <div class="card admin-claim-hero-banner" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde047; border-left: 5px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.08);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 260px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; background: #d97706; color: #fff; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px;">League Admin</span>
+                            <span style="font-weight: 800; font-size: 1rem; color: #78350f;">Action Required: Link Your Manager Profile</span>
+                        </div>
+                        <p style="margin: 0; font-size: 0.88rem; color: #92400e; line-height: 1.45;">
+                            You are recognized as the administrator of this league (<strong>${session?.email || 'Admin'}</strong>), but haven't linked your manager profile yet. Select your team below to connect your personal career stats, win/loss records, and head-to-head history:
+                        </p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <select id="banner-admin-claim-select" class="admin-select" style="min-width: 180px; padding: 7px 10px; font-size: 0.88rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                            <option value="">-- Select Your Team --</option>
+                            ${optionsHtml}
+                        </select>
+                        <button id="btn-banner-admin-claim" class="btn btn-primary" style="padding: 7px 18px; font-size: 0.88rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">Link Team</button>
+                    </div>
+                </div>
+                <div id="banner-admin-claim-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+            </div>
+        `;
+
+        const btnClaim = bannerContainer.querySelector('#btn-banner-admin-claim');
+        const selectClaim = bannerContainer.querySelector('#banner-admin-claim-select');
+        const feedbackEl = bannerContainer.querySelector('#banner-admin-claim-feedback');
+
+        btnClaim?.addEventListener('click', async () => {
+            const mgrId = selectClaim?.value;
+            if (!mgrId) {
+                alert('Please select your manager profile.');
+                return;
+            }
+            const targetMgr = sortedMembers.find(m => m.id === mgrId);
+            const mgrName = targetMgr?.canonical_name || targetMgr?.name || mgrId;
+            btnClaim.disabled = true;
+            btnClaim.textContent = 'Linking...';
+
+            try {
+                const leagueSlug = "dmsfantasy";
+                if (typeof window.AuthEngine?.claimManagerProfile === 'function') {
+                    await window.AuthEngine.claimManagerProfile(leagueSlug, mgrId, mgrName);
+                    await window.AuthEngine.linkUserLeague(leagueSlug, 'admin', this.leagueSettings?.name || 'The Dumbarton Fantasy Football League HQ');
+                }
+                if (!this.claims) this.claims = {};
+                this.claims[mgrId] = {
+                    userId: session?.uid,
+                    email: session?.email,
+                    name: mgrName,
+                    claimedAt: Date.now()
+                };
+                if (session) {
+                    if (!session.claims) session.claims = {};
+                    session.claims[leagueSlug] = mgrId;
+                }
+                try { localStorage.setItem(`vault_claim_${leagueSlug}`, mgrId); } catch(e){}
+
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.className = 'admin-feedback-msg success';
+                    feedbackEl.innerHTML = `✓ Successfully linked your profile as <strong>${mgrName}</strong>! Refreshing...`;
+                }
+                setTimeout(() => {
+                    this.checkAdminAccess();
+                    window.location.reload();
+                }, 1000);
+            } catch (e) {
+                console.error('Error claiming admin profile from banner:', e);
+                btnClaim.disabled = false;
+                btnClaim.textContent = 'Link Team';
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.className = 'admin-feedback-msg error';
+                    feedbackEl.textContent = 'Failed to link profile. Please try again.';
+                }
+            }
+        });
     }
 
     renderAdminDashboard() {
@@ -911,6 +1063,11 @@ class FantasyApp {
                             <a href="#admin-sec-nicknames" class="admin-nav-item" data-section="admin-sec-nicknames">
                                 <span class="admin-nav-item-title">Manager Nicknames</span>
                                 <span class="admin-nav-item-sub">Custom Quotes Toggle</span>
+                            </a>
+
+                            <a href="#admin-sec-season-convention" class="admin-nav-item" data-section="admin-sec-season-convention">
+                                <span class="admin-nav-item-title">Season Convention</span>
+                                <span class="admin-nav-item-sub">Draft vs Championship Year</span>
                             </a>
                         </div>
 
@@ -1064,6 +1221,41 @@ class FantasyApp {
                             </button>
                         </div>
                         <div id="nickname-toggle-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
+                </div>
+
+                <!-- SEASON YEAR LABEL CONVENTION -->
+                <div id="admin-sec-season-convention" class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div>
+                            <h2>Season Year Label Convention</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Configure how your league historically numbers and displays each season.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.25rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 1rem 0;">
+                            Select the numbering system for your league's seasons across all pages, Head-to-Head records, Draft Central, and the Record Book:
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: ${this.isChampionshipYearConvention ? 'transparent' : 'rgba(226, 183, 20, 0.08)'};">
+                                <input type="radio" name="admin-season-convention" value="kickoff" ${!this.isChampionshipYearConvention ? 'checked' : ''} style="margin-top: 3px;">
+                                <div>
+                                    <strong style="display: block; font-size: 0.92rem; color: var(--text-primary);">Year of the Draft (Default)</strong>
+                                    <span style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; display: block;">Seasons are labeled by the calendar year the draft took place (e.g. Fall 2024 draft is labeled "2024 Season").</span>
+                                </div>
+                            </label>
+                            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: ${this.isChampionshipYearConvention ? 'rgba(226, 183, 20, 0.08)' : 'transparent'};">
+                                <input type="radio" name="admin-season-convention" value="championship" ${this.isChampionshipYearConvention ? 'checked' : ''} style="margin-top: 3px;">
+                                <div>
+                                    <strong style="display: block; font-size: 0.92rem; color: var(--text-primary);">Year of the Championship</strong>
+                                    <span style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; display: block;">Seasons are labeled by the calendar year the champion is crowned in January (e.g. Fall 2024 draft is labeled "2025 Champion").</span>
+                                </div>
+                            </label>
+                        </div>
+                        <div style="margin-top: 1rem; display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+                            <button id="btn-save-season-convention" class="btn-primary" style="padding: 8px 18px; font-weight: 700; border-radius: 4px; cursor: pointer;">Save Convention</button>
+                        </div>
+                        <div id="season-convention-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
                     </div>
                 </div>
 
@@ -1551,6 +1743,48 @@ class FantasyApp {
                     console.error('Failed to toggle privacy', e);
                 } finally {
                     btnTogglePrivacy.disabled = false;
+                }
+            });
+        }
+
+        // Wire up Season Year Label Convention saving
+        const btnSaveConvention = container.querySelector('#btn-save-season-convention');
+        if (btnSaveConvention) {
+            btnSaveConvention.addEventListener('click', async () => {
+                const checkedRadio = container.querySelector('input[name="admin-season-convention"]:checked');
+                const conventionVal = checkedRadio ? checkedRadio.value : 'kickoff';
+                const feedbackEl = container.querySelector('#season-convention-feedback');
+
+                this.seasonLabelConvention = conventionVal;
+                this.isChampionshipYearConvention = (conventionVal === 'championship');
+                if (!this.leagueSettings) this.leagueSettings = {};
+                this.leagueSettings.seasonLabelConvention = conventionVal;
+
+                try {
+                    await Promise.all([
+                        update(dbRef(database, `leagues/dmsfantasy/league_settings`), {
+                            seasonLabelConvention: conventionVal
+                        }),
+                        set(dbRef(database, `leagues/dmsfantasy/seasonLabelConvention`), conventionVal)
+                    ]);
+                } catch (e) {
+                    console.warn('Could not save season convention to Firebase:', e);
+                }
+
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.className = 'admin-feedback-msg success';
+                    feedbackEl.textContent = `✓ Saved! Season convention is now set to "${conventionVal === 'championship' ? 'Year of the Championship' : 'Year of the Draft'}".`;
+                    setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                }
+
+                if (typeof this.renderH2H === 'function') this.renderH2H();
+                if (typeof this.renderRecords === 'function') this.renderRecords();
+                if (this.draftEngine) {
+                    this.draftEngine.updateData({
+                        leagueSettings: this.leagueSettings,
+                        seasonLabelConvention: conventionVal
+                    });
                 }
             });
         }
@@ -2159,7 +2393,8 @@ class FantasyApp {
                 matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
-                leagueSettings: { name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false },
+                leagueSettings: { ...this.leagueSettings, name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false, seasonLabelConvention: this.seasonLabelConvention },
+                seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: {}
             });
         } else {
@@ -2169,7 +2404,8 @@ class FantasyApp {
                 matchups: this.matchups,
                 transactions: this.transactions,
                 managers: this.managers,
-                leagueSettings: { name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false },
+                leagueSettings: { ...this.leagueSettings, name: 'The Dumbarton League', scoring_format: 'Half-PPR (0.5)', allow_nicknames: this.leagueSettings?.allow_nicknames !== false, seasonLabelConvention: this.seasonLabelConvention },
+                seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: {}
             });
         }

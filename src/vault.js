@@ -226,9 +226,8 @@ class FantasyApp {
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
         const isChampionship = Boolean(
-            this.isChampionshipYearConvention || 
             this.seasonLabelConvention === 'championship' || 
-            this.leagueSettings?.seasonLabelConvention === 'championship'
+            this.isChampionshipYearConvention
         );
         const isRawChampionship = this.isRawChampionshipYearBasis();
         const displayYear = isRawChampionship 
@@ -1028,8 +1027,12 @@ const matchupsData = bundleData.matchups || [];
         this.leagueSettings = settingsData;
         this.rawYearBasis = this.leagueSettings.raw_year_basis || (this.leagueSettings.platform === 'yahoo' || this.leagueSlug === 'dmsfantasy' ? 'championship' : 'kickoff');
 
-        this.seasonLabelConvention = bundleData.seasonLabelConvention || settingsData.seasonLabelConvention || 'kickoff';
-        this.isChampionshipYearConvention = (this.seasonLabelConvention === 'championship');
+        const initialConvention = settingsData.seasonLabelConvention || bundleData.seasonLabelConvention || 'kickoff';
+        this.seasonLabelConvention = initialConvention;
+        if (this.leagueSettings) {
+            this.leagueSettings.seasonLabelConvention = initialConvention;
+        }
+        this.isChampionshipYearConvention = (initialConvention === 'championship');
         this.paradigms = bundleData.paradigms || {};
         if (!this.paradigms.power_rankings && bundleData.power_rankings) {
             this.paradigms.power_rankings = bundleData.power_rankings;
@@ -1195,6 +1198,7 @@ const matchupsData = bundleData.matchups || [];
                         }
                     });
                     this.refreshNicknamesUI();
+                    this.updateAdminTabVisibility();
                 });
             } catch (e) {
                 console.warn('Claims listener error', e);
@@ -1629,6 +1633,7 @@ const matchupsData = bundleData.matchups || [];
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: this.leagueSettings,
+                seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: this.scoringSettings
             });
         } else {
@@ -1639,6 +1644,7 @@ const matchupsData = bundleData.matchups || [];
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: this.leagueSettings,
+                seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: this.scoringSettings
             });
         }
@@ -2506,24 +2512,161 @@ const matchupsData = bundleData.matchups || [];
 
     updateAdminTabVisibility() {
         const btnAdmin = document.getElementById('btn-tab-admin');
-        if (!btnAdmin) return;
+        const btnClaimAdmin = document.getElementById('btn-claim-admin-profile');
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
         const userEmail = (session?.email || '').toLowerCase();
         const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
         const adminEmail = this.leagueSettings?.admin_email || window.FANTASY_DATA?.league_settings?.admin_email;
         const isLeagueAdmin = Boolean(isFounder || (session && adminEmail && userEmail === adminEmail.toLowerCase()) || (session && session.adminLeagues && session.adminLeagues.includes(this.leagueSlug)));
 
-        if (isLeagueAdmin) {
-            btnAdmin.style.display = 'inline-flex';
-        } else {
-            btnAdmin.style.display = 'none';
-            if (this.activeTab === 'admin') {
-                this.switchTab('home');
+        if (btnAdmin) {
+            if (isLeagueAdmin) {
+                btnAdmin.style.display = 'inline-flex';
+            } else {
+                btnAdmin.style.display = 'none';
+                if (this.activeTab === 'admin') {
+                    this.switchTab('home');
+                }
             }
         }
+
+        // Check if current admin has claimed a manager profile in this league
+        const currentAdminClaim = session ? (session.claims?.[this.leagueSlug] || localStorage.getItem('vault_claim_' + this.leagueSlug) || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === userEmail || (session.uid && v?.userId === session.uid))?.[0])) : null;
+
+        if (btnClaimAdmin) {
+            if (isLeagueAdmin && !currentAdminClaim) {
+                btnClaimAdmin.style.display = 'inline-flex';
+                btnClaimAdmin.onclick = () => {
+                    if (typeof window.openAdminClaimModal === 'function') {
+                        window.openAdminClaimModal(this.leagueSlug, () => {
+                            this.updateAdminTabVisibility();
+                        });
+                    }
+                };
+            } else {
+                btnClaimAdmin.style.display = 'none';
+            }
+        }
+
+        this.renderAdminClaimPrompt(isLeagueAdmin, currentAdminClaim);
+
         if (this.notesEngine) {
             this.notesEngine.render();
         }
+    }
+
+    renderAdminClaimPrompt(isLeagueAdmin, currentAdminClaim) {
+        let bannerContainer = document.getElementById('admin-unclaimed-banner-container');
+        if (!bannerContainer) {
+            const homeView = document.getElementById('view-home');
+            if (homeView) {
+                bannerContainer = document.createElement('div');
+                bannerContainer.id = 'admin-unclaimed-banner-container';
+                homeView.insertBefore(bannerContainer, homeView.firstChild);
+            }
+        }
+        if (!bannerContainer) return;
+
+        if (!isLeagueAdmin || currentAdminClaim) {
+            bannerContainer.innerHTML = '';
+            bannerContainer.style.display = 'none';
+            return;
+        }
+
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const memberList = (this.members && this.members.length > 0) ? this.members : (this.managers && this.managers.length > 0 ? this.managers : (window.FANTASY_DATA?.members || []));
+        const sortedMembers = [...memberList].sort((a, b) => (a.canonical_name || a.name || '').localeCompare(b.canonical_name || b.name || ''));
+        const unclaimed = sortedMembers.filter(m => !this.claims || (!this.claims[m.id] && (!m.espn_id || !this.claims[m.espn_id])));
+        const optionsList = unclaimed.length > 0 ? unclaimed : sortedMembers;
+
+        const optionsHtml = optionsList.map(m => {
+            const mName = m.canonical_name || m.name || m.id;
+            const isLandonMatch = session?.email?.toLowerCase().includes('landon') && (mName.toLowerCase().includes('landon') || m.id.toLowerCase().includes('landon'));
+            return `<option value="${m.id}" ${isLandonMatch ? 'selected' : ''}>${mName}</option>`;
+        }).join('');
+
+        bannerContainer.style.display = 'block';
+        bannerContainer.innerHTML = `
+            <div class="card admin-claim-hero-banner" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde047; border-left: 5px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.08);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 260px;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; background: #d97706; color: #fff; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px;">League Admin</span>
+                            <span style="font-weight: 800; font-size: 1rem; color: #78350f;">Action Required: Link Your Manager Profile</span>
+                        </div>
+                        <p style="margin: 0; font-size: 0.88rem; color: #92400e; line-height: 1.45;">
+                            You are recognized as the administrator of this league (<strong>${session?.email || 'Admin'}</strong>), but haven't linked your manager profile yet. Select your team below to connect your personal career stats, win/loss records, and head-to-head history:
+                        </p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <select id="banner-admin-claim-select" class="admin-select" style="min-width: 180px; padding: 7px 10px; font-size: 0.88rem; font-weight: 600; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;">
+                            <option value="">-- Select Your Team --</option>
+                            ${optionsHtml}
+                        </select>
+                        <button id="btn-banner-admin-claim" class="btn-primary" style="padding: 7px 18px; font-size: 0.88rem; font-weight: 700; border-radius: 4px; cursor: pointer; white-space: nowrap;">Link Team</button>
+                    </div>
+                </div>
+                <div id="banner-admin-claim-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+            </div>
+        `;
+
+        const btnClaim = bannerContainer.querySelector('#btn-banner-admin-claim');
+        const selectClaim = bannerContainer.querySelector('#banner-admin-claim-select');
+        const feedbackEl = bannerContainer.querySelector('#banner-admin-claim-feedback');
+
+        btnClaim?.addEventListener('click', async () => {
+            const mgrId = selectClaim?.value;
+            if (!mgrId) {
+                alert('Please select your manager profile.');
+                return;
+            }
+            const targetMgr = sortedMembers.find(m => m.id === mgrId);
+            const mgrName = targetMgr?.canonical_name || targetMgr?.name || mgrId;
+            btnClaim.disabled = true;
+            btnClaim.textContent = 'Linking...';
+
+            try {
+                if (typeof window.AuthEngine?.claimManagerProfile === 'function') {
+                    await window.AuthEngine.claimManagerProfile(this.leagueSlug, mgrId, mgrName);
+                    await window.AuthEngine.linkUserLeague(this.leagueSlug, 'admin', this.leagueSettings?.name || 'League');
+                }
+                if (!this.claims) this.claims = {};
+                this.claims[mgrId] = {
+                    userId: session?.uid,
+                    email: session?.email,
+                    name: mgrName,
+                    claimedAt: Date.now()
+                };
+                if (session) {
+                    if (!session.claims) session.claims = {};
+                    session.claims[this.leagueSlug] = mgrId;
+                }
+                try { localStorage.setItem(`vault_claim_${this.leagueSlug}`, mgrId); } catch(e){}
+
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.className = 'admin-feedback-msg success';
+                    feedbackEl.innerHTML = `✓ Successfully linked your profile as <strong>${mgrName}</strong>! Refreshing...`;
+                }
+                setTimeout(() => {
+                    this.updateAdminTabVisibility();
+                    if (this.activeTab === 'admin') {
+                        this.renderAdminDashboard();
+                    } else {
+                        window.location.reload();
+                    }
+                }, 1000);
+            } catch (e) {
+                console.error('Error claiming admin profile from banner:', e);
+                btnClaim.disabled = false;
+                btnClaim.textContent = 'Link Team';
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.className = 'admin-feedback-msg error';
+                    feedbackEl.textContent = 'Failed to link profile. Please try again.';
+                }
+            }
+        });
     }
 
     renderAdminDashboard() {
@@ -3424,11 +3567,14 @@ const matchupsData = bundleData.matchups || [];
                 this.leagueSettings.seasonLabelConvention = conventionVal;
 
                 if (window.VaultFirebase) {
-                    const { database, ref: dbRef, update } = window.VaultFirebase;
+                    const { database, ref: dbRef, update, set } = window.VaultFirebase;
                     try {
-                        await update(dbRef(database, `leagues/${this.leagueSlug}/league_settings`), {
-                            seasonLabelConvention: conventionVal
-                        });
+                        await Promise.all([
+                            update(dbRef(database, `leagues/${this.leagueSlug}/league_settings`), {
+                                seasonLabelConvention: conventionVal
+                            }),
+                            set(dbRef(database, `leagues/${this.leagueSlug}/seasonLabelConvention`), conventionVal)
+                        ]);
                     } catch (e) {
                         console.warn('Could not save season convention to Firebase:', e);
                     }

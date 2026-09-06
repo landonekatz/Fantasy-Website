@@ -16,6 +16,7 @@
     <div class="masthead-top-bar">
         <div class="edition-info">VOL. IX • EST. 2018</div>
         <div style="display:flex; gap: 1rem; align-items:center;">
+            <button id="btn-claim-admin-profile" class="btn-claim-pill" style="display: none;" title="Link your manager profile"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: -1px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Link Your Team</button>
             <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
                 <span id="theme-toggle-label">Theme: Light</span>
             </button>
@@ -40,6 +41,9 @@
 
     <!-- LEAGUE HOME PAGE VIEW -->
     <div id="view-home" class="page-view active">
+        <!-- Admin Unclaimed Profile Banner -->
+        <div id="admin-unclaimed-banner-container"></div>
+
         <!-- On This Page Secondary Scroller Bar -->
         <div class="page-scroller-bar">
             <span class="scroller-label">On This Page:</span>
