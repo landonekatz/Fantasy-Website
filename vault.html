@@ -21,7 +21,6 @@
             <div class="edition-info" style="color: var(--accent-gold);">Powered by The Fantasy Vault</div>
         </div>
         <div style="display:flex; gap: 1rem; align-items:center;">
-            <button id="btn-claim-admin-profile" class="btn-claim-pill" style="display: none;" title="Link your manager profile"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: -1px; margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Link Your Team</button>
             <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
                 <span id="theme-toggle-label">Theme: Light</span>
             </button>
@@ -37,8 +36,8 @@
         <button id="btn-tab-h2h" class="top-nav-btn">Head-to-Head History</button>
         <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
         <button id="btn-tab-draft" class="top-nav-btn">Draft Central</button>
-        <button id="btn-tab-rivalry" class="top-nav-btn">Rivalry Week</button>
-        <button id="btn-tab-paradigms" class="top-nav-btn" style="display: none;">Explore Paradigms</button>
+        <button id="btn-tab-rivalry" class="top-nav-btn" style="display: none;">Rivalry Week</button>
+        <button id="btn-tab-paradigms" class="top-nav-btn">Explore Paradigms</button>
         <button id="btn-tab-admin" class="top-nav-btn admin-nav-btn" style="display: none;">Admin Dashboard <span class="admin-nav-badge">Admin</span></button>
     </nav>
 </header>
@@ -55,7 +54,7 @@
             <div class="scroller-links">
                 <a href="#welcome" class="scroller-pill" id="scroller-pill-welcome">Welcome</a>
                 <a href="#commissioner-note" class="scroller-pill" id="scroller-pill-notes">Note from the Commissioner</a>
-                <a href="#rankings" class="scroller-pill">Power Rankings</a>
+                <a href="#rankings" class="scroller-pill" id="scroller-pill-rankings" style="display: none;">Power Rankings</a>
             </div>
         </div>
 
@@ -80,7 +79,7 @@
             </p>
         </div>
 
-        <div class="card" id="rankings">
+        <div class="card" id="rankings" style="display: none;">
             <!-- Populated dynamically by PowerRankingsEngine -->
         </div>
     </div>

@@ -1751,19 +1751,22 @@ export class VaultDraftEngine {
             sectionTitle = '2020–Present Draft Leaderboard';
             sectionTag = `Ranked by 2020–Present Composite (${managerLeaderboard.length} Managers)`;
         } else if (isCustom) {
-            heroSubtitle = `${this.overallCustomStart}–${this.overallCustomEnd} Draft Analytics`;
-            heroTitle = `${this.overallCustomStart}–${this.overallCustomEnd} Draft Leaderboard & Records`;
-            heroDesc = `Comparative multi-season draft evaluation for drafts from ${this.overallCustomStart} to ${this.overallCustomEnd} (${targetSeasons.length} Seasons) based on empirical rate scoring, games-missed proration, and positional scarcity.`;
+            const startFmt = this.formatSeasonYear(this.overallCustomStart);
+            const endFmt = this.formatSeasonYear(this.overallCustomEnd);
+            heroSubtitle = `${startFmt}–${endFmt} Draft Analytics`;
+            heroTitle = `${startFmt}–${endFmt} Draft Leaderboard & Records`;
+            heroDesc = `Comparative multi-season draft evaluation for drafts from ${startFmt} to ${endFmt} (${targetSeasons.length} Seasons) based on empirical rate scoring, games-missed proration, and positional scarcity.`;
             tableColTitle = 'Span Score';
-            sectionTitle = `${this.overallCustomStart}–${this.overallCustomEnd} Draft Leaderboard`;
-            sectionTag = `Ranked by ${this.overallCustomStart}–${this.overallCustomEnd} Composite (${managerLeaderboard.length} Managers)`;
+            sectionTitle = `${startFmt}–${endFmt} Draft Leaderboard`;
+            sectionTag = `Ranked by ${startFmt}–${endFmt} Composite (${managerLeaderboard.length} Managers)`;
         } else if (isSingleYear) {
-            heroSubtitle = `${this.overallYearFilter} Season Analytics`;
-            heroTitle = `${this.overallYearFilter} Draft Leaderboard & Records`;
-            heroDesc = `Single-season comparative evaluation for the ${this.overallYearFilter} draft class based on empirical rate scoring, games-missed proration, and positional scarcity.`;
-            tableColTitle = `${this.overallYearFilter} Score`;
-            sectionTitle = `${this.overallYearFilter} Season Draft Leaderboard`;
-            sectionTag = `Ranked by ${this.overallYearFilter} Draft Score (${managerLeaderboard.length} Managers)`;
+            const yrFmt = this.formatSeasonYear(this.overallYearFilter);
+            heroSubtitle = `${yrFmt} Season Analytics`;
+            heroTitle = `${yrFmt} Draft Leaderboard & Records`;
+            heroDesc = `Single-season comparative evaluation for the ${yrFmt} draft class based on empirical rate scoring, games-missed proration, and positional scarcity.`;
+            tableColTitle = `${yrFmt} Score`;
+            sectionTitle = `${yrFmt} Season Draft Leaderboard`;
+            sectionTag = `Ranked by ${yrFmt} Draft Score (${managerLeaderboard.length} Managers)`;
         }
 
         const sortedAsc = [...this.seasons].sort((a, b) => a - b);
@@ -1804,7 +1807,7 @@ export class VaultDraftEngine {
                     <td class="col-center"><span class="hit-rate-text">${m.hitRate}%</span></td>
                     <td class="col-center"><span class="bust-rate-text">${m.bustRate}%</span></td>
                     <td class="col-center">
-                        ${m.bestYear ? `<span class="best-year-badge">${m.bestYear} (${m.bestYearScore})</span>` : 'N/A'}
+                        ${m.bestYear ? `<span class="best-year-badge">${this.formatSeasonYear(m.bestYear)} (${m.bestYearScore})</span>` : 'N/A'}
                     </td>
                     <td class="col-center"><span class="steal-count-badge">${m.stealsCount}</span></td>
                 </tr>
@@ -2096,23 +2099,26 @@ export class VaultDraftEngine {
             cardMainTag = '2020+ Draft Grade';
             peakTitle = '2020+ Best Draft';
             const bestInSpan = [...targetSeasonRollups].sort((a, b) => b.draftIndex - a.draftIndex)[0];
-            peakVal = bestInSpan ? `${bestInSpan.seasonYear} (${bestInSpan.draftIndex})` : 'N/A';
+            peakVal = bestInSpan ? `${this.formatSeasonYear(bestInSpan.seasonYear)} (${bestInSpan.draftIndex})` : 'N/A';
             peakSub = bestInSpan ? `Grade: ${bestInSpan.gradeInfo?.grade || 'A'}` : '';
         } else if (isCustom) {
-            heroSubtitle = `Solo Team Draft Profile · ${this.soloCustomStart}–${this.soloCustomEnd} Compilation`;
-            heroTitle = `${managerName}'s ${this.soloCustomStart}–${this.soloCustomEnd} Draft Profile`;
-            heroDesc = `Multi-season draft scorecard and round efficiency breakdown for ${managerName} across the ${this.soloCustomStart}–${this.soloCustomEnd} draft classes (${targetSeasonRollups.length} Seasons).`;
-            cardMainTag = `${this.soloCustomStart}–${this.soloCustomEnd} Draft Grade`;
+            const startFmt = this.formatSeasonYear(this.soloCustomStart);
+            const endFmt = this.formatSeasonYear(this.soloCustomEnd);
+            heroSubtitle = `Solo Team Draft Profile · ${startFmt}–${endFmt} Compilation`;
+            heroTitle = `${managerName}'s ${startFmt}–${endFmt} Draft Profile`;
+            heroDesc = `Multi-season draft scorecard and round efficiency breakdown for ${managerName} across the ${startFmt}–${endFmt} draft classes (${targetSeasonRollups.length} Seasons).`;
+            cardMainTag = `${startFmt}–${endFmt} Draft Grade`;
             peakTitle = 'Span Best Draft';
             const bestInSpan = [...targetSeasonRollups].sort((a, b) => b.draftIndex - a.draftIndex)[0];
-            peakVal = bestInSpan ? `${bestInSpan.seasonYear} (${bestInSpan.draftIndex})` : 'N/A';
+            peakVal = bestInSpan ? `${this.formatSeasonYear(bestInSpan.seasonYear)} (${bestInSpan.draftIndex})` : 'N/A';
             peakSub = bestInSpan ? `Grade: ${bestInSpan.gradeInfo?.grade || 'A'}` : '';
         } else if (isSingleYear) {
-            heroSubtitle = `Solo Team Draft Profile · ${this.soloYearFilter} Draft Class`;
-            heroTitle = `${managerName}'s ${this.soloYearFilter} Draft Scorecard`;
-            heroDesc = `Single-season draft scorecard and round efficiency breakdown for ${managerName}'s <strong>${this.soloYearFilter} Draft Class</strong>.`;
-            cardMainTag = `${this.soloYearFilter} Draft Grade`;
-            peakTitle = `${this.soloYearFilter} Class Score`;
+            const yrFmt = this.formatSeasonYear(this.soloYearFilter);
+            heroSubtitle = `Solo Team Draft Profile · ${yrFmt} Draft Class`;
+            heroTitle = `${managerName}'s ${yrFmt} Draft Scorecard`;
+            heroDesc = `Single-season draft scorecard and round efficiency breakdown for ${managerName}'s <strong>${yrFmt} Draft Class</strong>.`;
+            cardMainTag = `${yrFmt} Draft Grade`;
+            peakTitle = `${yrFmt} Class Score`;
             peakVal = `${targetSeasonRollup?.draftIndex ?? 50} / 100`;
             peakSub = `Season Grade: ${targetSeasonRollup?.gradeInfo?.grade || 'B'}`;
         }

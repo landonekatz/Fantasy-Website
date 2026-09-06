@@ -4,8 +4,8 @@
  */
 
 const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
-TargetApp.prototype.renderRivalryWeek = function() {
-    const root = document.getElementById('view-rivalry');
+TargetApp.prototype.renderRivalryWeek = function(targetRoot) {
+    const root = targetRoot || document.getElementById('view-rivalry');
     if (!root) return;
 
     // Official Rivalry Mapping (Surnames displayed on site, Manager names used for data matching)

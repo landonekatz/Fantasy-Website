@@ -16,6 +16,21 @@ const JOIN_CODES = {
   'DMSFANTASY': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] }
 };
 
+export function formatCapitalizedName(name, email) {
+  if (email && email.toLowerCase() === 'landonekatz@gmail.com') return 'Landon Katz';
+  if (name && typeof name === 'string' && name.trim()) {
+    const trimmed = name.trim();
+    if (trimmed.toLowerCase() === 'landon' || trimmed.toLowerCase() === 'landonekatz') return 'Landon';
+    return trimmed.split(/\s+/).map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '').join(' ');
+  }
+  if (email) {
+    const prefix = email.split('@')[0];
+    if (prefix.toLowerCase() === 'landonekatz' || prefix.toLowerCase() === 'landon') return 'Landon';
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+  return 'User';
+}
+
 // Session Management
 let currentSession = null;
 try {
@@ -24,6 +39,7 @@ try {
     currentSession = JSON.parse(cached);
     const isFounderSession = Boolean(currentSession.isFounder || (currentSession.email && currentSession.email.toLowerCase() === 'landonekatz@gmail.com'));
     if (isFounderSession) {
+      currentSession.name = 'Landon Katz';
       currentSession.joinedLeagues = ['dmsfantasy'];
       currentSession.adminLeagues = ['dmsfantasy'];
       if (currentSession.claims && currentSession.claims['gaywoodfantasyfootball']) {
@@ -37,6 +53,9 @@ try {
         });
       }
     } else {
+      if (currentSession.name) {
+        currentSession.name = formatCapitalizedName(currentSession.name, currentSession.email);
+      }
       if (currentSession.last_league === 'gaywoodfantasy') currentSession.last_league = 'gaywoodfantasyfootball';
     }
   }
@@ -427,18 +446,19 @@ const AuthEngine = {
     if (!database) return { success: false, message: "Database not connected" };
 
     try {
+      const cleanManagerName = formatCapitalizedName(managerName || session.name, session.email);
       const claimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
       await rtdbSet(claimRef, {
         userId: session.uid,
         email: session.email,
-        name: managerName || session.name,
+        name: cleanManagerName,
         claimedAt: Date.now()
       });
 
       const userClaimRef = dbRef(database, `users/${session.uid}/claims/${leagueId}`);
       await rtdbSet(userClaimRef, {
         managerId: managerId,
-        managerName: managerName || session.name,
+        managerName: cleanManagerName,
         claimedAt: Date.now()
       });
 
@@ -618,7 +638,7 @@ onAuthStateChanged(auth, async (user) => {
     currentSession = {
       uid: user.uid,
       email: user.email,
-      name: currentSession?.name || user.displayName || user.email.split('@')[0],
+      name: formatCapitalizedName(currentSession?.name || user.displayName, user.email),
       isFounder: isFounder,
       joinedLeagues: joinedLeagues,
       adminLeagues: isFounder ? ['dmsfantasy', ...adminLeagues] : adminLeagues,
@@ -645,7 +665,7 @@ onAuthStateChanged(auth, async (user) => {
         if (!userDoc.exists()) {
           userData = {
             email: user.email,
-            name: user.displayName || user.email.split('@')[0],
+            name: formatCapitalizedName(user.displayName, user.email),
             joinedLeagues: joinedLeagues,
             adminLeagues: adminLeagues,
             last_league: lastLeague
@@ -711,7 +731,7 @@ onAuthStateChanged(auth, async (user) => {
         currentSession = {
           uid: user.uid,
           email: user.email,
-          name: userData.name || user.displayName || user.email.split('@')[0],
+          name: formatCapitalizedName(userData.name || user.displayName, user.email),
           isFounder: isFounder,
           joinedLeagues: isFounder ? ['dmsfantasy'] : joinedLeagues,
           adminLeagues: isFounder ? ['dmsfantasy'] : adminLeagues,

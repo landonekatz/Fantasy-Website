@@ -28,6 +28,15 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     const closeAccountModalBtn = document.getElementById('close-account-modal');
     const accountModalContent = document.getElementById('account-modal-content');
 
+    function capitalizeName(str, email) {
+        if (email && email.toLowerCase() === 'landonekatz@gmail.com') return 'Landon Katz';
+        if (!str || typeof str !== 'string') return '';
+        const trimmed = str.trim();
+        if (!trimmed) return '';
+        if (trimmed.toLowerCase() === 'landon' || trimmed.toLowerCase() === 'landonekatz') return 'Landon';
+        return trimmed.split(/\s+/).map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : '').join(' ');
+    }
+
     // ==========================================
     // DIRECT MANAGER CLAIM WORKFLOW (With Conflict Check)
     // ==========================================
@@ -35,8 +44,10 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         if (typeof window.AuthEngine === 'undefined') return;
         const app = window.app || window.appInstance;
         const leagueName = app?.leagueSettings?.name || (leagueSlug === 'gaywoodfantasyfootball' ? 'Gaywood Fantasy Football' : (leagueSlug === 'dmsfantasy' ? 'The Dumbarton League' : 'Fantasy League'));
-        const managers = app?.members || app?.managers || [];
-        const targetMgr = managers.find(m => m.id === targetManagerId) || { id: targetManagerId, name: targetManagerId };
+        const managers = app?.members || app?.managers || window.FANTASY_DATA?.members || window.FANTASY_DATA?.managers || [];
+        const targetMgr = managers.find(m => m.id === targetManagerId || (m.id && targetManagerId && m.id.toLowerCase() === targetManagerId.toLowerCase())) || { id: targetManagerId, name: targetManagerId };
+        const rawTargetName = targetMgr.canonical_name || targetMgr.name || targetManagerId;
+        const targetName = capitalizeName(rawTargetName);
         const session = window.AuthEngine.getSession();
 
         if (!session) {
@@ -46,7 +57,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.3); color: var(--accent-gold, #b45309); font-size: 1.1rem; font-weight: 800; margin-bottom: 12px;">TFV</div>
                     <h3 class="modal-title" style="margin-bottom: 6px; font-size: 1.3rem;">Claim Manager Profile</h3>
                     <p class="modal-text" style="margin-bottom: 1.25rem; font-size: 0.9rem; color: var(--text-secondary, #475569);">
-                        Sign in or create your account to claim <strong>${targetMgr.name || targetMgr.canonical_name || targetManagerId}</strong>'s historical profile in <strong>${leagueName}</strong>.
+                        Sign in or create your account to claim <strong>${targetName}</strong>'s historical profile in <strong>${leagueName}</strong>.
                     </p>
                     
                     <button id="btn-claim-google" class="btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; margin-bottom: 1rem; cursor: pointer; border: 1px solid var(--border-line, #cbd5e1); background: #ffffff; color: #0f172a; font-weight: 600; border-radius: 6px;">
@@ -106,8 +117,8 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     <div style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; font-size: 1.2rem; font-weight: 800; margin-bottom: 12px;">!</div>
                     <h3 class="modal-title" style="color: #b91c1c; margin-bottom: 0.5rem;">Account Claim Conflict</h3>
                     <p style="color: var(--text-secondary, #475569); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.25rem;">
-                        This direct claim link is for <strong>${targetMgr.name || targetMgr.canonical_name || targetManagerId}</strong>.<br><br>
-                        However, your active account (<strong>${session.email}</strong>) is currently linked to <strong>${currentMgr.name || currentMgr.canonical_name || currentClaimId}</strong> in this league.
+                        This direct claim link is for <strong>${targetName}</strong>.<br><br>
+                        However, your active account (<strong>${session.email}</strong>) is currently linked to <strong>${capitalizeName(currentMgr.canonical_name || currentMgr.name || currentClaimId)}</strong> in this league.
                     </p>
                     <div style="display: flex; flex-direction: column; gap: 0.65rem;">
                         <button id="btn-conflict-reauth" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.65rem;">
@@ -135,7 +146,6 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         }
 
         // Confirmation modal
-        const targetName = targetMgr.name || targetMgr.canonical_name || targetManagerId;
         accountModalContent.innerHTML = `
             <div style="text-align: center; padding: 1rem 0;">
                 <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: #dcfce7; border: 1px solid #bbf7d0; color: #15803d; font-size: 1.1rem; font-weight: 800; margin-bottom: 12px;">✓</div>
@@ -1104,7 +1114,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             leaguesListHTML = '<p style="color: var(--text-muted, #64748b); font-size: 0.9rem; font-style: italic; margin-bottom: 0.5rem;">No leagues joined yet.</p>';
         }
 
-        const displayName = session.name || (session.email ? session.email.split('@')[0] : 'User');
+        const displayName = capitalizeName(session.name || (session.email ? session.email.split('@')[0] : 'User'), session.email);
         const userMonogram = displayName.trim().charAt(0).toUpperCase() || 'L';
 
         accountModalContent.innerHTML = `
@@ -1332,7 +1342,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 }
 
                 const targetId = selectEl.value;
-                const targetName = selectEl.options[selectEl.selectedIndex]?.text || targetId;
+                const targetName = capitalizeName(selectEl.options[selectEl.selectedIndex]?.text || targetId);
                 btn.disabled = true;
                 btn.textContent = 'Linking...';
 
@@ -1917,7 +1927,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
             if (!btnMyAccount) return;
             if (session) {
-                const displayName = session.name || (session.email ? session.email.split('@')[0] : 'User');
+                const displayName = capitalizeName(session.name || (session.email ? session.email.split('@')[0] : 'User'), session.email);
                 const monogram = displayName.trim().charAt(0).toUpperCase() || 'L';
                 btnMyAccount.innerHTML = `<span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg, #d4af37 0%, #b45309 100%); color:#fff; font-weight:800; font-size:0.72rem; margin-right:6px; box-shadow:0 1px 3px rgba(0,0,0,0.15);">${monogram}</span> <span style="font-weight:600;">My Account</span>`;
                 btnMyAccount.title = `${displayName} (${session.email || ''})`;

@@ -536,15 +536,24 @@ class FantasyApp {
 
         // Fetch custom league settings, claims, and managers from Firebase RTDB
         try {
-            const [settingsSnap, claimsSnap, managersSnap] = await Promise.all([
+            const [settingsSnap, claimsSnap, managersSnap, conventionSnap] = await Promise.all([
                 get(dbRef(database, `leagues/dmsfantasy/league_settings`)).catch(() => null),
                 get(dbRef(database, `leagues/dmsfantasy/claims`)).catch(() => null),
-                get(dbRef(database, `leagues/dmsfantasy/managers`)).catch(() => null)
+                get(dbRef(database, `leagues/dmsfantasy/managers`)).catch(() => null),
+                get(dbRef(database, `leagues/dmsfantasy/seasonLabelConvention`)).catch(() => null)
             ]);
             if (settingsSnap && settingsSnap.exists()) {
                 this.leagueSettings = { ...this.leagueSettings, ...settingsSnap.val() };
                 this.seasonLabelConvention = this.leagueSettings.seasonLabelConvention || 'kickoff';
                 this.isChampionshipYearConvention = (this.seasonLabelConvention === 'championship');
+            }
+            if (conventionSnap && conventionSnap.exists()) {
+                const conv = conventionSnap.val();
+                if (conv) {
+                    this.seasonLabelConvention = conv;
+                    if (this.leagueSettings) this.leagueSettings.seasonLabelConvention = conv;
+                    this.isChampionshipYearConvention = (conv === 'championship');
+                }
             }
             if (claimsSnap && claimsSnap.exists()) {
                 this.claims = claimsSnap.val() || {};
@@ -636,6 +645,7 @@ class FantasyApp {
                 managers: this.managers || this.members,
                 draftResults: this.draftResults,
                 leagueSettings: this.leagueSettings,
+                seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: this.scoringSettings || this.leagueSettings
             });
             if (this.activeTab === 'draft' || this.activeTab === 'draft-hub') {
@@ -720,18 +730,20 @@ class FantasyApp {
         const btnRecords = document.getElementById('btn-tab-records');
         const btnDraft = document.getElementById('btn-tab-draft');
         const btnRivalry = document.getElementById('btn-tab-rivalry');
+        const btnParadigms = document.getElementById('btn-tab-paradigms');
         const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
         const viewDraft = document.getElementById('view-draft');
         const viewRivalry = document.getElementById('view-rivalry');
+        const viewParadigms = document.getElementById('view-paradigms');
         const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords, btnDraft, btnRivalry, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords, viewDraft, viewRivalry, viewAdmin].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnH2h, btnRecords, btnDraft, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewH2h, viewRecords, viewDraft, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
@@ -763,6 +775,10 @@ class FantasyApp {
             if (tab === 'home') {
                 btnHome && btnHome.classList.add('active');
                 viewHome && viewHome.classList.add('active');
+                if (this.powerRankingsEngine) {
+                    this.powerRankingsEngine.containerId = 'rankings';
+                    this.powerRankingsEngine.render();
+                }
             } else if (tab === 'h2h') {
                 btnH2h && btnH2h.classList.add('active');
                 viewH2h && viewH2h.classList.add('active');
@@ -779,8 +795,12 @@ class FantasyApp {
                 btnRivalry && btnRivalry.classList.add('active');
                 viewRivalry && viewRivalry.classList.add('active');
                 if (typeof this.renderRivalryWeek === 'function') {
-                    this.renderRivalryWeek();
+                    this.renderRivalryWeek(document.getElementById('view-rivalry'));
                 }
+            } else if (tab === 'paradigms') {
+                btnParadigms && btnParadigms.classList.add('active');
+                viewParadigms && viewParadigms.classList.add('active');
+                this.renderParadigms();
             } else if (tab === 'admin') {
                 btnAdmin && btnAdmin.classList.add('active');
                 viewAdmin && viewAdmin.classList.add('active');
@@ -795,6 +815,7 @@ class FantasyApp {
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
         if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
         if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
+        if (btnParadigms) btnParadigms.addEventListener('click', () => switchTab('paradigms'));
         if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
 
         this.checkAdminAccess();
@@ -814,6 +835,49 @@ class FantasyApp {
                 }
             });
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab') || window.location.hash.replace(/^#/, '');
+        if (['home', 'h2h', 'records', 'draft', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
+            switchTab(tabParam);
+        }
+    }
+
+    renderParadigms() {
+        const subtabPr = document.getElementById('paradigm-subtab-pr');
+        const subtabRiv = document.getElementById('paradigm-subtab-rivalry');
+        const secPr = document.getElementById('sec-paradigm-pr');
+        const secRiv = document.getElementById('sec-paradigm-rivalry');
+        const prContainer = document.getElementById('paradigm-power-rankings-container');
+        const rivContainer = document.getElementById('paradigm-rivalry-container');
+
+        if (!this.activeParadigmSubtab) {
+            this.activeParadigmSubtab = 'pr';
+        }
+
+        const showSubtab = (tab) => {
+            this.activeParadigmSubtab = tab;
+            if (subtabPr) subtabPr.classList.toggle('active', tab === 'pr');
+            if (subtabRiv) subtabRiv.classList.toggle('active', tab === 'rivalry');
+            if (secPr) secPr.style.display = (tab === 'pr') ? 'block' : 'none';
+            if (secRiv) secRiv.style.display = (tab === 'rivalry') ? 'block' : 'none';
+
+            if (tab === 'pr') {
+                if (this.powerRankingsEngine && prContainer) {
+                    this.powerRankingsEngine.containerId = 'paradigm-power-rankings-container';
+                    this.powerRankingsEngine.render();
+                }
+            } else if (tab === 'rivalry') {
+                if (typeof this.renderRivalryWeek === 'function' && rivContainer) {
+                    this.renderRivalryWeek(rivContainer);
+                }
+            }
+        };
+
+        if (subtabPr) subtabPr.onclick = () => showSubtab('pr');
+        if (subtabRiv) subtabRiv.onclick = () => showSubtab('rivalry');
+
+        showSubtab(this.activeParadigmSubtab);
     }
 
     checkAdminAccess() {
@@ -836,18 +900,7 @@ class FantasyApp {
 
         const btnClaimAdmin = document.getElementById('btn-claim-admin-profile');
         if (btnClaimAdmin) {
-            if (isAdmin && !currentAdminClaim) {
-                btnClaimAdmin.style.display = 'inline-flex';
-                btnClaimAdmin.onclick = () => {
-                    if (typeof window.openAdminClaimModal === 'function') {
-                        window.openAdminClaimModal(leagueSlug, () => {
-                            this.checkAdminAccess();
-                        });
-                    }
-                };
-            } else {
-                btnClaimAdmin.style.display = 'none';
-            }
+            btnClaimAdmin.style.display = 'none';
         }
 
         this.renderAdminClaimPrompt(isAdmin, currentAdminClaim);
@@ -1013,9 +1066,14 @@ class FantasyApp {
                     <td style="padding: 8px;">
                         <div class="admin-actions-cell" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             ${isClaimed ? `
-                                <span class="badge-registered" style="font-size: 0.72rem; padding: 3px 8px; background: #ecfdf5; color: #065f46; border-radius: 4px; border: 1px solid #a7f3d0; font-weight: 600;" title="Claimed by ${claimEmail}">
-                                    ✓ ${claimEmail}
-                                </span>
+                                <div style="display: inline-flex; flex-direction: column; gap: 2px;">
+                                    <span class="badge-registered" style="font-size: 0.72rem; padding: 3px 8px; background: #ecfdf5; color: #065f46; border-radius: 4px; border: 1px solid #a7f3d0; font-weight: 600;" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
+                                        ✓ ${claimEmail}
+                                    </span>
+                                    ${claim.claimedAt ? `
+                                        <span style="font-size: 0.7rem; color: var(--text-muted); padding-left: 2px;">Joined ${new Date(claim.claimedAt).toLocaleDateString()}</span>
+                                    ` : ''}
+                                </div>
                                 <button class="btn-reassign-manager btn btn-sm" data-manager-id="${m.id}" data-manager-name="${mName}" style="padding: 3px 8px; font-size: 0.72rem; border: 1px solid var(--border-line); background: #fff; border-radius: 4px; cursor: pointer;">Reassign</button>
                             ` : `
                                 <span class="badge-unregistered" style="font-size: 0.72rem; padding: 3px 8px; background: #f8fafc; color: #475569; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 600;">Unclaimed</span>
@@ -1785,6 +1843,9 @@ class FantasyApp {
                         leagueSettings: this.leagueSettings,
                         seasonLabelConvention: conventionVal
                     });
+                    if (this.activeTab === 'draft' || this.activeTab === 'draft-hub') {
+                        this.draftEngine.render();
+                    }
                 }
             });
         }
@@ -2323,7 +2384,7 @@ class FantasyApp {
                 this.renderRecords();
             }
             if (this.draftEngine) {
-                this.draftEngine.updateData({ managers: this.managers, draftResults: this.draftResults, leagueSettings: this.leagueSettings });
+                this.draftEngine.updateData({ managers: this.managers, draftResults: this.draftResults, leagueSettings: this.leagueSettings, seasonLabelConvention: this.seasonLabelConvention });
                 if (this.activeTab === 'draft') this.draftEngine.render();
             }
             this.renderAdminDashboard();
@@ -2361,7 +2422,7 @@ class FantasyApp {
             this.renderH2H();
             if (typeof this.renderRecords === 'function') this.renderRecords();
             if (this.draftEngine) {
-                this.draftEngine.updateData({ managers: this.managers, leagueSettings: this.leagueSettings });
+                this.draftEngine.updateData({ managers: this.managers, leagueSettings: this.leagueSettings, seasonLabelConvention: this.seasonLabelConvention });
                 if (this.activeTab === 'draft') this.draftEngine.render();
             }
             this.renderAdminDashboard();

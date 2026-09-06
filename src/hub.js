@@ -40,7 +40,7 @@ let currentLeagueCreds = null;
               </select>
             </div>
           ` : ''}
-          <span style="white-space: nowrap; font-weight: 600; cursor: pointer;" id="btn-header-navigate" title="Go to My Profile">${(session.name || session.email).split(' ')[0]}</span>
+          <span style="white-space: nowrap; font-weight: 600; cursor: pointer;" id="btn-header-navigate" title="Go to My Profile">${(() => { const n = (session.name || session.email || 'User').split(' ')[0].split('@')[0]; return n.charAt(0).toUpperCase() + n.slice(1); })()}</span>
           <button id="btn-header-leagues" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; background: rgba(0,0,0,0.2); color: var(--text-main); border: 1px solid var(--border-line);">My Leagues</button>
         </div>
         <button id="btn-header-logout" class="btn-header-signin" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Logout</button>

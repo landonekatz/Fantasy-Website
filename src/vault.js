@@ -1142,12 +1142,32 @@ const matchupsData = bundleData.matchups || [];
             }
         }
 
-        // Load claims & registration state from Firebase RTDB
+        // Load live settings, claims & registration state from Firebase RTDB
         this.claims = {};
         if (this.leagueSlug) {
             try {
-                const claimsSnap = await get(dbRef(database, `leagues/${this.leagueSlug}/claims`));
-                if (claimsSnap.exists()) {
+                const [settingsSnap, claimsSnap, conventionSnap] = await Promise.all([
+                    get(dbRef(database, `leagues/${this.leagueSlug}/league_settings`)).catch(() => null),
+                    get(dbRef(database, `leagues/${this.leagueSlug}/claims`)).catch(() => null),
+                    get(dbRef(database, `leagues/${this.leagueSlug}/seasonLabelConvention`)).catch(() => null)
+                ]);
+                if (settingsSnap && settingsSnap.exists()) {
+                    const liveSettings = settingsSnap.val() || {};
+                    this.leagueSettings = { ...(this.leagueSettings || {}), ...liveSettings };
+                    if (liveSettings.seasonLabelConvention) {
+                        this.seasonLabelConvention = liveSettings.seasonLabelConvention;
+                        this.isChampionshipYearConvention = (this.seasonLabelConvention === 'championship');
+                    }
+                }
+                if (conventionSnap && conventionSnap.exists()) {
+                    const conv = conventionSnap.val();
+                    if (conv) {
+                        this.seasonLabelConvention = conv;
+                        if (this.leagueSettings) this.leagueSettings.seasonLabelConvention = conv;
+                        this.isChampionshipYearConvention = (conv === 'championship');
+                    }
+                }
+                if (claimsSnap && claimsSnap.exists()) {
                     this.claims = claimsSnap.val() || {};
                 }
                 // Also scan users table to guarantee 100% complete claim records with registered emails
@@ -1273,14 +1293,30 @@ const matchupsData = bundleData.matchups || [];
 
         const btnParadigms = document.getElementById('btn-tab-paradigms');
         if (btnParadigms) {
-            const hasPr = !!(this.paradigms?.power_rankings?.current_ranking || (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) || (this.powerRankingsHistory && this.powerRankingsHistory.length > 0));
-            const hasRivalry = !!(Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0);
-            if (hasPr || hasRivalry) {
-                btnParadigms.style.display = '';
-            } else {
-                btnParadigms.style.display = 'none';
-            }
+            btnParadigms.style.display = '';
         }
+
+        const hasRivalry = Boolean(
+            (Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0) ||
+            (this.paradigms?.rivalries && typeof this.paradigms.rivalries === 'object' && Object.keys(this.paradigms.rivalries).length > 0) ||
+            (this.leagueSlug === 'dmsfantasy')
+        );
+        const btnRivalry = document.getElementById('btn-tab-rivalry');
+        if (btnRivalry) {
+            btnRivalry.style.display = hasRivalry ? '' : 'none';
+        }
+
+        const hasPr = Boolean(
+            this.paradigms?.power_rankings?.enabled ||
+            this.paradigms?.power_rankings?.current_ranking ||
+            (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
+            (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
+            (this.leagueSlug === 'dmsfantasy')
+        );
+        const cardRankings = document.getElementById('rankings');
+        const pillRankings = document.getElementById('scroller-pill-rankings');
+        if (cardRankings) cardRankings.style.display = hasPr ? '' : 'none';
+        if (pillRankings) pillRankings.style.display = hasPr ? '' : 'none';
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
 
@@ -1447,7 +1483,21 @@ const matchupsData = bundleData.matchups || [];
         if (this.notesEngine) {
             this.notesEngine.render();
         }
-        if (this.powerRankingsEngine) {
+        const hasPr = Boolean(
+            this.paradigms?.power_rankings?.enabled ||
+            this.paradigms?.power_rankings?.current_ranking ||
+            (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
+            (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
+            (this.powerRankingsEngine && (this.powerRankingsEngine.data?.current_ranking || this.powerRankingsEngine.data?.archived_rankings?.length > 0)) ||
+            (this.leagueSlug === 'dmsfantasy')
+        );
+        const cardRankings = document.getElementById('rankings');
+        const pillRankings = document.getElementById('scroller-pill-rankings');
+        if (cardRankings) cardRankings.style.display = hasPr ? '' : 'none';
+        if (pillRankings) pillRankings.style.display = hasPr ? '' : 'none';
+
+        if (hasPr && this.powerRankingsEngine) {
+            this.powerRankingsEngine.containerId = 'rankings';
             this.powerRankingsEngine.render();
         }
         // 1. Populate logo, team name, manager name from managers data (DOM-based - chips are hardcoded in HTML)
@@ -1563,6 +1613,18 @@ const matchupsData = bundleData.matchups || [];
             if (tab === 'home') {
                 btnHome && btnHome.classList.add('active');
                 viewHome && viewHome.classList.add('active');
+                const hasPr = Boolean(
+                    this.paradigms?.power_rankings?.enabled ||
+                    this.paradigms?.power_rankings?.current_ranking ||
+                    (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
+                    (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
+                    (this.powerRankingsEngine && (this.powerRankingsEngine.data?.current_ranking || this.powerRankingsEngine.data?.archived_rankings?.length > 0)) ||
+                    (this.leagueSlug === 'dmsfantasy')
+                );
+                if (hasPr && this.powerRankingsEngine) {
+                    this.powerRankingsEngine.containerId = 'rankings';
+                    this.powerRankingsEngine.render();
+                }
             } else if (tab === 'h2h') {
                 btnH2h && btnH2h.classList.add('active');
                 viewH2h && viewH2h.classList.add('active');
@@ -1618,8 +1680,17 @@ const matchupsData = bundleData.matchups || [];
 
         const urlParams = new URLSearchParams(window.location.search);
         const tabParam = urlParams.get('tab') || window.location.hash.replace(/^#/, '');
-        if (['home', 'h2h', 'records', 'draft', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
-            switchTab(tabParam);
+        let targetTab = tabParam;
+        if (targetTab === 'rivalry') {
+            const hasRivalry = Boolean(
+                (Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0) ||
+                (this.paradigms?.rivalries && typeof this.paradigms.rivalries === 'object' && Object.keys(this.paradigms.rivalries).length > 0) ||
+                (this.leagueSlug === 'dmsfantasy')
+            );
+            if (!hasRivalry) targetTab = 'home';
+        }
+        if (['home', 'h2h', 'records', 'draft', 'rivalry', 'paradigms', 'admin'].includes(targetTab)) {
+            switchTab(targetTab);
         }
     }
 
@@ -2294,44 +2365,78 @@ const matchupsData = bundleData.matchups || [];
     }
 
     renderParadigms() {
-        const container = document.getElementById('paradigm-content');
-        const subnav = document.getElementById('paradigms-subnav');
-        const btnPr = document.getElementById('btn-paradigm-pr');
-        const btnRiv = document.getElementById('btn-paradigm-rivalries');
-        if (!container) return;
+        const subtabPr = document.getElementById('paradigm-subtab-pr');
+        const subtabRiv = document.getElementById('paradigm-subtab-rivalry');
+        const secPr = document.getElementById('sec-paradigm-pr');
+        const secRiv = document.getElementById('sec-paradigm-rivalry');
+        const prContainer = document.getElementById('paradigm-power-rankings-container');
+        const rivContainer = document.getElementById('paradigm-rivalry-container');
 
-        const hasPr = !!(this.paradigms?.power_rankings?.current_ranking || (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) || (this.powerRankingsHistory && this.powerRankingsHistory.length > 0));
-        const hasRiv = !!(Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0);
-
-        if (btnPr) btnPr.style.display = hasPr ? '' : 'none';
-        if (btnRiv) btnRiv.style.display = hasRiv ? '' : 'none';
+        const hasPr = Boolean(
+            this.paradigms?.power_rankings?.enabled ||
+            this.paradigms?.power_rankings?.current_ranking ||
+            (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
+            (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
+            (this.powerRankingsEngine && (this.powerRankingsEngine.data?.current_ranking || this.powerRankingsEngine.data?.archived_rankings?.length > 0)) ||
+            (this.leagueSlug === 'dmsfantasy')
+        );
+        const hasRiv = Boolean(
+            (Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0) ||
+            (this.paradigms?.rivalries && typeof this.paradigms.rivalries === 'object' && Object.keys(this.paradigms.rivalries).length > 0) ||
+            (this.leagueSlug === 'dmsfantasy')
+        );
 
         if (!this.activeParadigmSubtab) {
-            this.activeParadigmSubtab = hasPr ? 'pr' : (hasRiv ? 'rivalries' : null);
+            this.activeParadigmSubtab = 'pr';
         }
 
         const showSubtab = (tab) => {
             this.activeParadigmSubtab = tab;
-            if (btnPr) btnPr.classList.toggle('active', tab === 'pr');
-            if (btnRiv) btnRiv.classList.toggle('active', tab === 'rivalries');
+            if (subtabPr) subtabPr.classList.toggle('active', tab === 'pr');
+            if (subtabRiv) subtabRiv.classList.toggle('active', tab === 'rivalry');
+            if (secPr) secPr.style.display = (tab === 'pr') ? 'block' : 'none';
+            if (secRiv) secRiv.style.display = (tab === 'rivalry') ? 'block' : 'none';
 
             if (tab === 'pr') {
-                container.innerHTML = `<div id="rankings"></div>`;
-                if (this.powerRankingsEngine) {
-                    this.powerRankingsEngine.containerId = 'rankings';
+                if (hasPr && this.powerRankingsEngine && prContainer) {
+                    this.powerRankingsEngine.containerId = 'paradigm-power-rankings-container';
                     this.powerRankingsEngine.render();
+                } else if (prContainer) {
+                    prContainer.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 3rem 2rem; max-width: 760px; margin: 0 auto; box-shadow: var(--shadow-sm);">
+                            <h2 style="font-family: var(--font-heading, 'Newsreader', serif); font-size: 1.8rem; margin-bottom: 0.75rem;">Power Rankings Paradigm</h2>
+                            <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem;">
+                                Power Rankings bring editorial depth, weekly analytical tiers, and bragging rights to your league. Published editions feature custom blurbs, movement indicators, and multi-author publishing access.
+                            </p>
+                            <div style="background: var(--bg-main, rgba(0,0,0,0.03)); border: 1px dashed var(--border-color, #ccc); border-radius: 8px; padding: 1.25rem; font-size: 0.9rem; color: var(--text-muted);">
+                                Power Rankings have not been published for this league yet. League Commissioners can initialize and publish rankings from the Admin Dashboard.
+                            </div>
+                        </div>
+                    `;
                 }
-            } else if (tab === 'rivalries') {
-                this.renderRivalries(container);
+            } else if (tab === 'rivalry') {
+                if (hasRiv && rivContainer) {
+                    this.renderRivalries(rivContainer);
+                } else if (rivContainer) {
+                    rivContainer.innerHTML = `
+                        <div class="card" style="text-align: center; padding: 3rem 2rem; max-width: 760px; margin: 0 auto; box-shadow: var(--shadow-sm);">
+                            <h2 style="font-family: var(--font-heading, 'Newsreader', serif); font-size: 1.8rem; margin-bottom: 0.75rem;">Rivalry Week Paradigm</h2>
+                            <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem;">
+                                Rivalry Week locks in permanent, bad-blood head-to-head matchups annually during a marquee regular-season week, as Thanksgiving Week. Historical records, feud chronicles, and high scores are tracked forever.
+                            </p>
+                            <div style="background: var(--bg-main, rgba(0,0,0,0.03)); border: 1px dashed var(--border-color, #ccc); border-radius: 8px; padding: 1.25rem; font-size: 0.9rem; color: var(--text-muted);">
+                                Rivalry Week has not been activated for this league yet. Commissioners can establish rivalry pairs and feud chronicles in the Admin Dashboard.
+                            </div>
+                        </div>
+                    `;
+                }
             }
         };
 
-        if (btnPr) btnPr.onclick = () => showSubtab('pr');
-        if (btnRiv) btnRiv.onclick = () => showSubtab('rivalries');
+        if (subtabPr) subtabPr.onclick = () => showSubtab('pr');
+        if (subtabRiv) subtabRiv.onclick = () => showSubtab('rivalry');
 
-        if (this.activeParadigmSubtab) {
-            showSubtab(this.activeParadigmSubtab);
-        }
+        showSubtab(this.activeParadigmSubtab);
     }
 
     renderRivalryWeek() {
@@ -2341,7 +2446,7 @@ const matchupsData = bundleData.matchups || [];
     }
 
     renderRivalries(container) {
-        if (!container) container = document.getElementById('paradigm-content');
+        if (!container) container = document.getElementById('paradigm-rivalry-container') || document.getElementById('view-rivalry');
         if (!container) return;
 
         const rivalries = Array.isArray(this.paradigms?.rivalries) ? this.paradigms.rivalries : [];
@@ -2512,7 +2617,6 @@ const matchupsData = bundleData.matchups || [];
 
     updateAdminTabVisibility() {
         const btnAdmin = document.getElementById('btn-tab-admin');
-        const btnClaimAdmin = document.getElementById('btn-claim-admin-profile');
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
         const userEmail = (session?.email || '').toLowerCase();
         const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
@@ -2532,20 +2636,9 @@ const matchupsData = bundleData.matchups || [];
 
         // Check if current admin has claimed a manager profile in this league
         const currentAdminClaim = session ? (session.claims?.[this.leagueSlug] || localStorage.getItem('vault_claim_' + this.leagueSlug) || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === userEmail || (session.uid && v?.userId === session.uid))?.[0])) : null;
-
+        const btnClaimAdmin = document.getElementById('btn-claim-admin-profile');
         if (btnClaimAdmin) {
-            if (isLeagueAdmin && !currentAdminClaim) {
-                btnClaimAdmin.style.display = 'inline-flex';
-                btnClaimAdmin.onclick = () => {
-                    if (typeof window.openAdminClaimModal === 'function') {
-                        window.openAdminClaimModal(this.leagueSlug, () => {
-                            this.updateAdminTabVisibility();
-                        });
-                    }
-                };
-            } else {
-                btnClaimAdmin.style.display = 'none';
-            }
+            btnClaimAdmin.style.display = 'none';
         }
 
         this.renderAdminClaimPrompt(isLeagueAdmin, currentAdminClaim);
@@ -2756,9 +2849,6 @@ const matchupsData = bundleData.matchups || [];
                                     <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
                                         <span style="color: #15803d; font-weight: 800;">✓</span> ${claimEmail}
                                     </span>
-                                    ${claim.name && claim.email && claim.name !== claim.email ? `
-                                        <span style="font-size: 0.72rem; color: var(--text-muted); padding-left: 2px;">Account: ${claim.name}</span>
-                                    ` : ''}
                                     ${claim.claimedAt ? `
                                         <span style="font-size: 0.7rem; color: var(--text-muted); padding-left: 2px;">Joined ${new Date(claim.claimedAt).toLocaleDateString()}</span>
                                     ` : ''}
@@ -3566,18 +3656,15 @@ const matchupsData = bundleData.matchups || [];
                 if (!this.leagueSettings) this.leagueSettings = {};
                 this.leagueSettings.seasonLabelConvention = conventionVal;
 
-                if (window.VaultFirebase) {
-                    const { database, ref: dbRef, update, set } = window.VaultFirebase;
-                    try {
-                        await Promise.all([
-                            update(dbRef(database, `leagues/${this.leagueSlug}/league_settings`), {
-                                seasonLabelConvention: conventionVal
-                            }),
-                            set(dbRef(database, `leagues/${this.leagueSlug}/seasonLabelConvention`), conventionVal)
-                        ]);
-                    } catch (e) {
-                        console.warn('Could not save season convention to Firebase:', e);
-                    }
+                try {
+                    await Promise.all([
+                        update(dbRef(database, `leagues/${this.leagueSlug}/league_settings`), {
+                            seasonLabelConvention: conventionVal
+                        }),
+                        set(dbRef(database, `leagues/${this.leagueSlug}/seasonLabelConvention`), conventionVal)
+                    ]);
+                } catch (e) {
+                    console.warn('Could not save season convention to Firebase:', e);
                 }
 
                 if (feedbackEl) {
@@ -3596,6 +3683,9 @@ const matchupsData = bundleData.matchups || [];
                         leagueSettings: this.leagueSettings,
                         seasonLabelConvention: conventionVal
                     });
+                    if (this.activeTab === 'draft' || this.activeTab === 'draft-hub') {
+                        this.draftEngine.render();
+                    }
                 }
             });
         }

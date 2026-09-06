@@ -289,6 +289,21 @@ export class PowerRankingsEngine {
         const total = allRankings.length;
 
         if (total === 0) {
+            if (this.containerId === 'rankings') {
+                const hasPr = Boolean(
+                    this.app?.paradigms?.power_rankings?.enabled ||
+                    (this.leagueSlug === 'dmsfantasy')
+                );
+                if (!hasPr) {
+                    container.style.display = 'none';
+                    const pill = document.getElementById('scroller-pill-rankings');
+                    if (pill) pill.style.display = 'none';
+                    return;
+                }
+            }
+            container.style.display = '';
+            const pill = document.getElementById('scroller-pill-rankings');
+            if (pill) pill.style.display = '';
             container.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                     <h2 style="margin:0;">Power Rankings</h2>
@@ -302,6 +317,12 @@ export class PowerRankingsEngine {
             `;
             container.querySelector('.btn-rankings-new')?.addEventListener('click', () => this.openNewRankingsModal());
             return;
+        }
+
+        if (this.containerId === 'rankings') {
+            container.style.display = '';
+            const pill = document.getElementById('scroller-pill-rankings');
+            if (pill) pill.style.display = '';
         }
 
         if (this.currentIndex >= total) this.currentIndex = 0;
@@ -1408,10 +1429,49 @@ export class PowerRankingsEngine {
         return true;
     }
 
+    getAdminClaimedManagerId() {
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        const designatedAdminEmail = (this.app?.leagueSettings?.admin_email || '').toLowerCase();
+        const userEmail = (session?.email || '').toLowerCase();
+        const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
+        const claims = this.app?.claims || {};
+
+        if (session?.claims?.[this.leagueSlug]) {
+            return session.claims[this.leagueSlug];
+        }
+
+        if (typeof localStorage !== 'undefined') {
+            const localClaim = localStorage.getItem('vault_claim_' + this.leagueSlug);
+            if (localClaim) return localClaim;
+        }
+
+        const adminClaim = Object.entries(claims).find(([mId, c]) => {
+            if (!c) return false;
+            const cEmail = (c.email || '').toLowerCase();
+            const cUserId = c.userId;
+            if (designatedAdminEmail && cEmail === designatedAdminEmail) return true;
+            if (userEmail && cEmail === userEmail) return true;
+            if (session?.uid && cUserId === session.uid) return true;
+            return false;
+        });
+        if (adminClaim) return adminClaim[0];
+
+        if (isFounder && this.leagueSlug === 'dmsfantasy') {
+            return 'landon';
+        }
+
+        return null;
+    }
+
     async addEditor(managerIdOrEmail) {
         if (!this.canEdit()) return false;
         const clean = (managerIdOrEmail || '').trim();
         if (!clean) return false;
+
+        const adminMgrId = this.getAdminClaimedManagerId();
+        if (adminMgrId && String(clean).toLowerCase() === String(adminMgrId).toLowerCase()) {
+            return false;
+        }
 
         if (!Array.isArray(this.data.allowed_editors)) {
             this.data.allowed_editors = [];
@@ -1460,9 +1520,15 @@ export class PowerRankingsEngine {
         const allowedEditors = Array.isArray(this.data.allowed_editors) ? this.data.allowed_editors : [];
         const adminEmail = (this.app?.leagueSettings?.admin_email || session?.email || 'Admin').toLowerCase();
 
+        const adminClaimedMgrId = this.getAdminClaimedManagerId();
+
         // Sort managers
         const sortedManagers = [...managers].sort((a, b) => (a.canonical_name || a.name || '').localeCompare(b.canonical_name || b.name || ''));
-        const availableToAdd = sortedManagers.filter(m => !allowedEditors.includes(m.id));
+        const availableToAdd = sortedManagers.filter(m => {
+            if (allowedEditors.some(ed => String(ed).toLowerCase() === String(m.id).toLowerCase())) return false;
+            if (adminClaimedMgrId && String(m.id).toLowerCase() === String(adminClaimedMgrId).toLowerCase()) return false;
+            return true;
+        });
 
         const managerOptions = availableToAdd.map(m => {
             const mName = m.canonical_name || m.name || m.id;
@@ -1473,10 +1539,13 @@ export class PowerRankingsEngine {
         const editorRows = [];
 
         // 1. Admin Row (Default)
+        const adminMgr = adminClaimedMgrId ? sortedManagers.find(m => String(m.id).toLowerCase() === String(adminClaimedMgrId).toLowerCase()) : null;
+        const adminDisplayName = adminMgr ? (adminMgr.canonical_name || adminMgr.name || adminMgr.id) : 'League Administrator';
+
         editorRows.push(`
             <tr style="border-bottom: 1px solid var(--border-line);">
                 <td style="padding: 10px 12px; font-weight: 700;">
-                    League Administrator (${adminEmail})
+                    ${adminDisplayName} <span style="color: var(--text-muted); font-size: 0.82rem; font-weight: normal;">(${adminEmail})</span>
                 </td>
                 <td style="padding: 10px 12px;">
                     <span style="display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;">
@@ -1489,8 +1558,8 @@ export class PowerRankingsEngine {
             </tr>
         `);
 
-        // 2. Additional Editors
-        allowedEditors.forEach(ed => {
+        // 2. Additional Editors (exclude admin profile if previously stored)
+        allowedEditors.filter(ed => !adminClaimedMgrId || String(ed).toLowerCase() !== String(adminClaimedMgrId).toLowerCase()).forEach(ed => {
             const mgr = sortedManagers.find(m => m.id === ed || String(m.id).toLowerCase() === String(ed).toLowerCase());
             const claim = mgr ? claims[mgr.id] : null;
             const displayName = mgr ? (mgr.canonical_name || mgr.name || mgr.id) : ed;

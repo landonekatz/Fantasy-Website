@@ -218,12 +218,21 @@ header p {
     font-weight: 600;
     border: 1px solid transparent;
     transition: all 0.2s ease;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .scroller-pill:hover {
     background: rgba(59, 130, 246, 0.15);
     color: var(--accent-blue);
     border-color: rgba(59, 130, 246, 0.4);
+}
+
+.scroller-pill.active,
+button.scroller-pill.active {
+    background: var(--accent-blue, #3b82f6) !important;
+    color: #ffffff !important;
+    border-color: var(--accent-blue, #3b82f6) !important;
 }
 
 /* Cards & Content Sections */
