@@ -752,7 +752,8 @@ Object.assign(TargetApp.prototype, {
             .slice(0, 10);
 
         const renderSingleGameItem = (item, idx, val, valSuffix = 'pts') => {
-            const seasonBadge = this.formatSeasonYear(item.season);
+            const matchYear = Number(item.season || item.year);
+            const seasonBadge = this.formatSeasonYear(matchYear);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
             return `
                 <div class="record-item">
@@ -769,7 +770,7 @@ Object.assign(TargetApp.prototype, {
                     </div>
                     <div class="record-item-right">
                         <span class="record-value">${typeof val === 'number' ? val.toFixed(2) : val} <small style="font-size:0.7rem; color:var(--text-muted);">${valSuffix}</small></span>
-                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${item.season}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>
+                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${matchYear}, ${item.week}, '${item.team_id || item.manager_id}', '${item.opponent_id || item.opponent_manager_id}')">View Matchup</button>
                     </div>
                 </div>
             `;
@@ -1529,7 +1530,8 @@ Object.assign(TargetApp.prototype, {
 
         // HTML Builders
         const renderSingleGameRow = (item, idx) => {
-            const seasonBadge = this.formatSeasonYear(item.season);
+            const matchYear = Number(item.season || item.year);
+            const seasonBadge = this.formatSeasonYear(matchYear);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
             const roundBadge = item.playoff_round ? ` (${item.playoff_round})` : '';
             return `
@@ -1547,14 +1549,15 @@ Object.assign(TargetApp.prototype, {
                     </div>
                     <div class="record-item-right">
                         <span class="record-value">${item.score.toFixed(2)} <small style="font-size:0.7rem; color:var(--text-muted);">pts</small></span>
-                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${item.season}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>
+                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${matchYear}, ${item.week}, '${item.team_id || item.manager_id}', '${item.opponent_id || item.opponent_manager_id}')">View Matchup</button>
                     </div>
                 </div>
             `;
         };
 
         const renderMatchupRow = (m, idx) => {
-            const seasonBadge = this.formatSeasonYear(m.season);
+            const matchYear = Number(m.season || m.year);
+            const seasonBadge = this.formatSeasonYear(matchYear);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
             const roundBadge = m.playoff_round ? ` (${m.playoff_round})` : ' (Playoffs)';
             return `
@@ -1572,7 +1575,7 @@ Object.assign(TargetApp.prototype, {
                     </div>
                     <div class="record-item-right">
                         <span class="record-value">${m.combined.toFixed(2)} <small style="font-size:0.7rem; color:var(--text-muted);">combined</small></span>
-                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${m.season}, ${m.week}, ${m.team_1_id}, ${m.team_2_id})">View Matchup</button>
+                        <button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${matchYear}, ${m.week}, '${m.team_1_id || m.home_team_id || m.team_1_manager_id}', '${m.team_2_id || m.away_team_id || m.team_2_manager_id}')">View Matchup</button>
                     </div>
                 </div>
             `;

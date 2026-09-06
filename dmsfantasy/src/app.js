@@ -8,29 +8,29 @@ import { CommissionerNotesEngine } from '/src/commissioner_notes.js';
 import { PowerRankingsEngine } from '/src/power_rankings.js';
 
 function formatDumbartonNflInfo(p) {
+    if (!p) return 'NFL';
     let opp = (p.nfl_team || '').trim();
     let rawRes = (p.nfl_game_result || '').trim();
-    let statLine = (p.nfl_stat_line || '').trim();
+    let statLine = (p.nfl_stat_line || p.stat_line || '').trim();
     
-    if (!rawRes && !opp) return statLine;
-    
-    let loc = '';
-    if (rawRes.endsWith('@')) {
-        loc = '@';
-        rawRes = rawRes.slice(0, -1).trim();
-    } else if (rawRes.endsWith('vs')) {
-        loc = 'vs';
-        rawRes = rawRes.slice(0, -2).trim();
+    if (rawRes) {
+        let loc = '';
+        if (rawRes.endsWith('@')) {
+            loc = '@';
+            rawRes = rawRes.slice(0, -1).trim();
+        } else if (rawRes.endsWith('vs')) {
+            loc = 'vs';
+            rawRes = rawRes.slice(0, -2).trim();
+        }
+        let gameStr = rawRes;
+        if (opp) {
+            if (loc) gameStr = `${rawRes} ${loc} ${opp}`;
+            else if (!gameStr.includes(opp)) gameStr = `${rawRes} ${opp}`;
+        }
+        return [gameStr, statLine].filter(Boolean).join(' • ');
     }
-    
-    let gameStr = rawRes;
-    if (opp) {
-        if (loc) gameStr = `${rawRes} ${loc} ${opp}`;
-        else gameStr = `${rawRes} ${opp}`;
-    }
-    
-    const parts = [gameStr, statLine].filter(Boolean);
-    return parts.join(' • ');
+
+    return [opp, statLine].filter(Boolean).join(' • ') || 'NFL';
 }
 
 class FantasyApp {
@@ -64,6 +64,45 @@ class FantasyApp {
             join_code: 'DNFUAM',
             tagline: '8 Seasons • 15 Managers • One Vault'
         };
+    }
+
+    formatSeasonYear(year) {
+        if (year === undefined || year === null) return "";
+        const num = Number(year);
+        if (isNaN(num)) return `${year}`;
+        if (num === 2018 || num === 2019) return `${num}*`;
+        return `${num}`;
+    }
+
+    getMatchupRoundLabel(m) {
+        if (!m) return '';
+        const gt = String(m.game_type || '').toLowerCase().trim();
+        const pr = String(m.playoff_round || '').toLowerCase().trim();
+
+        if (m.is_toilet_bowl || gt.includes('toilet') || pr.includes('toilet')) return 'Toilet Bowl';
+        if (gt.includes('3rd') || pr.includes('3rd')) return '3rd Place Game';
+        if (m.is_consolation || gt.includes('consolation') || pr.includes('consolation')) return 'Consolation';
+
+        if (pr.includes('quarter') || gt.includes('quarter')) return 'Quarterfinals';
+        if (pr.includes('semi') || gt.includes('semi')) return 'Semifinals';
+        if (pr.includes('final') || pr.includes('champ') || gt.includes('champ')) return 'Championship';
+
+        const isPlayoffs = Boolean(m.is_playoffs || m.is_playoff || gt === 'playoffs');
+        if (isPlayoffs) {
+            const yr = Number(m.season || m.year);
+            const wk = Number(m.week);
+            if (yr <= 2020) {
+                if (wk === 14) return 'Quarterfinals';
+                if (wk === 15) return 'Semifinals';
+                if (wk === 16) return 'Championship';
+            } else {
+                if (wk === 15) return 'Quarterfinals';
+                if (wk === 16) return 'Semifinals';
+                if (wk === 17) return 'Championship';
+            }
+            return 'Playoffs';
+        }
+        return '';
     }
 
     renderPrivateGuard() {
@@ -587,6 +626,12 @@ class FantasyApp {
                 this.draftEngine.render();
             }
         }
+    getPlayerHeadshot(playerName, position = '') {
+        if (!playerName) return '';
+        if (nflStats && typeof nflStats.getPlayerHeadshot === 'function') {
+            return nflStats.getPlayerHeadshot(playerName, position);
+        }
+        return '';
     }
 
     getManagerDisplayName(managerId, fallbackName = '') {
@@ -2412,15 +2457,44 @@ class FantasyApp {
             const isT2Win = (isM1Team1 && g.winner_team_id === g.team_2_id) || (!isM1Team1 && g.winner_team_id === g.team_1_id);
 
             const isPlayoffs = g.is_playoffs;
-            const gameTypeLabel = isPlayoffs ? `Playoffs • ${g.playoff_round || 'Game'}` : 'Regular Season';
+            const roundLabel = this.getMatchupRoundLabel(g);
+            const gameTypeLabel = isPlayoffs ? `Playoffs • ${roundLabel || g.playoff_round || 'Game'}` : 'Regular Season';
             const cardClass = isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card';
             const margin = Math.abs(t1Score - t2Score).toFixed(2);
 
             const leftTeamId = isM1Team1 ? g.team_1_id : g.team_2_id;
             const rightTeamId = isM1Team1 ? g.team_2_id : g.team_1_id;
 
+            // Find top performer for both teams in this matchup
+            const gYr = Number(g.season || g.year);
+            const gWk = Number(g.week);
+            const m1Starters = (this.playerStats || []).filter(p => Number(p.season || p.year) === gYr && Number(p.week) === gWk && (p.team_id === leftTeamId || p.manager_id === m1Id) && p.is_starter);
+            const m2Starters = (this.playerStats || []).filter(p => Number(p.season || p.year) === gYr && Number(p.week) === gWk && (p.team_id === rightTeamId || p.manager_id === m2Id) && p.is_starter);
+            
+            const top1 = m1Starters.sort((a, b) => (Number(b.fantasy_points) || 0) - (Number(a.fantasy_points) || 0))[0];
+            const top2 = m2Starters.sort((a, b) => (Number(b.fantasy_points) || 0) - (Number(a.fantasy_points) || 0))[0];
+
+            const top1Headshot = top1 ? (top1.headshot_url || top1.headshotUrl || this.getPlayerHeadshot(top1.player_name, top1.position || top1.roster_slot)) : '';
+            const top2Headshot = top2 ? (top2.headshot_url || top2.headshotUrl || this.getPlayerHeadshot(top2.player_name, top2.position || top2.roster_slot)) : '';
+
+            const top1Html = top1 && Number(top1.fantasy_points) > 0 ? `
+                <div class="matchup-star-player" title="Top Performer: ${top1.player_name} (${Number(top1.fantasy_points).toFixed(2)} pts)">
+                    ${top1Headshot ? `<img src="${top1Headshot}" class="mini-player-headshot" alt="${top1.player_name}" onerror="this.style.display='none'">` : ''}
+                    <span style="font-weight:600;">${top1.player_name}</span>
+                    <span style="color:var(--accent-gold); font-weight:700;">${Number(top1.fantasy_points).toFixed(1)}</span>
+                </div>
+            ` : '';
+
+            const top2Html = top2 && Number(top2.fantasy_points) > 0 ? `
+                <div class="matchup-star-player" title="Top Performer: ${top2.player_name} (${Number(top2.fantasy_points).toFixed(2)} pts)">
+                    ${top2Headshot ? `<img src="${top2Headshot}" class="mini-player-headshot" alt="${top2.player_name}" onerror="this.style.display='none'">` : ''}
+                    <span style="font-weight:600;">${top2.player_name}</span>
+                    <span style="color:var(--accent-gold); font-weight:700;">${Number(top2.fantasy_points).toFixed(1)}</span>
+                </div>
+            ` : '';
+
             cardsHtml += `
-                <div class="${cardClass}" onclick="app.openBoxscoreModal(${g.season}, ${g.week}, ${leftTeamId}, ${rightTeamId})">
+                <div class="${cardClass}" onclick="app.openBoxscoreModal(${g.season}, ${g.week}, '${leftTeamId}', '${rightTeamId}')">
                     <div class="matchup-date-badge">
                         <div class="matchup-year-week">${g.season} • Week ${g.week}</div>
                         <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${gameTypeLabel}</div>
@@ -2433,6 +2507,7 @@ class FantasyApp {
                                 <span class="team-score">${t1Score.toFixed(2)} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                                 <span class="team-proj">Proj: ${t1Proj ? t1Proj.toFixed(2) : '-'}</span>
                             </div>
+                            ${top1Html}
                         </div>
 
                         <div class="matchup-margin-badge">
@@ -2446,6 +2521,7 @@ class FantasyApp {
                                 <span class="team-score">${t2Score.toFixed(2)} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                                 <span class="team-proj">Proj: ${t2Proj ? t2Proj.toFixed(2) : '-'}</span>
                             </div>
+                            ${top2Html}
                         </div>
                     </div>
 
@@ -2474,6 +2550,27 @@ class FantasyApp {
 
             const avgLeader = parseFloat(m1Avg) >= parseFloat(m2Avg) ? m1Name : m2Name;
             const avgDiff = Math.abs(parseFloat(m1Avg) - parseFloat(m2Avg)).toFixed(2);
+
+            // Find top individual player score across all played games in this rivalry
+            let topPerformer = null;
+            playedGames.forEach(g => {
+                const yr = Number(g.season || g.year);
+                const wk = Number(g.week);
+                const starters = (this.playerStats || []).filter(p => Number(p.season || p.year) === yr && Number(p.week) === wk && (p.manager_id === m1Id || p.manager_id === m2Id) && p.is_starter);
+                starters.forEach(p => {
+                    const pts = Number(p.fantasy_points) || 0;
+                    if (!topPerformer || pts > topPerformer.points) {
+                        topPerformer = {
+                            name: p.player_name,
+                            points: pts,
+                            manager_name: p.manager_id === m1Id ? m1Name : m2Name,
+                            year: yr,
+                            week: wk,
+                            headshot: p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot)
+                        };
+                    }
+                });
+            });
 
             summaryContainer.innerHTML = `
                 <h3>Head-to-Head Summary Stats (${m1Name} vs ${m2Name})</h3>
@@ -2508,40 +2605,81 @@ class FantasyApp {
                         <div class="summary-stat-value">${minMargin ? `+${minMargin.margin.toFixed(2)} pts` : '-'}</div>
                         <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-top: 4px;">${minMargin ? `${minMargin.winner} (${minMargin.season} W${minMargin.week})` : '-'}</div>
                     </div>
+                    <div class="summary-stat-box">
+                        <div class="summary-stat-label">Rivalry High Single-Player Score</div>
+                        <div class="summary-stat-value" style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            ${topPerformer && topPerformer.headshot ? `<img src="${topPerformer.headshot}" class="mini-player-headshot" alt="${topPerformer.name}" onerror="this.style.display='none'">` : ''}
+                            <span>${topPerformer ? `${topPerformer.points.toFixed(2)}` : '-'}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-top: 4px;">${topPerformer ? `${topPerformer.name} (${topPerformer.manager_name}, ${topPerformer.year} W${topPerformer.week})` : '-'}</div>
+                    </div>
                 </div>
             `;
         }
     }
 
     openBoxscoreModal(season, week, leftId, rightId) {
-        const sNum = Number(season);
+        let sNum = Number(season);
         const wNum = Number(week);
-        const lId = Number(leftId);
-        const rId = Number(rightId);
+        const leftTeamId = Number(leftId) || null;
+        const rightTeamId = Number(rightId) || null;
+        const leftMgrId = String(leftId);
+        const rightMgrId = String(rightId);
 
         const modal = document.getElementById('boxscore-modal');
         const modalContent = document.getElementById('boxscore-modal-content');
         if (!modal || !modalContent) return;
 
-        // Find matchup metadata
-        const m = this.matchups.find(x => x.season === sNum && x.week === wNum && ((x.team_1_id === lId && x.team_2_id === rId) || (x.team_1_id === rId && x.team_2_id === lId)));
+        // Find matchup metadata with fallback for year offset convention
+        let m = (this.matchups || []).find(x => {
+            const mSeason = Number(x.season || x.year);
+            const mWeek = Number(x.week);
+            if (mSeason !== sNum || mWeek !== wNum) return false;
+            const m1Team = Number(x.team_1_id);
+            const m2Team = Number(x.team_2_id);
+            const m1Mgr = String(x.team_1_manager_id || '');
+            const m2Mgr = String(x.team_2_manager_id || '');
+            const matchLeft = (leftTeamId && (m1Team === leftTeamId || m2Team === leftTeamId)) || (leftMgrId && (m1Mgr === leftMgrId || m2Mgr === leftMgrId));
+            const matchRight = (rightTeamId && (m1Team === rightTeamId || m2Team === rightTeamId)) || (rightMgrId && (m1Mgr === rightMgrId || m2Mgr === rightMgrId));
+            return matchLeft && matchRight;
+        });
+
+        if (!m && sNum > 2000) {
+            const altSeason = sNum - 1;
+            m = (this.matchups || []).find(x => {
+                const mSeason = Number(x.season || x.year);
+                const mWeek = Number(x.week);
+                if (mSeason !== altSeason || mWeek !== wNum) return false;
+                const m1Team = Number(x.team_1_id);
+                const m2Team = Number(x.team_2_id);
+                const m1Mgr = String(x.team_1_manager_id || '');
+                const m2Mgr = String(x.team_2_manager_id || '');
+                const matchLeft = (leftTeamId && (m1Team === leftTeamId || m2Team === leftTeamId)) || (leftMgrId && (m1Mgr === leftMgrId || m2Mgr === leftMgrId));
+                const matchRight = (rightTeamId && (m1Team === rightTeamId || m2Team === rightTeamId)) || (rightMgrId && (m1Mgr === rightMgrId || m2Mgr === rightMgrId));
+                return matchLeft && matchRight;
+            });
+            if (m) sNum = altSeason;
+        }
+
         if (!m) return;
 
-        const isLeftTeam1 = m.team_1_id === lId;
+        const isLeftTeam1 = (leftTeamId && m.team_1_id === leftTeamId) || (leftMgrId && String(m.team_1_manager_id) === leftMgrId);
         const leftName = isLeftTeam1 ? m.team_1_name : m.team_2_name;
         const rightName = isLeftTeam1 ? m.team_2_name : m.team_1_name;
         const leftScore = isLeftTeam1 ? m.team_1_actual_points : m.team_2_actual_points;
         const rightScore = isLeftTeam1 ? m.team_2_actual_points : m.team_1_actual_points;
-        const isLeftWin = m.winner_team_id === lId;
-        const isRightWin = m.winner_team_id === rId;
+        const lTeamId = isLeftTeam1 ? m.team_1_id : m.team_2_id;
+        const rTeamId = isLeftTeam1 ? m.team_2_id : m.team_1_id;
+        const isLeftWin = m.winner_team_id === lTeamId;
+        const isRightWin = m.winner_team_id === rTeamId;
 
-        const leftMgrId = m.team_1_manager_id || m.home_manager_id;
-        const rightMgrId = m.team_2_manager_id || m.away_manager_id;
-        const leftMgrName = this.getManagerDisplayName(leftMgrId, m.team_1_manager_name || m.home_manager_name);
-        const rightMgrName = this.getManagerDisplayName(rightMgrId, m.team_2_manager_name || m.away_manager_name);
+        const leftMgrIdVal = m.team_1_manager_id || m.home_manager_id;
+        const rightMgrIdVal = m.team_2_manager_id || m.away_manager_id;
+        const leftMgrName = this.getManagerDisplayName(isLeftTeam1 ? leftMgrIdVal : rightMgrIdVal, isLeftTeam1 ? (m.team_1_manager_name || m.home_manager_name) : (m.team_2_manager_name || m.away_manager_name));
+        const rightMgrName = this.getManagerDisplayName(isLeftTeam1 ? rightMgrIdVal : leftMgrIdVal, isLeftTeam1 ? (m.team_2_manager_name || m.away_manager_name) : (m.team_1_manager_name || m.home_manager_name));
 
         // Find all player stats for both teams in that season & week (deduplicating duplicate records)
-        const rawGamePlayers = this.playerStats.filter(p => p.season === sNum && p.week === wNum && (p.team_id === lId || p.team_id === rId));
+        const rawGamePlayers = (this.playerStats || []).filter(p => Number(p.season || p.year) === sNum && Number(p.week) === wNum && (p.team_id === lTeamId || p.team_id === rTeamId || (leftMgrId && p.manager_id === leftMgrId) || (rightMgrId && p.manager_id === rightMgrId)));
         const seenPlayerKeys = new Set();
         const gamePlayers = [];
         for (const p of rawGamePlayers) {
@@ -2552,8 +2690,8 @@ class FantasyApp {
             }
         }
 
-        const leftPlayers = gamePlayers.filter(p => p.team_id === lId);
-        const rightPlayers = gamePlayers.filter(p => p.team_id === rId);
+        const leftPlayers = gamePlayers.filter(p => p.team_id === lTeamId || (leftMgrId && p.manager_id === leftMgrId));
+        const rightPlayers = gamePlayers.filter(p => p.team_id === rTeamId || (rightMgrId && p.manager_id === rightMgrId));
 
         const renderRosterTable = (players, teamName, score, isWinner, managerName) => {
             const starters = players.filter(p => p.is_starter);
@@ -2581,26 +2719,33 @@ class FantasyApp {
             const remainingStarters = [...starters];
 
             STANDARD_SLOTS.forEach(slot => {
-                let matchIdx = remainingStarters.findIndex(p => p.roster_slot === slot);
+                let matchIdx = remainingStarters.findIndex(p => (p.roster_slot === slot || (!p.roster_slot && p.position === slot)));
+                if (matchIdx === -1 && slot === 'DEF') {
+                    matchIdx = remainingStarters.findIndex(p => ['DEF', 'D/ST'].includes(p.roster_slot || p.position));
+                }
                 if (matchIdx === -1 && slot === 'W/R/T') {
-                    matchIdx = remainingStarters.findIndex(p => ['WR', 'RB', 'TE', 'FLEX', 'W/R', 'W/R/T'].includes(p.roster_slot));
+                    matchIdx = remainingStarters.findIndex(p => ['WR', 'RB', 'TE', 'FLEX', 'W/R', 'W/R/T'].includes(p.roster_slot || p.position));
                 }
                 if (matchIdx !== -1) {
                     const p = remainingStarters.splice(matchIdx, 1)[0];
+                    const slotDisplay = (p.roster_slot === 'W/R/T' || p.roster_slot === 'W/R') ? p.roster_slot : slot;
                     const slotClass = slot.toLowerCase().replace(/[^a-z]/g, '');
                     const nflInfo = formatDumbartonNflInfo(p);
+                    const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
+                    const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
                     html += `
                         <div class="player-row">
                             <div class="player-left">
-                                <span class="slot-badge ${slotClass}">${slot}</span>
+                                ${headshotHtml}
+                                <span class="slot-badge ${slotClass}">${slotDisplay}</span>
                                 <div>
                                     <div class="player-name">${p.player_name}</div>
                                     <div class="nfl-team">${nflInfo || 'NFL'}</div>
                                 </div>
                             </div>
                             <div class="player-right">
-                                <div class="player-pts">${p.fantasy_points !== undefined ? p.fantasy_points.toFixed(2) : '0.00'}</div>
-                                <div class="player-proj">Proj: ${p.projected_points !== undefined ? p.projected_points.toFixed(2) : '-'}</div>
+                                <div class="player-pts">${p.fantasy_points !== undefined ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>
+                                <div class="player-proj">${p.projected_points != null && Number(p.projected_points) > 0 ? `Proj: ${Number(p.projected_points).toFixed(2)}` : ''}</div>
                             </div>
                         </div>
                     `;
@@ -2617,7 +2762,7 @@ class FantasyApp {
                             </div>
                             <div class="player-right">
                                 <div class="player-pts">0.00</div>
-                                <div class="player-proj">Proj: -</div>
+                                <div class="player-proj"></div>
                             </div>
                         </div>
                     `;
@@ -2625,20 +2770,24 @@ class FantasyApp {
             });
 
             remainingStarters.forEach(p => {
-                const slotClass = p.roster_slot.toLowerCase().replace(/[^a-z]/g, '');
+                const slotDisplay = p.roster_slot || p.position || 'FLEX';
+                const slotClass = slotDisplay.toLowerCase().replace(/[^a-z]/g, '');
                 const nflInfo = formatDumbartonNflInfo(p);
+                const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
+                const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
                 html += `
                     <div class="player-row">
                         <div class="player-left">
-                            <span class="slot-badge ${slotClass}">${p.roster_slot}</span>
+                            ${headshotHtml}
+                            <span class="slot-badge ${slotClass}">${slotDisplay}</span>
                             <div>
                                 <div class="player-name">${p.player_name}</div>
                                 <div class="nfl-team">${nflInfo || 'NFL'}</div>
                             </div>
                         </div>
                         <div class="player-right">
-                            <div class="player-pts">${p.fantasy_points !== undefined ? p.fantasy_points.toFixed(2) : '0.00'}</div>
-                            <div class="player-proj">Proj: ${p.projected_points !== undefined ? p.projected_points.toFixed(2) : '-'}</div>
+                            <div class="player-pts">${p.fantasy_points !== undefined ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>
+                            <div class="player-proj">${p.projected_points != null && Number(p.projected_points) > 0 ? `Proj: ${Number(p.projected_points).toFixed(2)}` : ''}</div>
                         </div>
                     </div>
                 `;
@@ -2647,20 +2796,25 @@ class FantasyApp {
             if (bench.length > 0) {
                 html += `<div class="roster-section-title" style="margin-top: 20px;"><span>Bench & IR</span></div>`;
                 bench.forEach(p => {
-                    const slotClass = p.roster_slot.toLowerCase().replace(/[^a-z]/g, '');
+                    const isIR = p.roster_slot === 'IR' || p.lineup_slot_id === 21;
+                    const slotDisplay = isIR ? 'IR' : (p.roster_slot || 'BN');
+                    const slotClass = slotDisplay.toLowerCase().replace(/[^a-z]/g, '');
                     const nflInfo = formatDumbartonNflInfo(p);
+                    const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
+                    const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
                     html += `
                         <div class="player-row" style="opacity: 0.8;">
                             <div class="player-left">
-                                <span class="slot-badge ${slotClass}">${p.roster_slot}</span>
+                                ${headshotHtml}
+                                <span class="slot-badge ${slotClass}">${slotDisplay}</span>
                                 <div>
                                     <div class="player-name">${p.player_name}</div>
                                     <div class="nfl-team">${nflInfo || 'NFL'}</div>
                                 </div>
                             </div>
                             <div class="player-right">
-                                <div class="player-pts">${p.fantasy_points !== undefined ? p.fantasy_points.toFixed(2) : '0.00'}</div>
-                                <div class="player-proj">Proj: ${p.projected_points !== undefined ? p.projected_points.toFixed(2) : '-'}</div>
+                                <div class="player-pts">${p.fantasy_points !== undefined ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>
+                                <div class="player-proj">${p.projected_points != null && Number(p.projected_points) > 0 ? `Proj: ${Number(p.projected_points).toFixed(2)}` : ''}</div>
                             </div>
                         </div>
                     `;
@@ -2674,7 +2828,7 @@ class FantasyApp {
         modalContent.innerHTML = `
             <div class="modal-header">
                 <div class="modal-title-area">
-                    <h2>${season} • Week ${week} ${m.is_playoffs ? ' • ' + (m.playoff_round || 'Playoffs') : ' • Regular Season'}</h2>
+                    <h2>${this.formatSeasonYear(sNum)} • Week ${wNum} ${m.is_playoffs || m.is_playoff ? ' • Playoffs (' + (this.getMatchupRoundLabel(m) || m.playoff_round || 'Playoffs') + ')' : ' • Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>

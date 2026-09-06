@@ -5553,6 +5553,73 @@ dialog.notes-modal-dialog::backdrop {
     color: var(--text-primary);
 }
 
+.btn-rankings-edit {
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: var(--bg-card, #ffffff);
+    border: 1px solid var(--border-color, #cbd5e1);
+    color: var(--text-secondary, #334155);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-rankings-edit:hover {
+    background: var(--bg-card-hover, #f1f5f9);
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
+.btn-rankings-new {
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #16a34a;
+    border: 1px solid #16a34a;
+    color: #ffffff;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.btn-rankings-new:hover {
+    background: #15803d;
+    border-color: #15803d;
+}
+
+/* General Button Utilities */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+
+.btn-sm {
+    padding: 5px 11px;
+    font-size: 0.78rem;
+}
+
+.btn-primary {
+    background: #16a34a;
+    border: 1px solid #16a34a;
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background: #15803d;
+    border-color: #15803d;
+}
+
 .rankings-list-wrapper {
     display: flex;
     flex-direction: column;
@@ -6331,6 +6398,31 @@ dialog.notes-modal-dialog::backdrop {
     margin-right: 8px;
     display: inline-block;
     vertical-align: middle;
+}
+
+.mini-player-headshot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.matchup-star-player {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-top: 6px;
+    border: 1px solid var(--border-color);
 }
 
 /* Explore Paradigms & Rivalry Week */

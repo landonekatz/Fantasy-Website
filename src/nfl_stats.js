@@ -13,6 +13,11 @@ class NFLStatsService {
         this.nameToIdMap = null; // normalizedName -> id
         this.loadingPromises = {};
         this.storageKeyPrefix = 'fv_nfl_stats_';
+        
+        // Auto-preload players directory for headshots & player matching
+        if (typeof window !== 'undefined' || typeof fetch !== 'undefined') {
+            this.loadPlayers().catch(() => {});
+        }
     }
 
     normalizeName(name) {
@@ -206,6 +211,41 @@ class NFLStatsService {
         }
 
         return null;
+    }
+
+    getPlayerHeadshot(name, pos = '') {
+        if (!name) return '';
+        const normPos = String(pos || '').toUpperCase();
+        
+        if (normPos === 'DEF' || normPos === 'D/ST') {
+            const teamDefMap = {
+                'steelers': 'pit', 'texans': 'hou', 'rams': 'lar', 'cardinals': 'ari',
+                'raiders': 'lv', 'ravens': 'bal', 'panthers': 'car', 'seahawks': 'sea',
+                'vikings': 'min', 'broncos': 'den', 'bills': 'buf', 'buccaneers': 'tb',
+                'packers': 'gb', 'chiefs': 'kc', 'giants': 'nyg', 'patriots': 'ne',
+                'jaguars': 'jax', 'lions': 'det', 'dolphins': 'mia', 'eagles': 'phi',
+                'colts': 'ind', 'saints': 'no', 'falcons': 'atl', 'browns': 'cle',
+                'jets': 'nyj', 'commanders': 'was', 'washington': 'was', 'bears': 'chi',
+                'bengals': 'cin', 'titans': 'ten', 'chargers': 'lac', 'cowboys': 'dal',
+                '49ers': 'sf'
+            };
+            const normName = this.normalizeName(name);
+            for (const [k, abbr] of Object.entries(teamDefMap)) {
+                if (normName.includes(k)) {
+                    return `https://sleepercdn.com/images/team_logos/nfl/${abbr}.png`;
+                }
+            }
+        }
+
+        if (!this.nameToIdMap && !this.loadingPromises['players']) {
+            this.loadPlayers().catch(() => {});
+        }
+
+        const pId = this.findPlayerId(name, pos);
+        if (pId) {
+            return `https://sleepercdn.com/content/nfl/players/thumb/${pId}.jpg`;
+        }
+        return '';
     }
 
     getPlayerStats(name, year, pos = '', scoringFormat = '') {

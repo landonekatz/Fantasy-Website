@@ -189,11 +189,14 @@ export class PowerRankingsEngine {
         }
 
         let displayName = found?.canonical_name || found?.name || canonicalId || 'Manager';
+        if (displayName && (displayName.toLowerCase() === 'madoc' || displayName.toLowerCase() === 'maddox')) {
+            displayName = 'Madoc';
+        }
         if (this.app && typeof this.app.getManagerDisplayName === 'function') {
             displayName = this.app.getManagerDisplayName(canonicalId, displayName);
         }
 
-        const logoUrl = found?.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+        const logoUrl = found?.logo_url || found?.avatar || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
 
         return {
             id: canonicalId,

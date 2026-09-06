@@ -205,7 +205,7 @@ TargetApp.prototype.renderRivalryWeek = function() {
                 const s1 = m.team_1_score || 0;
                 const s2 = m.team_2_score || 0;
                 html += `
-                    <div class="dungeon-matchup-row" onclick="window.app && window.app.openBoxscoreModal(${m.season}, ${m.week}, ${m.team_1_id}, ${m.team_2_id})">
+                    <div class="dungeon-matchup-row" onclick="window.app && window.app.openBoxscoreModal(${m.season}, ${m.week}, '${m.team_1_id}', '${m.team_2_id}')">
                         <div class="dungeon-matchup-year">${m.season} Week ${m.week}</div>
                         <div class="dungeon-matchup-score">${m.team_1_name} ${s1.toFixed(2)} vs ${s2.toFixed(2)} ${m.team_2_name}</div>
                     </div>

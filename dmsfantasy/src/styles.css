@@ -1090,6 +1090,43 @@ dialog.boxscore-modal::backdrop {
     min-width: 0;
 }
 
+.player-headshot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.mini-player-headshot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.matchup-star-player {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-top: 6px;
+    border: 1px solid var(--border-color);
+}
+
 .slot-badge {
     font-size: 0.7rem;
     font-weight: 800;

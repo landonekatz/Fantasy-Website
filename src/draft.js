@@ -68,12 +68,28 @@ export class VaultDraftEngine {
         this.init();
     }
 
+    isRawChampionshipYearBasis() {
+        const setting = this.leagueSettings?.raw_year_basis || this.options?.raw_year_basis;
+        if (setting === 'championship') return true;
+        if (setting === 'kickoff') return false;
+        const platform = (this.leagueSettings?.platform || this.options?.platform || '').toLowerCase();
+        if (platform === 'yahoo') return true;
+        const name = (this.leagueSettings?.name || '').toLowerCase();
+        if (name.includes('dumbarton') || name.includes('dms')) return true;
+        if (typeof window !== 'undefined' && window.location && window.location.pathname.includes('dmsfantasy')) return true;
+        return false;
+    }
+
     formatSeasonYear(year) {
         if (year === undefined || year === null) return "";
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
         const isChampionship = (this.seasonLabelConvention === 'championship' || this.leagueSettings?.seasonLabelConvention === 'championship');
-        return isChampionship ? `${num + 1}` : `${num}`;
+        const isRawChampionship = this.isRawChampionshipYearBasis();
+        const displayYear = isRawChampionship 
+            ? (isChampionship ? num : (num - 1))
+            : (isChampionship ? (num + 1) : num);
+        return `${displayYear}`;
     }
 
     normalizeDraftResults(raw) {
@@ -134,11 +150,23 @@ export class VaultDraftEngine {
         }
         if (options.leagueSettings !== undefined) {
             this.leagueSettings = options.leagueSettings || {};
+            if (this.leagueSettings.seasonLabelConvention) {
+                this.seasonLabelConvention = this.leagueSettings.seasonLabelConvention;
+            }
+        }
+        if (options.seasonLabelConvention !== undefined) {
+            this.seasonLabelConvention = options.seasonLabelConvention;
         }
         if (options.scoringSettings !== undefined) {
             this.scoringSettings = options.scoringSettings || {};
         }
         this.init();
+        if (typeof document !== 'undefined') {
+            const container = document.getElementById(this.containerId);
+            if (container && (container.classList.contains('active') || container.offsetParent !== null)) {
+                this.render();
+            }
+        }
     }
 
     setSubTab(tab, managerId = null) {
@@ -773,6 +801,8 @@ export class VaultDraftEngine {
             const dMgrLower = String(mgrId || (pick.team_id !== undefined ? `team_${pick.team_id}` : '')).toLowerCase();
             const dTeamId = pick.team_id !== undefined ? String(pick.team_id) : (pick.teamId !== undefined ? String(pick.teamId) : '');
 
+            if (!isUnplayedSeason) {
+
             // Check if drafter explicitly dropped this player in transactions
             const playerDrops = seasonDropsMap.get(np) || [];
             const droppedByDrafterTxs = playerDrops.filter(t => {
@@ -920,6 +950,7 @@ export class VaultDraftEngine {
                 tagType = 'retained';
                 destinationTag = '';
             }
+        }
 
             const pickData = {
                 overallPick,
@@ -1637,7 +1668,7 @@ export class VaultDraftEngine {
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                             <div>
                                 <span class="draft-hero-subtitle">Historical Draft Room</span>
-                                <h1>${this.selectedYear} League Draft</h1>
+                                <h1>${this.formatSeasonYear(this.selectedYear)} League Draft</h1>
                             </div>
                         </div>
                         <p class="draft-hero-desc">

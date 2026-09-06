@@ -7,12 +7,34 @@ import { calculateSeasonLoser } from './compiler.js';
 const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
 Object.assign(TargetApp.prototype, {
 
+    isRawChampionshipYearBasis() {
+        const setting = this.leagueSettings?.raw_year_basis || this.rawYearBasis;
+        if (setting === 'championship') return true;
+        if (setting === 'kickoff') return false;
+        const platform = (this.leagueSettings?.platform || this.platform || '').toLowerCase();
+        if (platform === 'yahoo') return true;
+        const slug = (this.leagueSlug || '').toLowerCase();
+        if (slug === 'dmsfantasy') return true;
+        const name = (this.leagueSettings?.name || '').toLowerCase();
+        if (name.includes('dumbarton') || name.includes('dms')) return true;
+        return false;
+    },
+
     // Helper: format season year with championship convention support
     formatSeasonYear(year) {
         if (year === undefined || year === null) return "";
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
-        return this.isChampionshipYearConvention ? `${num + 1}` : `${num}`;
+        const isChampionship = Boolean(
+            this.isChampionshipYearConvention || 
+            this.seasonLabelConvention === 'championship' || 
+            this.leagueSettings?.seasonLabelConvention === 'championship'
+        );
+        const isRawChampionship = this.isRawChampionshipYearBasis();
+        const displayYear = isRawChampionship 
+            ? (isChampionship ? num : (num - 1))
+            : (isChampionship ? (num + 1) : num);
+        return `${displayYear}`;
     },
 
     // Helper: check if season/week is valid (through 2021, max week was 16; 2022 onward, 17+ weeks)
@@ -159,12 +181,12 @@ Object.assign(TargetApp.prototype, {
 
     // Render the entire Record Book page view
     renderRecordBook() {
-        this.renderRecordsHero();
-        this.renderRecordsSection1_Overview();
-        this.renderRecordsSection2_SingleGame();
-        this.renderRecordsSection3_SingleSeason();
-        this.renderRecordsSection4_Streaks();
-        this.renderRecordsSection5_Playoffs();
+        try { this.renderRecordsHero(); } catch (e) { console.error('Error rendering Record Book Hero:', e); }
+        try { this.renderRecordsSection1_Overview(); } catch (e) { console.error('Error rendering Record Book Overview:', e); }
+        try { this.renderRecordsSection2_SingleGame(); } catch (e) { console.error('Error rendering Record Book Single Game:', e); }
+        try { this.renderRecordsSection3_SingleSeason(); } catch (e) { console.error('Error rendering Record Book Single Season:', e); }
+        try { this.renderRecordsSection4_Streaks(); } catch (e) { console.error('Error rendering Record Book Streaks:', e); }
+        try { this.renderRecordsSection5_Playoffs(); } catch (e) { console.error('Error rendering Record Book Playoffs:', e); }
     },
 
     // Render Hero Header Banner with aggregate historical statistics
@@ -758,10 +780,10 @@ Object.assign(TargetApp.prototype, {
         const renderSingleGameItem = (item, idx, val, valSuffix = 'pts') => {
             const seasonBadge = this.formatSeasonYear(item.year || item.season);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
-            const displayYear = item.year || item.season;
-            const canViewBoxscore = displayYear >= 2018;
+            const matchYear = item.year || item.season;
+            const canViewBoxscore = matchYear >= 2018;
             const btnHtml = canViewBoxscore
-                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>`
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${matchYear}, ${item.week}, '${item.team_id || item.manager_id}', '${item.opponent_id || item.opponent_manager_id}')">View Matchup</button>`
                 : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
@@ -848,6 +870,7 @@ Object.assign(TargetApp.prototype, {
         const leastPtsWinLeague = [...filteredStandings].filter(s => (s.final_rank || s.rank) === 1)
             .sort((a, b) => (Number(a.points_for) || 0) - (Number(b.points_for) || 0)).slice(0, 5);
 
+        const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => a - b);
         const calculatedLoserStandings = distinctYears.map(yr => {
             const lRes = calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings);
             if (!lRes) return null;
@@ -1558,11 +1581,11 @@ Object.assign(TargetApp.prototype, {
         const renderSingleGameRow = (item, idx) => {
             const seasonBadge = this.formatSeasonYear(item.year || item.season);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
-            const displayYear = item.year || item.season;
-            const canViewBoxscore = displayYear >= 2018;
+            const matchYear = item.year || item.season;
+            const canViewBoxscore = matchYear >= 2018;
             const roundBadge = item.playoff_round ? ` (${item.playoff_round})` : '';
             const btnHtml = canViewBoxscore
-                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>`
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${matchYear}, ${item.week}, '${item.team_id || item.manager_id}', '${item.opponent_id || item.opponent_manager_id}')">View Matchup</button>`
                 : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
@@ -1588,11 +1611,11 @@ Object.assign(TargetApp.prototype, {
         const renderMatchupRow = (m, idx) => {
             const seasonBadge = this.formatSeasonYear(m.year || m.season);
             const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
-            const displayYear = m.year || m.season;
-            const canViewBoxscore = displayYear >= 2018;
+            const matchYear = m.year || m.season;
+            const canViewBoxscore = matchYear >= 2018;
             const roundBadge = m.playoff_round ? ` (${m.playoff_round})` : ' (Playoffs)';
             const btnHtml = canViewBoxscore
-                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${m.week}, ${m.home_team_id}, ${m.away_team_id})">View Matchup</button>`
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${matchYear}, ${m.week}, '${m.home_team_id || m.team_1_id || m.home_manager_id}', '${m.away_team_id || m.team_2_id || m.away_manager_id}')">View Matchup</button>`
                 : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">

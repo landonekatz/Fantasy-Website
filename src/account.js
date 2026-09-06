@@ -897,6 +897,18 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     }
                 }
 
+                let leagueManagers = [];
+                if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')))) {
+                    leagueManagers = (app?.members && app.members.length > 0) ? app.members : (app?.managers || []);
+                }
+                if ((!leagueManagers || leagueManagers.length === 0) && info && info.managers) {
+                    leagueManagers = info.managers;
+                }
+                if ((!leagueManagers || leagueManagers.length === 0) && joinCodes) {
+                    if (leagueId === 'dmsfantasy' && joinCodes['DNFUAM']?.managers) leagueManagers = joinCodes['DNFUAM'].managers;
+                    if (leagueId === 'gaywoodfantasyfootball' && joinCodes['7AR345']?.managers) leagueManagers = joinCodes['7AR345'].managers;
+                }
+
                 const mgrBaseName = mgr?.canonical_name || mgr?.name || (claimId ? (session.name || 'Manager') : '');
                 const mgrNickname = mgr?.nickname || (session.managerNicknames && session.managerNicknames[leagueId]) || '';
                 const allowNick = (app?.leagueSlug === leagueId && app?.leagueSettings?.allow_nicknames !== false) || true;
@@ -939,9 +951,26 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                                     <div class="account-nickname-feedback" data-league-id="${leagueId}" style="display: none; font-size: 0.78rem; margin-top: 4px; color: #15803d; font-weight: 600;"></div>
                                 </div>
                             ` : `
-                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap;">
-                                    <span style="font-size: 0.78rem; color: var(--text-muted, #64748b);">Linked Profile: <em style="color: #94a3b8;">Unlinked</em></span>
-                                    <span style="font-size: 0.72rem; color: var(--text-muted, #64748b);">Join via league code to claim your team</span>
+                                <div style="margin-top: 4px;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+                                        <span style="font-size: 0.78rem; color: var(--text-muted, #64748b);">Linked Profile: <em style="color: #94a3b8; font-weight: 600;">Unlinked</em></span>
+                                        <button class="btn-toggle-link-profile btn btn-sm btn-primary" data-league-id="${leagueId}" style="padding: 3px 10px; font-size: 0.74rem; font-weight: 700; border-radius: 4px; cursor: pointer;">Link Manager Profile</button>
+                                    </div>
+                                    <div class="link-profile-drawer" id="link-drawer-${leagueId}" style="display: none; padding: 8px 10px; background: #ffffff; border: 1px solid var(--border-line, #cbd5e1); border-radius: 6px; margin-top: 6px;">
+                                        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary, #475569); margin-bottom: 4px;">Select Your Team / Manager:</div>
+                                        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                            <select class="select-claim-manager" id="select-claim-${leagueId}" style="flex: 1; min-width: 140px; padding: 5px 8px; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff;">
+                                                <option value="">-- Select Your Manager Profile --</option>
+                                                ${(leagueManagers || []).map(m => {
+                                                    const mName = m.canonical_name || m.name || m.id;
+                                                    const isDefaultMatch = session?.email?.toLowerCase().includes('landon') && (mName.toLowerCase().includes('landon') || m.id.toLowerCase().includes('landon'));
+                                                    return `<option value="${m.id}" ${isDefaultMatch ? 'selected' : ''}>${mName}</option>`;
+                                                }).join('')}
+                                            </select>
+                                            <button class="btn-confirm-link-profile btn btn-sm btn-primary" data-league-id="${leagueId}" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 700; border-radius: 4px; cursor: pointer;">Confirm Link</button>
+                                        </div>
+                                        <div class="link-profile-feedback" id="link-feedback-${leagueId}" style="display: none; font-size: 0.78rem; margin-top: 4px; font-weight: 600;"></div>
+                                    </div>
                                 </div>
                             `}
                         </div>
@@ -1148,6 +1177,82 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 } finally {
                     btn.disabled = false;
                     btn.textContent = orig;
+                }
+            });
+        });
+
+        // Wire toggle link profile drawer
+        accountModalContent.querySelectorAll('.btn-toggle-link-profile').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const leagueId = btn.getAttribute('data-league-id');
+                const drawer = accountModalContent.querySelector(`#link-drawer-${leagueId}`);
+                if (!drawer) return;
+                const isHidden = drawer.style.display === 'none' || !drawer.style.display;
+                drawer.style.display = isHidden ? 'block' : 'none';
+                btn.textContent = isHidden ? 'Hide Link Options' : 'Link Manager Profile';
+            });
+        });
+
+        // Wire confirm link profile
+        accountModalContent.querySelectorAll('.btn-confirm-link-profile').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const leagueId = btn.getAttribute('data-league-id');
+                const selectEl = accountModalContent.querySelector(`#select-claim-${leagueId}`);
+                const feedbackEl = accountModalContent.querySelector(`#link-feedback-${leagueId}`);
+                if (!selectEl || !selectEl.value) {
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#dc2626';
+                        feedbackEl.textContent = 'Please choose a manager profile to link.';
+                    }
+                    return;
+                }
+
+                const targetId = selectEl.value;
+                const targetName = selectEl.options[selectEl.selectedIndex]?.text || targetId;
+                btn.disabled = true;
+                btn.textContent = 'Linking...';
+
+                try {
+                    if (typeof window.AuthEngine?.claimManagerProfile === 'function') {
+                        await window.AuthEngine.claimManagerProfile(leagueId, targetId, targetName);
+                    }
+                    if (!session.claims) session.claims = {};
+                    session.claims[leagueId] = targetId;
+                    try { localStorage.setItem(`vault_claim_${leagueId}`, targetId); } catch(e){}
+
+                    if (app && (app.leagueSlug === leagueId || (leagueId === 'dmsfantasy' && window.location.pathname.includes('dmsfantasy')) || (leagueId === 'gaywoodfantasyfootball' && window.location.pathname.includes('gaywoodfantasyfootball')))) {
+                        if (!app.claims) app.claims = {};
+                        app.claims[targetId] = {
+                            name: session.name || targetName,
+                            email: session.email,
+                            userId: session.uid,
+                            claimedAt: Date.now()
+                        };
+                        if (typeof app.refreshNicknamesUI === 'function') app.refreshNicknamesUI();
+                        if (app.activeTab === 'admin' && typeof app.renderAdminDashboard === 'function') {
+                            app.renderAdminDashboard();
+                        }
+                    }
+
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#15803d';
+                        feedbackEl.textContent = `✓ Linked to ${targetName}!`;
+                    }
+                    setTimeout(() => {
+                        window.renderMyAccountModal && window.renderMyAccountModal();
+                    }, 800);
+                } catch (e) {
+                    console.error('Error claiming manager profile:', e);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#dc2626';
+                        feedbackEl.textContent = 'Failed to link profile. Please try again.';
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Confirm Link';
                 }
             });
         });

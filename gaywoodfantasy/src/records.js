@@ -760,7 +760,7 @@ Object.assign(TargetApp.prototype, {
             const displayYear = item.year || item.season;
             const canViewBoxscore = displayYear >= 2018;
             const btnHtml = canViewBoxscore
-                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>`
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, '${item.team_id || item.manager_id}', '${item.opponent_id || item.opponent_manager_id}')">View Matchup</button>`
                 : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
@@ -1561,7 +1561,7 @@ Object.assign(TargetApp.prototype, {
             const canViewBoxscore = displayYear >= 2018;
             const roundBadge = item.playoff_round ? ` (${item.playoff_round})` : '';
             const btnHtml = canViewBoxscore
-                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, ${item.team_id}, ${item.opponent_id})">View Matchup</button>`
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${item.week}, '${item.team_id || item.manager_id}', '${item.opponent_id || item.opponent_manager_id}')">View Matchup</button>`
                 : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">
@@ -1591,7 +1591,7 @@ Object.assign(TargetApp.prototype, {
             const canViewBoxscore = displayYear >= 2018;
             const roundBadge = m.playoff_round ? ` (${m.playoff_round})` : ' (Playoffs)';
             const btnHtml = canViewBoxscore
-                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${m.week}, ${m.home_team_id}, ${m.away_team_id})">View Matchup</button>`
+                ? `<button class="btn-view-matchup" onclick="window.app.openBoxscoreModal(${displayYear}, ${m.week}, '${m.home_team_id || m.team_1_id || m.home_manager_id}', '${m.away_team_id || m.team_2_id || m.away_manager_id}')">View Matchup</button>`
                 : `<button class="btn-view-matchup" disabled title="Pre-2018 Boxscore Data Unavailable">Data Unavailable</button>`;
             return `
                 <div class="record-item">

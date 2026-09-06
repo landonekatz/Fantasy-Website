@@ -6,7 +6,52 @@ import { nflStats } from './nfl_stats.js';
 import { formatManagerDisplayName } from './formatters.js';
 import { CommissionerNotesEngine } from './commissioner_notes.js';
 import { PowerRankingsEngine } from './power_rankings.js';
-function getPlayoffRoundName(season, week) {
+export function getMatchupRoundLabel(m) {
+    if (!m) return '';
+    const gt = String(m.game_type || '').toLowerCase().trim();
+    const pr = String(m.playoff_round || '').toLowerCase().trim();
+
+    // 1. Toilet Bowl
+    if (m.is_toilet_bowl || gt.includes('toilet') || pr.includes('toilet')) {
+        return 'Toilet Bowl';
+    }
+
+    // 2. 3rd Place Consolation Game
+    if (gt.includes('3rd') || pr.includes('3rd')) {
+        return '3rd Place Game';
+    }
+
+    // 3. Consolation bracket / game
+    if (m.is_consolation || gt.includes('consolation') || pr.includes('consolation')) {
+        return 'Consolation';
+    }
+
+    // 4. Explicit round names (playoff_round takes priority over bracket-wide game_type)
+    if (pr.includes('quarter') || gt.includes('quarter')) return 'Quarterfinals';
+    if (pr.includes('semi') || gt.includes('semi')) return 'Semifinals';
+    if (pr.includes('final') || pr.includes('champ') || gt.includes('champ')) return 'Championship';
+
+    // 5. Fallback inference based on week IF it is marked as a playoff game
+    const isPlayoffs = Boolean(m.is_playoffs || m.is_playoff || gt === 'playoffs');
+    if (isPlayoffs) {
+        const yr = Number(m.season || m.year);
+        const wk = Number(m.week);
+        if (yr <= 2020) {
+            if (wk === 14) return 'Quarterfinals';
+            if (wk === 15) return 'Semifinals';
+            if (wk === 16) return 'Championship';
+        } else {
+            if (wk === 15) return 'Quarterfinals';
+            if (wk === 16) return 'Semifinals';
+            if (wk === 17) return 'Championship';
+        }
+        return 'Playoffs';
+    }
+
+    return '';
+}
+
+export function getPlayoffRoundName(season, week) {
     const yr = Number(season);
     const wk = Number(week);
     if (yr <= 2020) {
@@ -22,7 +67,14 @@ function getPlayoffRoundName(season, week) {
 }
 
 function formatPlayerStats(player) {
-    if (!player.stat_line || Object.keys(player.stat_line).length === 0) return '';
+    if (!player) return '';
+    if (typeof player.nfl_stat_line === 'string' && player.nfl_stat_line.trim()) {
+        return player.nfl_stat_line.trim();
+    }
+    if (typeof player.stat_line === 'string' && player.stat_line.trim()) {
+        return player.stat_line.trim();
+    }
+    if (!player.stat_line || typeof player.stat_line !== 'object' || Object.keys(player.stat_line).length === 0) return '';
     const stats = player.stat_line;
     let out = [];
 
@@ -99,6 +151,32 @@ function formatPlayerStats(player) {
     return out.join(', ');
 }
 
+function formatPlayerNflGameInfo(player) {
+    if (!player) return 'NFL';
+    let opp = (player.nfl_team || '').trim();
+    let rawRes = (player.nfl_game_result || '').trim();
+    let statLine = formatPlayerStats(player);
+
+    if (rawRes) {
+        let loc = '';
+        if (rawRes.endsWith('@')) {
+            loc = '@';
+            rawRes = rawRes.slice(0, -1).trim();
+        } else if (rawRes.endsWith('vs')) {
+            loc = 'vs';
+            rawRes = rawRes.slice(0, -2).trim();
+        }
+        let gameStr = rawRes;
+        if (opp) {
+            if (loc) gameStr = `${rawRes} ${loc} ${opp}`;
+            else if (!gameStr.includes(opp)) gameStr = `${rawRes} ${opp}`;
+        }
+        return [gameStr, statLine].filter(Boolean).join(' • ');
+    }
+
+    return [opp, statLine].filter(Boolean).join(' • ') || 'NFL';
+}
+
 class FantasyApp {
     constructor() {
         this.managers = [];
@@ -130,11 +208,33 @@ class FantasyApp {
         this.notesEngine = null;
     }
 
+    isRawChampionshipYearBasis() {
+        const setting = this.leagueSettings?.raw_year_basis || this.rawYearBasis;
+        if (setting === 'championship') return true;
+        if (setting === 'kickoff') return false;
+        const platform = (this.leagueSettings?.platform || this.platform || '').toLowerCase();
+        if (platform === 'yahoo') return true;
+        const slug = (this.leagueSlug || '').toLowerCase();
+        if (slug === 'dmsfantasy') return true;
+        const name = (this.leagueSettings?.name || '').toLowerCase();
+        if (name.includes('dumbarton') || name.includes('dms')) return true;
+        return false;
+    }
+
     formatSeasonYear(year) {
         if (year === undefined || year === null) return "";
         const num = Number(year);
         if (isNaN(num)) return `${year}`;
-        return this.isChampionshipYearConvention ? `${num + 1}` : `${num}`;
+        const isChampionship = Boolean(
+            this.isChampionshipYearConvention || 
+            this.seasonLabelConvention === 'championship' || 
+            this.leagueSettings?.seasonLabelConvention === 'championship'
+        );
+        const isRawChampionship = this.isRawChampionshipYearBasis();
+        const displayYear = isRawChampionship 
+            ? (isChampionship ? num : (num - 1))
+            : (isChampionship ? (num + 1) : num);
+        return `${displayYear}`;
     }
 
     async showBuildingSequence() {
@@ -881,21 +981,25 @@ class FantasyApp {
                 bundleData = window.FANTASY_DATA;
             } else if (slug === 'dmsfantasy') {
                 try {
-                    const [stands, mat, stats, draft, tx] = await Promise.all([
+                    const [mgrs, stands, mat, stats, draft, tx, pr] = await Promise.all([
+                        fetch('/dmsfantasy/data/managers.json').then(r => r.json()).catch(() => null),
                         fetch('/dmsfantasy/data/league_standings.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/matchups.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/weekly_player_stats.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/draft_results.json').then(r => r.json()),
-                        fetch('/dmsfantasy/data/transactions.json').then(r => r.json())
+                        fetch('/dmsfantasy/data/transactions.json').then(r => r.json()),
+                        fetch('/dmsfantasy/data/power_rankings_history.json').then(r => r.json()).catch(() => null)
                     ]);
                     bundleData = {
-                        members: [],
+                        members: mgrs?.managers || [],
+                        team_mappings: mgrs?.team_mappings || [],
                         league_standings: stands,
                         matchups: mat,
                         weekly_player_stats: stats,
                         draft_results: draft,
                         transactions: tx,
-                        league_settings: { name: 'The Dumbarton League' }
+                        power_rankings_history: pr || [],
+                        league_settings: { name: 'The Dumbarton Fantasy Football League', firstYear: 2018, lastYear: 2026, totalSeasons: 10, scoring_format: 'Half-PPR (0.5)' }
                     };
                 } catch (e) {
                     console.warn('Failed local dms fallback:', e);
@@ -914,13 +1018,15 @@ class FantasyApp {
         }
 
         const managersData = bundleData.members || [];
-        const matchupsData = bundleData.matchups || [];
+const matchupsData = bundleData.matchups || [];
         const statsData = bundleData.weekly_player_stats || [];
         const standingsData = bundleData.league_standings || [];
         const transactionsData = bundleData.transactions || [];
         const powerRankingsData = bundleData.power_rankings_history || [];
         const draftData = bundleData.draft_results || [];
         const settingsData = bundleData.league_settings || {};
+        this.leagueSettings = settingsData;
+        this.rawYearBasis = this.leagueSettings.raw_year_basis || (this.leagueSettings.platform === 'yahoo' || this.leagueSlug === 'dmsfantasy' ? 'championship' : 'kickoff');
 
         this.seasonLabelConvention = bundleData.seasonLabelConvention || settingsData.seasonLabelConvention || 'kickoff';
         this.isChampionshipYearConvention = (this.seasonLabelConvention === 'championship');
@@ -933,13 +1039,15 @@ class FantasyApp {
         }
         this.syncStatus = bundleData.sync_status || null;
         this.credentials = bundleData.credentials || {};
+        this.teamMappings = bundleData.team_mappings || (Array.isArray(managersData) ? null : managersData?.team_mappings) || [];
 
         if (managersData) {
             this.managersData = managersData;
             const rawList = Array.isArray(managersData) ? managersData : (managersData.managers || []);
             this.managers = rawList.map(m => {
                 const isRetired = (m.status && m.status.toLowerCase() === 'retired');
-                const cleanName = m.name || m.display_name || m.full_name || m.manager_name;
+                const rawName = m.name || m.display_name || m.full_name || m.manager_name;
+                const cleanName = (m.id === 'madoc' || (rawName && rawName.toLowerCase() === 'madoc') || (rawName && rawName.toLowerCase() === 'maddox')) ? 'Madoc' : rawName;
                 return {
                     ...m,
                     id: m.id || m.manager_id,
@@ -959,6 +1067,9 @@ class FantasyApp {
         const rawStandings = standingsData || [];
         this.standings = rawStandings.map(s => {
             const yr = Number(s.year || s.season);
+            const mId = s.manager_id || s.id;
+            const mName = s.manager_name || s.name || 'Unknown';
+            const cleanName = (mId === 'madoc' || (mName && mName.toLowerCase() === 'madoc') || (mName && mName.toLowerCase() === 'maddox')) ? 'Madoc' : mName;
             const madePlayoffs = s.made_playoffs !== undefined ?
                 (s.made_playoffs === true || String(s.made_playoffs).toLowerCase() === 'true') :
                 (s.playoff_seed ? s.playoff_seed <= (yr >= 2022 ? 6 : 4) : false);
@@ -966,6 +1077,8 @@ class FantasyApp {
                 ...s,
                 season: yr,
                 year: yr,
+                manager_id: mId,
+                manager_name: cleanName,
                 rank: s.final_rank || s.rank,
                 made_playoffs: madePlayoffs,
                 win_pct: (s.wins + s.losses + s.ties > 0) ? (s.wins + 0.5 * s.ties) / (s.wins + s.losses + s.ties) : (s.win_pct || 0)
@@ -975,19 +1088,20 @@ class FantasyApp {
         const rawMatchups = matchupsData || [];
         this.matchups = rawMatchups.map(m => {
             const yr = Number(m.year || m.season);
-            const isPlayoffs = Boolean(m.is_playoff || m.is_playoffs || m.game_type === 'Championship');
+            const isPlayoffs = Boolean(m.is_playoff || m.is_playoffs || m.game_type === 'Championship' || (m.game_type && m.game_type !== 'regular_season' && m.game_type !== 'Regular Season'));
             const hId = m.home_team_id !== undefined ? m.home_team_id : m.team_1_id;
             const aId = m.away_team_id !== undefined ? m.away_team_id : m.team_2_id;
             const hPts = m.home_score !== undefined ? m.home_score : m.team_1_actual_points;
             const aPts = m.away_score !== undefined ? m.away_score : m.team_2_actual_points;
 
+            const roundLabel = getMatchupRoundLabel(m);
             return {
                 ...m,
                 season: yr,
                 year: yr,
                 is_playoffs: isPlayoffs,
                 is_playoff: isPlayoffs,
-                playoff_round: m.playoff_round || (isPlayoffs ? getPlayoffRoundName(yr, m.week) : ''),
+                playoff_round: roundLabel || m.playoff_round || (isPlayoffs ? getPlayoffRoundName(yr, m.week) : ''),
                 team_1_id: hId,
                 team_1_name: m.home_team_name || m.team_1_name,
                 team_1_manager_id: m.home_manager_id || m.team_1_manager_id,
@@ -1108,8 +1222,11 @@ class FantasyApp {
         
         const titleEl = document.getElementById("league-title");
         if (titleEl) {
-            const hasLeagueSuffix = /league$/i.test(leagueName.trim());
-            titleEl.innerHTML = `${leagueName}<br>${hasLeagueSuffix ? 'HQ' : 'League HQ'}`;
+            let baseName = (leagueName || "Fantasy Football").trim();
+            if (/league$/i.test(baseName)) {
+                baseName = baseName.replace(/league$/i, '').trim();
+            }
+            titleEl.innerHTML = `${baseName}<br>League HQ`;
         }
 
         const tagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
@@ -1117,7 +1234,15 @@ class FantasyApp {
         if (subtitleEl) subtitleEl.textContent = tagline;
         
         const idInfoEl = document.getElementById("league-id-info");
-        if (idInfoEl) idInfoEl.textContent = `League ID: ${this.leagueSettings.id || "------"}`;
+        if (idInfoEl) {
+            const validId = (this.leagueSettings?.id && this.leagueSettings.id !== '------') ? this.leagueSettings.id : (this.credentials?.league_id || null);
+            if (validId) {
+                idInfoEl.textContent = `League ID: ${validId}`;
+                idInfoEl.style.display = 'block';
+            } else {
+                idInfoEl.style.display = 'none';
+            }
+        }
 
         const editionInfoEl = document.getElementById("league-edition-info");
         if (editionInfoEl) editionInfoEl.innerHTML = `EST. ${this.formatSeasonYear(firstYear)}`;
@@ -1275,16 +1400,43 @@ class FantasyApp {
     }
 
     getCurrentTeamName(managerId) {
-        if (!this.managersData || !this.managersData.team_mappings) return 'Unknown Team';
         const cleanId = String(managerId || '').toLowerCase().trim();
         const targetId = (cleanId === 'ben' || cleanId === 'benjamin') ? 'benjamin' : cleanId;
-        const mappings = this.managersData.team_mappings.filter(m => {
-            const mId = String(m.manager_id || '').toLowerCase().trim();
-            return mId === targetId || mId === cleanId;
-        });
-        if (mappings.length === 0) return 'Unknown Team';
-        mappings.sort((a, b) => b.year - a.year);
-        return mappings[0].team_name;
+
+        // 1. Check team mappings
+        const mappings = (this.teamMappings && Array.isArray(this.teamMappings) ? this.teamMappings : (this.managersData?.team_mappings || []))
+            .filter(m => {
+                const mId = String(m.manager_id || '').toLowerCase().trim();
+                return mId === targetId || mId === cleanId;
+            });
+        if (mappings.length > 0) {
+            mappings.sort((a, b) => b.year - a.year);
+            return mappings[0].team_name;
+        }
+
+        // 2. Check standings
+        if (this.standings && Array.isArray(this.standings)) {
+            const rows = this.standings.filter(s => {
+                const sId = String(s.manager_id || s.id || '').toLowerCase().trim();
+                return sId === targetId || sId === cleanId;
+            });
+            if (rows.length > 0) {
+                rows.sort((a, b) => (b.year || b.season) - (a.year || a.season));
+                return rows[0].team_name;
+            }
+        }
+
+        // 3. Fallback to manager displayName
+        const mgr = (this.managers || []).find(m => String(m.id).toLowerCase() === targetId);
+        return mgr ? `${mgr.name}'s Team` : 'Unknown Team';
+    }
+
+    getPlayerHeadshot(name, pos = '') {
+        if (!name) return '';
+        if (window.NFLStatsService && typeof window.NFLStatsService.getPlayerHeadshot === 'function') {
+            return window.NFLStatsService.getPlayerHeadshot(name, pos);
+        }
+        return '';
     }
 
     initPowerRankings() {
@@ -1361,23 +1513,47 @@ class FantasyApp {
         const btnH2h = document.getElementById('btn-tab-h2h');
         const btnRecords = document.getElementById('btn-tab-records');
         const btnDraft = document.getElementById('btn-tab-draft');
+        const btnRivalry = document.getElementById('btn-tab-rivalry');
         const btnParadigms = document.getElementById('btn-tab-paradigms');
         const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
         const viewDraft = document.getElementById('view-draft');
+        const viewRivalry = document.getElementById('view-rivalry');
         const viewParadigms = document.getElementById('view-paradigms');
         const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords, btnDraft, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords, viewDraft, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnH2h, btnRecords, btnDraft, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewH2h, viewRecords, viewDraft, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
 
-            const themeLabel = document.getElementById('theme-toggle-label');
-            if (themeLabel) {
-                themeLabel.textContent = `Theme: Light`;
+            if (tab === 'rivalry') {
+                document.body.classList.add('rivalry-dungeon-mode');
+                const themeLabel = document.getElementById('theme-toggle-label');
+                if (themeLabel) themeLabel.textContent = 'THEME: BLOOD';
+                if (!document.getElementById('dungeon-bg-style')) {
+                    const imgUrl = '/dungeon_new.png';
+                    const s = document.createElement('style');
+                    s.id = 'dungeon-bg-style';
+                    s.textContent = `body.rivalry-dungeon-mode::before {
+                        background-image:
+                            radial-gradient(circle at 50% 0%, rgba(230, 46, 45, 0.22) 0%, transparent 65%),
+                            linear-gradient(180deg, rgba(10, 4, 5, 0.5) 0%, rgba(10, 4, 5, 0.8) 100%),
+                            url('${imgUrl}') !important;
+                    }`;
+                    document.head.appendChild(s);
+                }
+            } else {
+                if (document.body.classList.contains('rivalry-dungeon-mode')) {
+                    document.body.classList.remove('rivalry-dungeon-mode');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+                const themeLabel = document.getElementById('theme-toggle-label');
+                if (themeLabel) {
+                    themeLabel.textContent = `Theme: Light`;
+                }
             }
 
             if (tab === 'home') {
@@ -1395,6 +1571,10 @@ class FantasyApp {
                 btnDraft && btnDraft.classList.add('active');
                 viewDraft && viewDraft.classList.add('active');
                 this.renderDraft();
+            } else if (tab === 'rivalry') {
+                btnRivalry && btnRivalry.classList.add('active');
+                viewRivalry && viewRivalry.classList.add('active');
+                this.renderRivalryWeek();
             } else if (tab === 'paradigms') {
                 btnParadigms && btnParadigms.classList.add('active');
                 viewParadigms && viewParadigms.classList.add('active');
@@ -1413,6 +1593,7 @@ class FantasyApp {
         if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
         if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
+        if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
         if (btnParadigms) btnParadigms.addEventListener('click', () => switchTab('paradigms'));
         if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
 
@@ -1430,6 +1611,12 @@ class FantasyApp {
                 }
             });
         });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab') || window.location.hash.replace(/^#/, '');
+        if (['home', 'h2h', 'records', 'draft', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
+            switchTab(tabParam);
+        }
     }
 
     async renderDraft() {
@@ -1503,7 +1690,7 @@ class FantasyApp {
 
         const firstDisplay = this.formatSeasonYear(firstYear);
         const lastDisplay = this.formatSeasonYear(lastYear);
-        if (btnAll) btnAll.textContent = `All Years (${firstDisplay}, as ${lastDisplay})`;
+        if (btnAll) btnAll.textContent = `All Years (${firstDisplay} to ${lastDisplay})`;
 
         if (selStart && selEnd) {
             let optionsHTML = '';
@@ -1660,6 +1847,8 @@ class FantasyApp {
         let m1PF = 0, m2PF = 0;
         let m1ProjTotal = 0, m2ProjTotal = 0;
         let m1PlayoffWins = 0, m2PlayoffWins = 0;
+        let maxBlowout = null;
+        let minMargin = null;
         // Only count actually played games for all-time stats
         const playedGames = filtered.filter(g => {
             const isM1Home = g.home_manager_id === m1Id || g.team_1_manager_id === m1Id;
@@ -1700,15 +1889,25 @@ class FantasyApp {
         const barLeftPct = totalGames > 0 ? (m1Wins / (m1Wins + m2Wins || 1) * 100).toFixed(0) : 50;
         const barRightPct = 100 - barLeftPct;
 
-        // Hero: initial letter avatars instead of ESPN pfps
+        const m1Avatar = m1Obj.avatar || m1Obj.logo_url || m1Obj.avatar_url;
+        const m2Avatar = m2Obj.avatar || m2Obj.logo_url || m2Obj.avatar_url;
+
+        const m1AvatarHtml = m1Avatar
+            ? `<img src="${m1Avatar}" alt="${m1Name}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
+            : `<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m1Name.charAt(0).toUpperCase()}</div>`;
+
+        const m2AvatarHtml = m2Avatar
+            ? `<img src="${m2Avatar}" alt="${m2Name}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
+            : `<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m2Name.charAt(0).toUpperCase()}</div>`;
+
         heroContainer.innerHTML = `
             <div class="hero-content-grid">
                 <div class="hero-manager-col">
-                    <div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m1Name.charAt(0).toUpperCase()}</div>
+                    ${m1AvatarHtml}
                     <div class="hero-manager-name" style="font-size:1.1rem;color:var(--text-primary);font-weight:bold;">${m1Name}</div>
                 </div>
                 <div class="hero-record-col">
-                    <div class="hero-record-label">All-Time Head-to-Head Record (${this.formatSeasonYear(range.min)}${range.min !== range.max ? ', as ' + this.formatSeasonYear(range.max) : ''})</div>
+                    <div class="hero-record-label">All-Time Head-to-Head Record (${this.formatSeasonYear(range.min)}${range.min !== range.max ? ' to ' + this.formatSeasonYear(range.max) : ''})</div>
                     <div class="hero-big-record">${m1Wins} - ${m2Wins}${ties > 0 ? ' - ' + ties : ''}</div>
                     <div class="hero-win-pct">${m1Name} Win Pct: ${winPct1}% (${totalGames} Games)</div>
                     <div class="hero-comparison-bar">
@@ -1717,7 +1916,7 @@ class FantasyApp {
                     </div>
                 </div>
                 <div class="hero-manager-col">
-                    <div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m2Name.charAt(0).toUpperCase()}</div>
+                    ${m2AvatarHtml}
                     <div class="hero-manager-name" style="font-size:1.1rem;color:var(--text-primary);font-weight:bold;">${m2Name}</div>
                 </div>
             </div>
@@ -1731,27 +1930,61 @@ class FantasyApp {
 
         let cardsHtml = '';
         filtered.forEach(g => {
-            const t1Proj = projMap[`${g.year}_${g.week}_${m1Id}`] || 0;
-            const t2Proj = projMap[`${g.year}_${g.week}_${m2Id}`] || 0;
+            const isM1Home = g.home_manager_id === m1Id || g.team_1_manager_id === m1Id;
+            const t1Name = isM1Home ? (g.home_team_name || g.team_1_name || m1Name) : (g.away_team_name || g.team_2_name || m1Name);
+            const t2Name = isM1Home ? (g.away_team_name || g.team_2_name || m2Name) : (g.home_team_name || g.team_1_name || m2Name);
+            const t1Score = Number(isM1Home ? (g.home_score !== undefined ? g.home_score : g.team_1_actual_points) : (g.away_score !== undefined ? g.away_score : g.team_2_actual_points)) || 0;
+            const t2Score = Number(isM1Home ? (g.away_score !== undefined ? g.away_score : g.team_2_actual_points) : (g.home_score !== undefined ? g.home_score : g.team_1_actual_points)) || 0;
+
+            const t1Proj = projMap[`${g.year || g.season}_${g.week}_${m1Id}`] || 0;
+            const t2Proj = projMap[`${g.year || g.season}_${g.week}_${m2Id}`] || 0;
             
             const isPlayed = Number(t1Score) > 0 || Number(t2Score) > 0 || (g.winner && g.winner !== 'UNDECIDED');
-            const isT1Win = isPlayed && ((isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY'));
-            const isT2Win = isPlayed && !isT1Win;
+            const isT1Win = isPlayed && ((isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY') || (t1Score > t2Score));
+            const isT2Win = isPlayed && !isT1Win && t2Score > t1Score;
             const isPlayoffs = g.is_playoff;
             const cardClass = isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card';
             const margin = isPlayed ? Math.abs(t1Score - t2Score).toFixed(2) : null;
+
+            // Find top scoring starter for team 1 and team 2 in this game
+            const gYr = Number(g.year || g.season);
+            const gWk = Number(g.week);
+            const m1Starters = (this.playerStats || []).filter(p => Number(p.year || p.season) === gYr && Number(p.week) === gWk && p.manager_id === m1Id && p.is_starter);
+            const m2Starters = (this.playerStats || []).filter(p => Number(p.year || p.season) === gYr && Number(p.week) === gWk && p.manager_id === m2Id && p.is_starter);
+            
+            const top1 = m1Starters.sort((a, b) => (Number(b.fantasy_points) || 0) - (Number(a.fantasy_points) || 0))[0];
+            const top2 = m2Starters.sort((a, b) => (Number(b.fantasy_points) || 0) - (Number(a.fantasy_points) || 0))[0];
+
+            const top1Headshot = top1 ? (top1.headshot_url || top1.headshotUrl || this.getPlayerHeadshot(top1.player_name, top1.position || top1.roster_slot)) : '';
+            const top2Headshot = top2 ? (top2.headshot_url || top2.headshotUrl || this.getPlayerHeadshot(top2.player_name, top2.position || top2.roster_slot)) : '';
+
+            const top1Html = top1 && Number(top1.fantasy_points) > 0 ? `
+                <div class="matchup-star-player" title="Top Performer: ${top1.player_name} (${Number(top1.fantasy_points).toFixed(2)} pts)">
+                    ${top1Headshot ? `<img src="${top1Headshot}" class="mini-player-headshot" alt="${top1.player_name}" onerror="this.style.display='none'">` : ''}
+                    <span style="font-weight:600;">${top1.player_name}</span>
+                    <span style="color:var(--accent-gold); font-weight:700;">${Number(top1.fantasy_points).toFixed(1)}</span>
+                </div>
+            ` : '';
+
+            const top2Html = top2 && Number(top2.fantasy_points) > 0 ? `
+                <div class="matchup-star-player" title="Top Performer: ${top2.player_name} (${Number(top2.fantasy_points).toFixed(2)} pts)">
+                    ${top2Headshot ? `<img src="${top2Headshot}" class="mini-player-headshot" alt="${top2.player_name}" onerror="this.style.display='none'">` : ''}
+                    <span style="font-weight:600;">${top2.player_name}</span>
+                    <span style="color:var(--accent-gold); font-weight:700;">${Number(top2.fantasy_points).toFixed(1)}</span>
+                </div>
+            ` : '';
 
             const clickHandler = !isPlayed
                 ? `onclick="alert('This matchup has not been played yet.')"`
                 : (g.year < 2018 && this.leagueSettings?.platform !== 'yahoo'
                     ? `onclick="alert('ESPN has removed public access to player boxscore data prior to 2018.')"`
-                    : `onclick="window.app.openBoxscoreModal(${g.year}, ${g.week}, '${g.home_manager_id}', '${g.away_manager_id}')"`);
+                    : `onclick="window.app.openBoxscoreModal(${g.year || g.season}, ${g.week}, '${g.home_manager_id || g.team_1_manager_id}', '${g.away_manager_id || g.team_2_manager_id}')"`);
 
             cardsHtml += `
                 <div class="${cardClass}" ${clickHandler}>
                     <div class="matchup-date-badge">
-                        <div class="matchup-year-week">${this.formatSeasonYear(g.year)} • Week ${g.week}</div>
-                        <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${!isPlayed ? 'Upcoming Matchup' : (isPlayoffs ? 'Playoffs • ' + (g.playoff_round || getPlayoffRoundName(g.year, g.week)) : 'Regular Season')}</div>
+                        <div class="matchup-year-week">${this.formatSeasonYear(g.year || g.season)} • Week ${g.week}</div>
+                        <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${!isPlayed ? 'Upcoming Matchup' : (isPlayoffs ? 'Playoffs • ' + (getMatchupRoundLabel(g) || g.playoff_round || getPlayoffRoundName(g.year || g.season, g.week)) : 'Regular Season')}</div>
                     </div>
                     <div class="matchup-teams-comparison">
                         <div class="team-box ${isT1Win ? 'winner' : ''}">
@@ -1760,6 +1993,7 @@ class FantasyApp {
                                 <span class="team-score">${isPlayed ? t1Score.toFixed(2) : '-'} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${t1Proj ? t1Proj.toFixed(2) : '-'}</div>
+                            ${top1Html}
                         </div>
                         <div class="matchup-margin-badge"><div>VS</div>${margin !== null ? `<div style="font-size:0.7rem;opacity:0.8;">+${margin}</div>` : ''}</div>
                         <div class="team-box ${isT2Win ? 'winner' : ''}">
@@ -1768,6 +2002,7 @@ class FantasyApp {
                                 <span class="team-score">${isPlayed ? t2Score.toFixed(2) : '-'} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                             </div>
                             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${t2Proj ? t2Proj.toFixed(2) : '-'}</div>
+                            ${top2Html}
                         </div>
                     </div>
                     <div class="matchup-action-hint">
@@ -1791,6 +2026,27 @@ class FantasyApp {
             
             const projLeader = m1ProjTotal >= m2ProjTotal ? m1Name : m2Name;
             const projDiff   = Math.abs(m1ProjTotal - m2ProjTotal).toFixed(1);
+
+            // Find top individual player score across all played games in this rivalry
+            let topPerformer = null;
+            playedGames.forEach(g => {
+                const yr = Number(g.year || g.season);
+                const wk = Number(g.week);
+                const starters = (this.playerStats || []).filter(p => Number(p.year || p.season) === yr && Number(p.week) === wk && (p.manager_id === m1Id || p.manager_id === m2Id) && p.is_starter);
+                starters.forEach(p => {
+                    const pts = Number(p.fantasy_points) || 0;
+                    if (!topPerformer || pts > topPerformer.points) {
+                        topPerformer = {
+                            name: p.player_name,
+                            points: pts,
+                            manager_name: p.manager_id === m1Id ? m1Name : m2Name,
+                            year: yr,
+                            week: wk,
+                            headshot: p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot)
+                        };
+                    }
+                });
+            });
 
             summaryContainer.innerHTML = `
                 <h3>Head-to-Head Summary Stats (${m1Name} vs ${m2Name})</h3>
@@ -1825,6 +2081,14 @@ class FantasyApp {
                         <div class="summary-stat-value">${minMargin ? `+${minMargin.margin.toFixed(2)} pts` : '-'}</div>
                         <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;margin-top:4px;">${minMargin ? `${minMargin.winner} (${this.formatSeasonYear(minMargin.season)} W${minMargin.week})` : '-'}</div>
                     </div>
+                    <div class="summary-stat-box">
+                        <div class="summary-stat-label">Rivalry High Single-Player Score</div>
+                        <div class="summary-stat-value" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                            ${topPerformer && topPerformer.headshot ? `<img src="${topPerformer.headshot}" class="mini-player-headshot" alt="${topPerformer.name}" onerror="this.style.display='none'">` : ''}
+                            <span>${topPerformer ? `${topPerformer.name} (${topPerformer.points.toFixed(2)})` : '-'}</span>
+                        </div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;margin-top:4px;">${topPerformer ? `${topPerformer.manager_name} (${this.formatSeasonYear(topPerformer.year)} W${topPerformer.week})` : '-'}</div>
+                    </div>
                 </div>
             `;
         }
@@ -1843,17 +2107,45 @@ class FantasyApp {
         const m = this.matchups.find(x => {
             const yr = Number(x.year || x.season);
             const wk = Number(x.week);
-            if (yr !== sNum || wk !== wNum) return false;
+            const yrMatches = (yr === sNum || Number(this.formatSeasonYear(yr)) === sNum || String(this.formatSeasonYear(yr)) === String(sNum));
+            if (!yrMatches || wk !== wNum) return false;
             
-            // Match manager IDs or team IDs
-            if (x.home_manager_id === hId && x.away_manager_id === aId) return true;
-            if (x.home_manager_id === aId && x.away_manager_id === hId) return true;
-            if (x.team_1_manager_id === hId && x.team_2_manager_id === aId) return true;
-            if (x.team_1_manager_id === aId && x.team_2_manager_id === hId) return true;
-            if (Number(x.home_team_id) === Number(hId) && (!aId || Number(x.away_team_id) === Number(aId))) return true;
-            if (Number(x.away_team_id) === Number(hId) && (!aId || Number(x.home_team_id) === Number(aId))) return true;
-            if (Number(x.team_1_id) === Number(hId) && (!aId || Number(x.team_2_id) === Number(aId))) return true;
-            if (Number(x.team_2_id) === Number(hId) && (!aId || Number(x.team_1_id) === Number(aId))) return true;
+            // Match manager IDs or team IDs flexibly
+            const hIdStr = hId != null ? String(hId).toLowerCase().trim() : '';
+            const aIdStr = aId != null ? String(aId).toLowerCase().trim() : '';
+            const hNum = Number(hId);
+            const aNum = Number(aId);
+
+            const xHId = String(x.home_manager_id || x.team_1_manager_id || '').toLowerCase().trim();
+            const xAId = String(x.away_manager_id || x.team_2_manager_id || '').toLowerCase().trim();
+            const xHTeam = Number(x.home_team_id !== undefined ? x.home_team_id : x.team_1_id);
+            const xATeam = Number(x.away_team_id !== undefined ? x.away_team_id : x.team_2_id);
+
+            const isHMatch = (
+                (hIdStr && (xHId === hIdStr || String(xHTeam) === hIdStr)) ||
+                (!isNaN(hNum) && hNum !== 0 && xHTeam === hNum)
+            );
+            const isAMatch = (
+                (aIdStr && (xAId === aIdStr || String(xATeam) === aIdStr)) ||
+                (!isNaN(aNum) && aNum !== 0 && xATeam === aNum)
+            );
+
+            if (isHMatch && (!aId || isAMatch)) return true;
+
+            const isHMatchSwapped = (
+                (hIdStr && (xAId === hIdStr || String(xATeam) === hIdStr)) ||
+                (!isNaN(hNum) && hNum !== 0 && xATeam === hNum)
+            );
+            const isAMatchSwapped = (
+                (aIdStr && (xHId === aIdStr || String(xHTeam) === aIdStr)) ||
+                (!isNaN(aNum) && aNum !== 0 && xHTeam === aNum)
+            );
+
+            if (isHMatchSwapped && (!aId || isAMatchSwapped)) return true;
+
+            // Fallback: if only one side is passed or opponent is 0, match on one side
+            if (isHMatch || isHMatchSwapped) return true;
+
             return false;
         });
         if (!m) return;
@@ -1865,23 +2157,7 @@ class FantasyApp {
         const isLeftWin  = m.winner === 'HOME' || (m.winner_team_id && Number(m.winner_team_id) === Number(m.team_1_id)) || leftScore > rightScore;
         const isRightWin = m.winner === 'AWAY' || (m.winner_team_id && Number(m.winner_team_id) === Number(m.team_2_id)) || rightScore > leftScore;
 
-        const rawGamePlayers = this.playerStats.filter(p => {
-            const yr = Number(p.year || p.season);
-            const wk = Number(p.week);
-            if (yr !== sNum || wk !== wNum) return false;
-            const pTeam = Number(p.team_id);
-            const hTeam = Number(m.home_team_id !== undefined ? m.home_team_id : m.team_1_id);
-            const aTeam = Number(m.away_team_id !== undefined ? m.away_team_id : m.team_2_id);
-            if (pTeam === hTeam || pTeam === aTeam) return true;
-            if (p.manager_id && (p.manager_id === m.home_manager_id || p.manager_id === m.away_manager_id || p.manager_id === m.team_1_manager_id || p.manager_id === m.team_2_manager_id)) return true;
-            return false;
-        });
-        const seenKeys = new Set();
-        const gamePlayers = [];
-        for (const p of rawGamePlayers) {
-            const k = `${p.team_id}_${p.player_id || p.player_name}_${p.is_starter ? 'S' : 'B'}`;
-            if (!seenKeys.has(k)) { seenKeys.add(k); gamePlayers.push(p); }
-        }
+        const matchYr = Number(m.year || m.season);
         const leftTeamId = Number(m.home_team_id !== undefined ? m.home_team_id : m.team_1_id);
         const rightTeamId = Number(m.away_team_id !== undefined ? m.away_team_id : m.team_2_id);
         const leftMgrId = m.home_manager_id || m.team_1_manager_id;
@@ -1889,8 +2165,25 @@ class FantasyApp {
         const leftMgrName = this.getManagerDisplayName(leftMgrId, m.home_manager_name || m.team_1_manager_name);
         const rightMgrName = this.getManagerDisplayName(rightMgrId, m.away_manager_name || m.team_2_manager_name);
 
-        const leftPlayers  = gamePlayers.filter(p => Number(p.team_id) === leftTeamId || (leftMgrId && p.manager_id === leftMgrId));
-        const rightPlayers = gamePlayers.filter(p => Number(p.team_id) === rightTeamId || (rightMgrId && p.manager_id === rightMgrId));
+        const rawGamePlayers = this.playerStats.filter(p => {
+            const yr = Number(p.year || p.season);
+            const wk = Number(p.week);
+            if (yr !== matchYr || wk !== wNum) return false;
+            const pTeam = Number(p.team_id);
+            if (pTeam && (pTeam === leftTeamId || pTeam === rightTeamId)) return true;
+            if (p.manager_id && (p.manager_id === leftMgrId || p.manager_id === rightMgrId)) return true;
+            return false;
+        });
+
+        const seenKeys = new Set();
+        const gamePlayers = [];
+        for (const p of rawGamePlayers) {
+            const k = `${p.team_id}_${p.player_id || p.player_name}_${p.is_starter ? 'S' : 'B'}`;
+            if (!seenKeys.has(k)) { seenKeys.add(k); gamePlayers.push(p); }
+        }
+
+        const leftPlayers  = gamePlayers.filter(p => (leftTeamId && Number(p.team_id) === leftTeamId) || (leftMgrId && p.manager_id === leftMgrId));
+        const rightPlayers = gamePlayers.filter(p => (rightTeamId && Number(p.team_id) === rightTeamId) || (rightMgrId && p.manager_id === rightMgrId));
 
         const renderRosterTable = (players, teamName, score, isWinner, managerName) => {
             const starters = players.filter(p => p.is_starter);
@@ -1908,62 +2201,63 @@ class FantasyApp {
                     </div>
                 `;
             } else {
-                const SLOTS = [
-                    { id: 0, label: 'QB' },
-                    { id: 2, label: 'RB' },
-                    { id: 2, label: 'RB' },
-                    { id: 4, label: 'WR' },
-                    { id: 4, label: 'WR' },
-                    { id: 6, label: 'TE' },
-                    { id: 23, label: 'FLEX' },
-                    { id: 16, label: 'DEF' },
-                    { id: 17, label: 'K' }
+                const STANDARD_SLOTS = [
+                    { label: 'QB', test: p => p.lineup_slot_id === 0 || p.roster_slot === 'QB' || (!p.roster_slot && p.position === 'QB') },
+                    { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
+                    { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
+                    { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
+                    { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
+                    { label: 'TE', test: p => p.lineup_slot_id === 6 || p.roster_slot === 'TE' || (!p.roster_slot && p.position === 'TE') },
+                    { label: 'FLEX', test: p => p.lineup_slot_id === 23 || ['W/R/T', 'FLEX', 'W/R'].includes(p.roster_slot) || ['RB', 'WR', 'TE'].includes(p.roster_slot || p.position) },
+                    { label: 'K', test: p => p.lineup_slot_id === 17 || p.roster_slot === 'K' || p.position === 'K' },
+                    { label: 'DEF', test: p => p.lineup_slot_id === 16 || ['DEF', 'D/ST'].includes(p.roster_slot) || ['DEF', 'D/ST'].includes(p.position) }
                 ];
-                
-                const rem = [...starters];
-                SLOTS.forEach(slot => {
-                    let idx = rem.findIndex(p => p.lineup_slot_id === slot.id);
+
+                const remainingStarters = [...starters];
+                STANDARD_SLOTS.forEach(slot => {
+                    let idx = remainingStarters.findIndex(slot.test);
                     if (idx !== -1) {
-                        const p = rem.splice(idx, 1)[0];
+                        const p = remainingStarters.splice(idx, 1)[0];
+                        const slotDisplay = (p.roster_slot === 'W/R/T' || p.roster_slot === 'W/R') ? p.roster_slot : slot.label;
                         const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
-                        const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${p.projected_points.toFixed(2)}</div>` : '';
+                        const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
                         
-                        const statsLine = formatPlayerStats(p);
-                        const nflMatchupInfo = [p.nfl_team, p.nfl_game_result, statsLine].filter(Boolean).join(' • ');
-                        const headshot = p.headshot_url || p.headshotUrl;
+                        const nflMatchupInfo = formatPlayerNflGameInfo(p);
+                        const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
                         const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
-                        html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                        html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotDisplay}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
                     } else {
                         const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
                         html += `<div class="player-row" style="opacity:0.45;"><div class="player-left"><span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name" style="font-style:italic;color:var(--text-muted);">Empty</div></div></div><div class="player-right"><div class="player-pts">0.00</div></div></div>`;
                     }
                 });
-                
-                // Any remaining starters that didn't fit the expected slots (just in case)
-                rem.forEach(p => {
-                    const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${p.projected_points.toFixed(2)}</div>` : '';
-                    const statsLine = formatPlayerStats(p);
-                    const nflMatchupInfo = [p.nfl_team, p.nfl_game_result, statsLine].filter(Boolean).join(' • ');
-                    const headshot = p.headshot_url || p.headshotUrl;
+
+                // Any remaining starters that didn't fit into the fixed slots
+                remainingStarters.forEach(p => {
+                    const slotDisplay = p.roster_slot || p.position || 'FLEX';
+                    const sc = slotDisplay.toLowerCase().replace(/[^a-z]/g, '');
+                    const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
+                    const nflMatchupInfo = formatPlayerNflGameInfo(p);
+                    const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
                     const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
-                    html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge flex">EXTRA</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                    html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotDisplay}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
                 });
 
                 if (bench.length > 0) {
                     html += `<div class="roster-section-title" style="margin-top:20px;"><span>Bench & IR</span></div>`;
                     bench.forEach(p => {
-                        const slotLabel = p.lineup_slot_id === 21 ? 'IR' : 'BN';
+                        const isIR = p.lineup_slot_id === 21 || p.roster_slot === 'IR';
+                        const slotLabel = isIR ? 'IR' : 'BN';
                         const sc = slotLabel.toLowerCase();
-                        const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${p.projected_points.toFixed(2)}</div>` : '';
+                        const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
                         
-                        const statsLine = formatPlayerStats(p);
-                        const nflMatchupInfo = [p.nfl_team, p.nfl_game_result, statsLine].filter(Boolean).join(' • ');
-                        const headshot = p.headshot_url || p.headshotUrl;
+                        const nflMatchupInfo = formatPlayerNflGameInfo(p);
+                        const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
                         const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
-                        html += `<div class="player-row" style="opacity:0.8;"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotLabel}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                        html += `<div class="player-row" style="opacity:0.8;"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotLabel}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
                     });
                 }
             }
@@ -1971,15 +2265,15 @@ class FantasyApp {
             return html;
         };
 
-        const roundName = m ? (m.playoff_round || (m.is_playoff ? getPlayoffRoundName(season, week) : '')) : '';
+        const roundName = m ? (getMatchupRoundLabel(m) || m.playoff_round || (m.is_playoff ? getPlayoffRoundName(matchYr, week) : '')) : '';
         modalContent.innerHTML = `
             <div class="modal-header">
                 <div class="modal-title-area">
-                    <h2>${this.formatSeasonYear(season)} • Week ${week} ${m && m.is_playoff ? ' • Playoffs (' + (roundName || 'Playoffs') + ')' : ' • Regular Season'}</h2>
+                    <h2>${this.formatSeasonYear(matchYr)} • Week ${week} ${m && m.is_playoff ? ' • Playoffs (' + (roundName || 'Playoffs') + ')' : ' • Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="window.app.openSettingsModal(${season})" title="View League Scoring Settings">? Scoring</button>
+                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="window.app.openSettingsModal(${matchYr})" title="View League Scoring Settings">? Scoring</button>
                     <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>
                 </div>
             </div>
@@ -2034,6 +2328,12 @@ class FantasyApp {
         }
     }
 
+    renderRivalryWeek() {
+        const root = document.getElementById('view-rivalry');
+        if (!root) return;
+        this.renderRivalries(root);
+    }
+
     renderRivalries(container) {
         if (!container) container = document.getElementById('paradigm-content');
         if (!container) return;
@@ -2044,6 +2344,7 @@ class FantasyApp {
             return;
         }
 
+        const inauguralRawYear = this.paradigms?.rivalry_inaugural_season || 2027;
         const getRivalryHistory = (mgr1, mgr2) => {
             const matches = [];
             if (!this.matchups) return matches;
@@ -2053,7 +2354,7 @@ class FantasyApp {
             for (const m of this.matchups) {
                 const yr = Number(m.year || m.season);
                 const wk = Number(m.week);
-                if (yr >= 2026 && wk === 13) {
+                if (yr >= inauguralRawYear && wk === 13) {
                     const hId = (m.home_manager_id || m.team_1_manager_id || '').toLowerCase();
                     const aId = (m.away_manager_id || m.team_2_manager_id || '').toLowerCase();
                     const hName = (m.home_manager_name || m.team_1_manager_name || '').toLowerCase();
@@ -2086,7 +2387,7 @@ class FantasyApp {
                 else if (s2 > s1) wins2++;
             });
 
-            const inauguralYear = this.formatSeasonYear(2026);
+            const inauguralYear = this.formatSeasonYear(inauguralRawYear);
             let drawerContent = '';
             if (history.length === 0) {
                 drawerContent = `
@@ -2337,7 +2638,10 @@ class FantasyApp {
 
         // Build options for merge selector and season selector
         const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
-        const unclaimedOptions = unclaimedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+        const unclaimedOptions = unclaimedMembers.map(m => {
+            const isLandonMatch = session?.email?.toLowerCase().includes('landon') && (m.name.toLowerCase().includes('landon') || m.id.toLowerCase().includes('landon'));
+            return `<option value="${m.id}" ${isLandonMatch ? 'selected' : ''}>${m.name}</option>`;
+        }).join('');
 
         const distinctYears = [...new Set((this.standings || []).map(s => Number(s.year || s.season)).filter(Boolean))].sort((a, b) => b - a);
         const activeYearsList = distinctYears.length > 0 ? distinctYears : [new Date().getFullYear()];
@@ -2392,6 +2696,11 @@ class FantasyApp {
                         <!-- Group 3: Competition & Rules -->
                         <div class="admin-sidebar-group">
                             <div class="admin-sidebar-group-title">Competition &amp; Rules</div>
+
+                            <a href="#admin-sec-season-convention" class="admin-nav-item" data-section="admin-sec-season-convention">
+                                <span class="admin-nav-item-title">Season Convention</span>
+                                <span class="admin-nav-item-sub">Draft vs Championship Year</span>
+                            </a>
 
                             <a href="#admin-sec-loser" class="admin-nav-item" data-section="admin-sec-loser">
                                 <span class="admin-nav-item-title">Loser Conditions</span>
@@ -2453,7 +2762,7 @@ class FantasyApp {
                 ` : ''}
 
                 <!-- Retrospective Admin Self-Claim Card (If Admin Has No Claimed Profile) -->
-                ${!currentAdminClaim && !isFounderInspection ? `
+                ${!currentAdminClaim ? `
                     <div class="card admin-section-card" style="margin-top: 1.5rem; background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #d97706; padding: 1.25rem 1.5rem; border-radius: 8px;">
                         <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                             <div>
@@ -2618,6 +2927,41 @@ class FantasyApp {
                 <!-- 4. POWER RANKINGS & PUBLISHING PERMISSIONS -->
                 <div id="admin-sec-power-rankings" class="card admin-section-card" style="margin-top: 2rem;">
                     <!-- Populated by PowerRankingsEngine -->
+                </div>
+
+                <!-- SEASON YEAR LABEL CONVENTION -->
+                <div id="admin-sec-season-convention" class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div>
+                            <h2>Season Year Label Convention</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Configure how your league historically numbers and displays each season.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.25rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin: 0 0 1rem 0;">
+                            Select the numbering system for your league's seasons across all pages, Head-to-Head records, Draft Central, and the Record Book:
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: ${this.isChampionshipYearConvention ? 'transparent' : 'rgba(226, 183, 20, 0.08)'};">
+                                <input type="radio" name="admin-season-convention" value="kickoff" ${!this.isChampionshipYearConvention ? 'checked' : ''} style="margin-top: 3px;">
+                                <div>
+                                    <strong style="display: block; font-size: 0.92rem; color: var(--text-primary);">Year of the Draft (Default)</strong>
+                                    <span style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; display: block;">Seasons are labeled by the calendar year the draft took place (e.g. Fall 2024 draft is labeled "2024 Season").</span>
+                                </div>
+                            </label>
+                            <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: ${this.isChampionshipYearConvention ? 'rgba(226, 183, 20, 0.08)' : 'transparent'};">
+                                <input type="radio" name="admin-season-convention" value="championship" ${this.isChampionshipYearConvention ? 'checked' : ''} style="margin-top: 3px;">
+                                <div>
+                                    <strong style="display: block; font-size: 0.92rem; color: var(--text-primary);">Year of the Championship</strong>
+                                    <span style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; display: block;">Seasons are labeled by the calendar year the champion is crowned in January (e.g. Fall 2024 draft is labeled "2025 Champion").</span>
+                                </div>
+                            </label>
+                        </div>
+                        <div style="margin-top: 1rem; display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+                            <button id="btn-save-season-convention" class="btn-primary" style="padding: 8px 18px; font-weight: 700; border-radius: 4px; cursor: pointer;">Save Convention</button>
+                        </div>
+                        <div id="season-convention-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
                 </div>
 
                 <!-- 3. LEAGUE LOSER CONDITIONS -->
@@ -3066,6 +3410,50 @@ class FantasyApp {
             }
         });
 
+        // Wire up Season Year Label Convention saving
+        const btnSaveConvention = container.querySelector('#btn-save-season-convention');
+        if (btnSaveConvention) {
+            btnSaveConvention.addEventListener('click', async () => {
+                const checkedRadio = container.querySelector('input[name="admin-season-convention"]:checked');
+                const conventionVal = checkedRadio ? checkedRadio.value : 'kickoff';
+                const feedbackEl = container.querySelector('#season-convention-feedback');
+
+                this.seasonLabelConvention = conventionVal;
+                this.isChampionshipYearConvention = (conventionVal === 'championship');
+                if (!this.leagueSettings) this.leagueSettings = {};
+                this.leagueSettings.seasonLabelConvention = conventionVal;
+
+                if (window.VaultFirebase) {
+                    const { database, ref: dbRef, update } = window.VaultFirebase;
+                    try {
+                        await update(dbRef(database, `leagues/${this.leagueSlug}/league_settings`), {
+                            seasonLabelConvention: conventionVal
+                        });
+                    } catch (e) {
+                        console.warn('Could not save season convention to Firebase:', e);
+                    }
+                }
+
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.className = 'admin-feedback-msg success';
+                    feedbackEl.textContent = `✓ Saved! Season convention is now set to "${conventionVal === 'championship' ? 'Year of the Championship' : 'Year of the Draft'}".`;
+                    setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                }
+
+                this.initHeader();
+                if (typeof this.renderH2H === 'function') this.renderH2H();
+                if (typeof this.renderRecordBook === 'function') this.renderRecordBook();
+                if (typeof this.renderParadigms === 'function') this.renderParadigms();
+                if (this.draftEngine) {
+                    this.draftEngine.updateData({
+                        leagueSettings: this.leagueSettings,
+                        seasonLabelConvention: conventionVal
+                    });
+                }
+            });
+        }
+
         // Wire up Provider & Weekly Sync credentials saving
         const btnSaveSync = container.querySelector('#btn-save-sync-credentials');
         if (btnSaveSync) {
@@ -3448,7 +3836,7 @@ class FantasyApp {
                 const mgrName = this.getManagerName(previewRes.manager_id, previewRes.manager_name);
                 const tName = previewRes.team_name ? ` (${previewRes.team_name})` : '';
                 if (loserPreviewName) loserPreviewName.innerHTML = `<strong>${mgrName}</strong>${tName}`;
-                if (loserPreviewStats) loserPreviewStats.textContent = `${previewRes.stats_summary} , as ${previewRes.rule_description}`;
+                if (loserPreviewStats) loserPreviewStats.textContent = `${previewRes.stats_summary} · ${previewRes.rule_description}`;
             } else {
                 if (loserPreviewName) loserPreviewName.textContent = 'No standing data for selected season';
                 if (loserPreviewStats) loserPreviewStats.textContent = '';
@@ -3882,8 +4270,11 @@ class FantasyApp {
             // Live update header masthead immediately
             const titleEl = document.getElementById("league-title");
             if (titleEl) {
-                const hasLeagueSuffix = /league$/i.test(newTitle.trim());
-                titleEl.innerHTML = `${newTitle}<br>${hasLeagueSuffix ? 'HQ' : 'League HQ'}`;
+                let baseName = (newTitle || "Fantasy Football").trim();
+                if (/league$/i.test(baseName)) {
+                    baseName = baseName.replace(/league$/i, '').trim();
+                }
+                titleEl.innerHTML = `${baseName}<br>League HQ`;
             }
 
             document.title = `${newTitle} HQ | The Fantasy Vault`;

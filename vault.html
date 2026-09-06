@@ -7,7 +7,7 @@
 <meta name="description" content="All-time records, head-to-head history, and stats. Powered by The Fantasy Vault.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/src/vault.css">
 </head>
 
@@ -17,10 +17,15 @@
     <div class="masthead-top-bar">
         <div style="display:flex; gap: 1rem;">
             <div id="league-edition-info" class="edition-info">EST. 2024</div>
-            <div id="league-id-info" class="edition-info">League ID: ------</div>
+            <div id="league-id-info" class="edition-info" style="display: none;">League ID: ------</div>
             <div class="edition-info" style="color: var(--accent-gold);">Powered by The Fantasy Vault</div>
         </div>
-        <button id="btn-my-account" class="btn-account-pill">My Account</button>
+        <div style="display:flex; gap: 1rem; align-items:center;">
+            <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+                <span id="theme-toggle-label">Theme: Light</span>
+            </button>
+            <button id="btn-my-account" class="btn-account-pill">My Account</button>
+        </div>
     </div>
     <div class="masthead-main">
         <h1 id="league-title">Fantasy Football<br>League HQ</h1>
@@ -31,6 +36,7 @@
         <button id="btn-tab-h2h" class="top-nav-btn">Head-to-Head History</button>
         <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
         <button id="btn-tab-draft" class="top-nav-btn">Draft Central</button>
+        <button id="btn-tab-rivalry" class="top-nav-btn">Rivalry Week</button>
         <button id="btn-tab-paradigms" class="top-nav-btn" style="display: none;">Explore Paradigms</button>
         <button id="btn-tab-admin" class="top-nav-btn admin-nav-btn" style="display: none;">Admin Dashboard <span class="admin-nav-badge">Admin</span></button>
     </nav>
@@ -151,6 +157,12 @@
         <!-- Dynamically rendered by VaultDraftEngine -->
     </div>
     <!-- END DRAFT VIEW -->
+
+    <!-- RIVALRY WEEK PAGE VIEW -->
+    <div id="view-rivalry" class="page-view">
+        <!-- Dynamically rendered by vault.js -->
+    </div>
+    <!-- END RIVALRY WEEK VIEW -->
 
     <!-- EXPLORE PARADIGMS PAGE VIEW -->
     <div id="view-paradigms" class="page-view">
