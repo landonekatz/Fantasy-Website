@@ -7,10 +7,12 @@ import { calculateSeasonLoser } from './compiler.js';
 const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
 Object.assign(TargetApp.prototype, {
 
-    // Helper: format season year with asterisk for 2015-2019
+    // Helper: format season year with championship convention support
     formatSeasonYear(year) {
         if (year === undefined || year === null) return "";
-        return `${Number(year)}`;
+        const num = Number(year);
+        if (isNaN(num)) return `${year}`;
+        return this.isChampionshipYearConvention ? `${num + 1}` : `${num}`;
     },
 
     // Helper: check if season/week is valid (through 2021, max week was 16; 2022 onward, 17+ weeks)

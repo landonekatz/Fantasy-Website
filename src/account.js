@@ -1462,20 +1462,51 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             const activeMembers = members.filter(m => m.isActive);
             const inactiveMembers = members.filter(m => !m.isActive);
 
+            const buildMergeOptions = (targetMember) => {
+                let options = '<option value="">Keep Separate / Canonical</option>';
+                const otherActive = members.filter(m => m.isActive && m.id !== targetMember.id);
+                if (otherActive.length > 0) {
+                    options += '<optgroup label="Active Managers">';
+                    otherActive.forEach(am => {
+                        const isSelected = targetMember.mergedInto === am.id;
+                        options += `<option value="${am.id}" ${isSelected ? 'selected' : ''}>Merge into: ${am.name} (@${am.handle || am.id})</option>`;
+                    });
+                    options += '</optgroup>';
+                }
+                const otherInactive = members.filter(m => !m.isActive && m.id !== targetMember.id);
+                if (otherInactive.length > 0) {
+                    options += '<optgroup label="Historical / Former Managers">';
+                    otherInactive.forEach(im => {
+                        const isSelected = targetMember.mergedInto === im.id;
+                        options += `<option value="${im.id}" ${isSelected ? 'selected' : ''}>Merge into: ${im.name} (@${im.handle || im.id})</option>`;
+                    });
+                    options += '</optgroup>';
+                }
+                return options;
+            };
+
             const activeHtml = activeMembers.map((m) => {
                 const idx = members.indexOf(m);
                 return `
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0.85rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0.85rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 170px;">
                             <input type="checkbox" class="u-mgr-chk" data-index="${idx}" checked style="cursor: pointer; transform: scale(1.15);">
                             <div>
                                 <div style="font-weight: 600; font-size: 0.9rem; color: #0f172a;">${m.name}</div>
                                 <div style="font-size: 0.75rem; color: #64748b;">${m.handle ? '@' + m.handle : 'ID: ' + m.id}</div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <label style="font-size: 0.75rem; color: #64748b;">Alias:</label>
-                            <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 140px;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                <label style="font-size: 0.75rem; color: #64748b;">Alias:</label>
+                                <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 120px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                <label style="font-size: 0.75rem; color: #64748b;">Merge:</label>
+                                <select class="u-mgr-merge" data-index="${idx}" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; max-width: 170px;">
+                                    ${buildMergeOptions(m)}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1483,19 +1514,23 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             const inactiveHtml = inactiveMembers.map((m) => {
                 const idx = members.indexOf(m);
-                const options = activeMembers.map(am => `<option value="${am.id}">${am.name}</option>`).join('');
                 return `
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0.85rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 0.5rem;">
-                        <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.65rem 0.85rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                        <div style="min-width: 170px;">
                             <div style="font-weight: 600; font-size: 0.85rem; color: #475569;">${m.name}</div>
-                            <div style="font-size: 0.72rem; color: #64748b;">Inactive / Former Manager</div>
+                            <div style="font-size: 0.72rem; color: #64748b;">${m.handle ? '@' + m.handle : 'Inactive / Former Manager'}</div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <label style="font-size: 0.75rem; color: #64748b;">Merge Target:</label>
-                            <select class="u-mgr-merge" data-index="${idx}" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a;">
-                                <option value="">Keep Separate</option>
-                                ${options}
-                            </select>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                <label style="font-size: 0.75rem; color: #64748b;">Alias:</label>
+                                <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 120px;">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                <label style="font-size: 0.75rem; color: #64748b;">Merge Target:</label>
+                                <select class="u-mgr-merge" data-index="${idx}" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; max-width: 170px;">
+                                    ${buildMergeOptions(m)}
+                                </select>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1579,7 +1614,13 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             document.querySelectorAll('.u-mgr-merge').forEach(select => {
                 select.addEventListener('change', (e) => {
                     const idx = parseInt(e.target.getAttribute('data-index'));
-                    members[idx].mergedInto = e.target.value;
+                    const targetVal = e.target.value;
+                    members[idx].mergedInto = targetVal;
+                    if (targetVal) {
+                        members[idx].isActive = false;
+                        const chk = document.querySelector(`.u-mgr-chk[data-index="${idx}"]`);
+                        if (chk) chk.checked = false;
+                    }
                 });
             });
 

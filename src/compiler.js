@@ -12,7 +12,7 @@ export function generateRandomJoinCode() {
   return code;
 }
 
-export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customName = null, nflCsvData = null) {
+export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customName = null, nflCsvData = null, options = {}) {
   if (!rawSeasonsData || rawSeasonsData.length === 0) return null;
   
   const ESPN_STAT_MAP = {
@@ -97,6 +97,45 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     72: ["Miscellaneous", "Total Fumbles Lost"]
   };
 
+  const YAHOO_STAT_MAP = {
+    4: ["Passing", "Passing Yards"],
+    5: ["Passing", "Passing Touchdowns"],
+    6: ["Passing", "Interceptions Thrown"],
+    8: ["Rushing", "Rushing Attempts"],
+    9: ["Rushing", "Rushing Yards"],
+    10: ["Rushing", "Rushing Touchdowns"],
+    11: ["Receiving", "Receptions"],
+    12: ["Receiving", "Receiving Yards"],
+    13: ["Receiving", "Receiving Touchdowns"],
+    15: ["Returning", "Return Touchdowns"],
+    16: ["Miscellaneous", "2-Point Conversions"],
+    18: ["Miscellaneous", "Fumbles Lost"],
+    57: ["Miscellaneous", "Offensive Fumble Return TD"],
+    78: ["Passing", "Pick Sixes Thrown"],
+    // Defense / Special Teams
+    31: ["Team Defense and Special Teams", "0 points allowed"],
+    32: ["Team Defense and Special Teams", "1-6 points allowed"],
+    33: ["Team Defense and Special Teams", "7-13 points allowed"],
+    34: ["Team Defense and Special Teams", "14-20 points allowed"],
+    35: ["Team Defense and Special Teams", "21-27 points allowed"],
+    36: ["Team Defense and Special Teams", "28-34 points allowed"],
+    37: ["Team Defense and Special Teams", "35+ points allowed"],
+    49: ["Team Defense and Special Teams", "Each Sack"],
+    50: ["Team Defense and Special Teams", "Each Interception"],
+    51: ["Team Defense and Special Teams", "Each Fumble Recovered"],
+    52: ["Team Defense and Special Teams", "Touchdown"],
+    53: ["Team Defense and Special Teams", "Each Safety"],
+    54: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+    // Kicking
+    19: ["Kicking", "FG Made (0-19 yards)"],
+    20: ["Kicking", "FG Made (20-29 yards)"],
+    21: ["Kicking", "FG Made (30-39 yards)"],
+    22: ["Kicking", "FG Made (40-49 yards)"],
+    23: ["Kicking", "FG Made (50+ yards)"],
+    24: ["Kicking", "Each PAT Made"],
+    25: ["Kicking", "Extra Point Missed"]
+  };
+
   const NFL_TEAMS = {
     0: 'FA', 1: 'ATL', 2: 'BUF', 3: 'CHI', 4: 'CIN', 5: 'CLE', 6: 'DAL', 7: 'DEN', 8: 'DET', 9: 'GB',
     10: 'TEN', 11: 'IND', 12: 'KC', 13: 'LV', 14: 'LAR', 15: 'MIA', 16: 'MIN', 17: 'NE', 18: 'NO', 19: 'NYG',
@@ -119,7 +158,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   let seasonsData = rawSeasonsData.filter(season => {
     const schedule = season.data?.schedule || [];
     const hasFinishedGames = schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
-    const hasDraftPicks = (season.data?.draftDetail?.drafted === true) || (season.data?.draftDetail?.picks || []).some(p => p.playerId > 0);
+    const hasDraftPicks = (season.data?.draftDetail?.drafted === true) || (season.data?.draftDetail?.picks || []).some(p => (p.playerId && p.playerId > 0) || p.playerKey);
     return hasFinishedGames || hasDraftPicks;
   });
 
@@ -145,13 +184,16 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         const first = m.firstName ? m.firstName.trim() : '';
         const last = m.lastName ? m.lastName.trim() : '';
         let canonicalName = `${first} ${last}`.trim();
-        if (!canonicalName) canonicalName = m.displayName || m.id;
+        if (!canonicalName) canonicalName = m.alias || m.displayName || m.id;
         
         managersMap.set(m.id, {
           id: m.id,
           name: canonicalName,
           firstName: first,
           lastName: last,
+          guid: m.guid || '',
+          avatar: m.avatar || '',
+          platform_ids: [m.id],
           espn_ids: [m.id],
           lastSeenYear: season.year,
           isActive: false
@@ -162,6 +204,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         if (!existing.espn_ids.includes(m.id)) {
             existing.espn_ids.push(m.id);
         }
+        if (m.guid && !existing.guid) existing.guid = m.guid;
+        if (m.avatar && !existing.avatar) existing.avatar = m.avatar;
         if (season.year > existing.lastSeenYear) {
           existing.lastSeenYear = season.year;
         }
@@ -194,10 +238,18 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               const target = managersMap.get(primaryId);
               const source = managersMap.get(config.id);
               
-              // Merge espn_ids without duplicates
-              for (const eid of source.espn_ids) {
+              // Merge platform_ids and espn_ids without duplicates
+              if (!target.platform_ids) target.platform_ids = [target.id];
+              for (const pid of (source.platform_ids || [])) {
+                  if (!target.platform_ids.includes(pid)) target.platform_ids.push(pid);
+              }
+              if (!target.espn_ids) target.espn_ids = [target.id];
+              for (const eid of (source.espn_ids || [])) {
                   if (!target.espn_ids.includes(eid)) target.espn_ids.push(eid);
               }
+              if (source.guid && !target.guid) target.guid = source.guid;
+              if (source.avatar && !target.avatar) target.avatar = source.avatar;
+              if (source.logo_url && !target.logo_url) target.logo_url = source.logo_url;
               
               if (source.lastSeenYear > target.lastSeenYear) {
                   target.lastSeenYear = source.lastSeenYear;
@@ -207,6 +259,17 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               managersMap.delete(config.id);
           }
       }
+  }
+
+  // Transitive resolution for chained merges (e.g. Account1 -> Account2 -> Account3)
+  for (const [orig, canon] of originalToCanonicalMap.entries()) {
+      let current = canon;
+      const visited = new Set([orig]);
+      while (originalToCanonicalMap.has(current) && originalToCanonicalMap.get(current) !== current && !visited.has(current)) {
+          visited.add(current);
+          current = originalToCanonicalMap.get(current);
+      }
+      originalToCanonicalMap.set(orig, current);
   }
 
   // Determine active/retired (fallback if uiMembersConfig wasn't provided)
@@ -240,7 +303,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         name: t.name || `${t.location || ''} ${t.nickname || ''}`.trim(),
         abbrev: t.abbrev,
         ownerId: canonicalOwnerId,
-        ownerName: ownerInfo ? ownerInfo.name : 'Unknown',
+        ownerName: (ownerInfo && ownerInfo.name) || (uiMembersConfig.find(m => m.id === canonicalOwnerId)?.alias || uiMembersConfig.find(m => m.id === canonicalOwnerId)?.name) || 'Unknown',
         playoffSeed: t.playoffSeed || 99,
         finalRank: t.rankCalculatedFinal || t.rankFinal || 99,
       };
@@ -412,29 +475,59 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         const roster = sideData.rosterForCurrentScoringPeriod || sideData.rosterForMatchupPeriod;
         if (!roster || !roster.entries) return;
         for (const entry of roster.entries) {
-           const pp = entry.playerPoolEntry;
-           if (!pp || !pp.player) continue;
-           let actualScore = pp.appliedStatTotal || 0;
+           let pId = null;
+           let pName = '';
+           let posStr = 'FLEX';
+           let nflTeam = '';
+           let nflResult = '';
+           let isStarter = true;
+           let actualScore = 0;
            let projScore = 0;
            let statLine = {};
+           let lineupSlotId = entry.lineupSlotId || 0;
+           let headshotUrl = entry.headshotUrl || '';
+           let injuryStatus = entry.injuryStatus || null;
 
-           if (pp.player.stats) {
-               const actual = pp.player.stats.find(s => s.statSourceId === 0 && (s.scoringPeriodId === week || s.statSplitTypeId === 1));
-               const proj = pp.player.stats.find(s => s.statSourceId === 1 && (s.scoringPeriodId === week || s.statSplitTypeId === 1));
-               if (actual) {
-                   actualScore = actual.appliedTotal !== undefined ? actual.appliedTotal : actualScore;
-                   statLine = actual.stats || statLine;
-               }
-               if (proj) {
-                   projScore = proj.appliedTotal || 0;
-               }
+           if (entry.playerPoolEntry && entry.playerPoolEntry.player) {
+             // ESPN format
+             const pp = entry.playerPoolEntry;
+             pId = pp.player.id;
+             pName = pp.player.fullName;
+             actualScore = pp.appliedStatTotal || 0;
+
+             if (pp.player.stats) {
+                 const actual = pp.player.stats.find(s => s.statSourceId === 0 && (s.scoringPeriodId === week || s.statSplitTypeId === 1));
+                 const proj = pp.player.stats.find(s => s.statSourceId === 1 && (s.scoringPeriodId === week || s.statSplitTypeId === 1));
+                 if (actual) {
+                     actualScore = actual.appliedTotal !== undefined ? actual.appliedTotal : actualScore;
+                     statLine = actual.stats || statLine;
+                 }
+                 if (proj) {
+                     projScore = proj.appliedTotal || 0;
+                 }
+             }
+
+             nflTeam = NFL_TEAMS[pp.player.proTeamId] || '';
+             nflResult = nflTeam ? getNflGameResult(year, week, nflTeam) : '';
+             const POS_MAP = { 1: 'QB', 2: 'RB', 3: 'WR', 4: 'TE', 5: 'K', 16: 'D/ST' };
+             posStr = POS_MAP[pp.player.defaultPositionId] || 'FLEX';
+             isStarter = entry.lineupSlotId !== 20 && entry.lineupSlotId !== 21 && entry.lineupSlotId !== 24;
+           } else if (entry.playerName || entry.playerId || entry.playerKey) {
+             // Yahoo format
+             pId = entry.playerId || entry.playerKey;
+             pName = entry.playerName || `Player ${pId}`;
+             posStr = entry.position || 'FLEX';
+             nflTeam = entry.nflTeam || '';
+             nflResult = nflTeam ? getNflGameResult(year, week, nflTeam) : '';
+             isStarter = entry.isStarter !== undefined ? entry.isStarter : (entry.rosterSlot !== 'BN' && entry.rosterSlot !== 'IR');
+             actualScore = entry.points || 0;
+             projScore = entry.projectedPoints || 0;
+             statLine = entry.rawStats || {};
+             headshotUrl = entry.headshotUrl || '';
+             injuryStatus = entry.injuryStatus || null;
+           } else {
+             continue;
            }
-
-           const nflTeam = NFL_TEAMS[pp.player.proTeamId] || '';
-           const nflResult = nflTeam ? getNflGameResult(year, week, nflTeam) : '';
-           const POS_MAP = { 1: 'QB', 2: 'RB', 3: 'WR', 4: 'TE', 5: 'K', 16: 'D/ST' };
-           const posStr = POS_MAP[pp.player.defaultPositionId] || 'FLEX';
-           const isStarter = entry.lineupSlotId !== 20 && entry.lineupSlotId !== 21 && entry.lineupSlotId !== 24;
 
            weekly_player_stats.push({
               year,
@@ -445,10 +538,10 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               manager_name: tinfo.ownerName || "",
               opponent_team_id: oppId,
               opponent_team_name: oppName || "",
-              player_id: pp.player.id,
-              player_name: pp.player.fullName,
+              player_id: pId,
+              player_name: pName,
               position: posStr,
-              lineup_slot_id: entry.lineupSlotId,
+              lineup_slot_id: lineupSlotId,
               is_starter: isStarter,
               projected_points: Math.round(projScore * 100) / 100,
               fantasy_points: Math.round(actualScore * 100) / 100,
@@ -458,8 +551,10 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               is_playoff: isPlayoff,
               is_consolation: isConsolation,
               game_type: gameType,
-              ...(playerIdToName.set(pp.player.id, pp.player.fullName) && {}),
-              ...(playerIdToPosition.set(pp.player.id, posStr) && {})
+              headshot_url: headshotUrl,
+              injury_status: injuryStatus,
+              ...(pId && pName ? (playerIdToName.set(pId, pName) && {}) : {}),
+              ...(pId && posStr ? (playerIdToPosition.set(pId, posStr) && {}) : {})
            });
         }
       };
@@ -565,25 +660,27 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     const year = season.year;
     const picks = season.data.draftDetail?.picks || [];
     for (const pick of picks) {
-      if (!pick.playerId || pick.playerId <= 0) continue;
+      const pId = pick.playerId || pick.playerKey;
+      if (!pId && !pick.playerName) continue;
       const tid = pick.teamId;
       const tinfo = (teamMap[year] && teamMap[year][tid]) || {};
-      const pName = playerIdToName.get(pick.playerId) || `Player ID ${pick.playerId}`;
-      const pos = playerIdToPosition.get(pick.playerId) || '';
-      const histTeam = nflHistoricalTeams.getTeam(pName, year, pos);
+      const pName = pick.playerName || (pId ? playerIdToName.get(pId) : null) || `Player ID ${pId}`;
+      const pos = pick.position || (pId ? playerIdToPosition.get(pId) : '') || '';
+      const histTeam = pick.nflTeam || nflHistoricalTeams.getTeam(pName, year, pos);
       draft_results.push({
         year,
-        overall_pick: pick.overallPickNumber,
-        round: pick.roundId,
-        round_pick: pick.roundPickNumber,
+        overall_pick: pick.overallPickNumber || pick.overallPick,
+        round: pick.roundId || pick.round,
+        round_pick: pick.roundPickNumber || pick.pickInRound,
         team_id: tid,
         team_name: tinfo.name || "",
         manager_id: tinfo.ownerId,
         manager_name: tinfo.ownerName || "",
-        player_id: pick.playerId,
+        player_id: pId || 0,
         player_name: pName,
         position: pos,
         nfl_team: histTeam || "",
+        headshot_url: pick.headshotUrl || pick.headshot_url || "",
         is_keeper: pick.keeper || false,
         bid_amount: pick.bidAmount || 0
       });
@@ -606,7 +703,39 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   for (const season of seasonsData) {
     const year = season.year;
     for (const t of (season.data.transactions || [])) {
-      if (t.status !== 'EXECUTED') continue;
+      if (t.status && t.status !== 'EXECUTED' && t.status !== 'successful') continue;
+
+      if (t.players && Array.isArray(t.players)) {
+        // Yahoo normalized format
+        const addedPlayers = t.players.filter(p => p.action === 'add').map(p => p.name);
+        const droppedPlayers = t.players.filter(p => p.action === 'drop').map(p => p.name);
+        const formattedTimestamp = t.timestamp ? new Date(t.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+        const parts = [];
+        if (addedPlayers.length > 0) parts.push(`Added: ${addedPlayers.join(', ')}`);
+        if (droppedPlayers.length > 0) parts.push(`Dropped: ${droppedPlayers.join(', ')}`);
+        if (t.faabBid > 0) parts.push(`FAAB: $${t.faabBid}`);
+
+        transactions.push({
+          year,
+          season: year,
+          date: t.timestamp,
+          timestamp: formattedTimestamp,
+          action_type: t.type,
+          type: t.type === 'trade' ? 'trade' : (t.faabBid > 0 ? 'waiver' : 'free_agent'),
+          team_id: t.teamId || 1,
+          team_name: t.teamName || '',
+          manager_id: '',
+          manager_name: '',
+          added_players: addedPlayers,
+          dropped_players: droppedPlayers,
+          traded_players: [],
+          faab_bid: t.faabBid || 0,
+          details: parts.join(' · ') || t.type,
+          items: []
+        });
+        continue;
+      }
+
       let processedItems = [];
       const addedPlayers = [];
       const droppedPlayers = [];
@@ -684,7 +813,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     lastYear: activeYear,
     totalSeasons: seasonsData.length,
     join_code: generateRandomJoinCode(),
-    scoringRules: {}
+    scoringRules: {},
+    ...(options.seasonLabelConvention ? { seasonLabelConvention: options.seasonLabelConvention } : {}),
+    ...(options.leagueSettingsOverrides || {})
   };
 
   const scoring_settings = {};
@@ -725,6 +856,20 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       }
     }
 
+    // Check Yahoo stat modifiers
+    const yahooStatMods = season.data.settings?.scoringSettings?.stats || [];
+    if (yahooStatMods.length > 0) {
+      for (const item of yahooStatMods) {
+        const sid = parseInt(item.stat?.stat_id || item.stat_id);
+        const val = parseFloat(item.stat?.value !== undefined ? item.stat.value : (item.value !== undefined ? item.value : 0));
+        if (YAHOO_STAT_MAP[sid] && val !== 0) {
+          let [category, name] = YAHOO_STAT_MAP[sid];
+          if (!yearRules[category]) yearRules[category] = [];
+          yearRules[category].push({ name, points: val, stat_id: sid });
+        }
+      }
+    }
+
     if (Object.keys(yearRules).length > 0) {
       scoring_settings[yr] = yearRules;
     }
@@ -748,7 +893,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     weekly_player_stats: weekly_player_stats,
     transactions: transactions,
     league_settings: league_settings,
-    scoring_settings: scoring_settings
+    scoring_settings: scoring_settings,
+    seasonLabelConvention: options.seasonLabelConvention || league_settings.seasonLabelConvention || 'kickoff',
+    paradigms: options.paradigms || {}
   };
 }
 

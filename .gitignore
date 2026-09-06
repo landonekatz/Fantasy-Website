@@ -11,6 +11,9 @@ __pycache__/
 .idea/
 *.log
 cron_scraper.log
+.env
+.env.*
+*.env
 
 # Temporary mockups (optional - delete if you want them ignored)
 mockup*.html

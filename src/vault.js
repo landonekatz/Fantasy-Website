@@ -123,8 +123,18 @@ class FantasyApp {
             streaks: { year: 'all', retired: false, customStart: 2015, customEnd: 2025 },
             playoffs: { year: 'all', retired: false, customStart: 2015, customEnd: 2025 }
         };
+        this.seasonLabelConvention = 'kickoff';
+        this.isChampionshipYearConvention = false;
+        this.paradigms = {};
         this.db = null;
         this.notesEngine = null;
+    }
+
+    formatSeasonYear(year) {
+        if (year === undefined || year === null) return "";
+        const num = Number(year);
+        if (isNaN(num)) return `${year}`;
+        return this.isChampionshipYearConvention ? `${num + 1}` : `${num}`;
     }
 
     async showBuildingSequence() {
@@ -912,6 +922,18 @@ class FantasyApp {
         const draftData = bundleData.draft_results || [];
         const settingsData = bundleData.league_settings || {};
 
+        this.seasonLabelConvention = bundleData.seasonLabelConvention || settingsData.seasonLabelConvention || 'kickoff';
+        this.isChampionshipYearConvention = (this.seasonLabelConvention === 'championship');
+        this.paradigms = bundleData.paradigms || {};
+        if (!this.paradigms.power_rankings && bundleData.power_rankings) {
+            this.paradigms.power_rankings = bundleData.power_rankings;
+        }
+        if (!this.paradigms.rivalries && bundleData.rivalries) {
+            this.paradigms.rivalries = bundleData.rivalries;
+        }
+        this.syncStatus = bundleData.sync_status || null;
+        this.credentials = bundleData.credentials || {};
+
         if (managersData) {
             this.managersData = managersData;
             const rawList = Array.isArray(managersData) ? managersData : (managersData.managers || []);
@@ -1098,7 +1120,7 @@ class FantasyApp {
         if (idInfoEl) idInfoEl.textContent = `League ID: ${this.leagueSettings.id || "------"}`;
 
         const editionInfoEl = document.getElementById("league-edition-info");
-        if (editionInfoEl) editionInfoEl.innerHTML = `EST. ${firstYear}`;
+        if (editionInfoEl) editionInfoEl.innerHTML = `EST. ${this.formatSeasonYear(firstYear)}`;
 
         const seasonsEl = document.getElementById("total-seasons");
         if (seasonsEl) seasonsEl.textContent = totalSeasons;
@@ -1110,8 +1132,25 @@ class FantasyApp {
         if (recordsHeroLeagueNameEl) recordsHeroLeagueNameEl.textContent = `The ${leagueName} Record Book`;
 
         const footerEspnLinkEl = document.getElementById("footer-espn-link");
-        if (footerEspnLinkEl && this.leagueSettings.id) {
-            footerEspnLinkEl.href = `https://fantasy.espn.com/football/league?leagueId=${this.leagueSettings.id}`;
+        if (footerEspnLinkEl) {
+            if (this.leagueSettings.platform === 'yahoo') {
+                footerEspnLinkEl.textContent = 'View on Yahoo';
+                footerEspnLinkEl.href = this.leagueSettings.id ? `https://football.fantasysports.yahoo.com/f1/${this.leagueSettings.id}` : 'https://football.fantasysports.yahoo.com';
+            } else {
+                footerEspnLinkEl.textContent = 'View on ESPN';
+                footerEspnLinkEl.href = this.leagueSettings.id ? `https://fantasy.espn.com/football/league?leagueId=${this.leagueSettings.id}` : '#';
+            }
+        }
+
+        const btnParadigms = document.getElementById('btn-tab-paradigms');
+        if (btnParadigms) {
+            const hasPr = !!(this.paradigms?.power_rankings?.current_ranking || (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) || (this.powerRankingsHistory && this.powerRankingsHistory.length > 0));
+            const hasRivalry = !!(Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0);
+            if (hasPr || hasRivalry) {
+                btnParadigms.style.display = '';
+            } else {
+                btnParadigms.style.display = 'none';
+            }
         }
 
         console.log(`Loaded ${this.managers.length} managers, ${this.matchups.length} matchups, ${this.playerStats.length} player stats, ${this.transactions.length} transactions, ${this.powerRankingsHistory.length} power rankings weeks.`);
@@ -1322,17 +1361,19 @@ class FantasyApp {
         const btnH2h = document.getElementById('btn-tab-h2h');
         const btnRecords = document.getElementById('btn-tab-records');
         const btnDraft = document.getElementById('btn-tab-draft');
+        const btnParadigms = document.getElementById('btn-tab-paradigms');
         const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
         const viewDraft = document.getElementById('view-draft');
+        const viewParadigms = document.getElementById('view-paradigms');
         const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords, btnDraft, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords, viewDraft, viewAdmin].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnH2h, btnRecords, btnDraft, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewH2h, viewRecords, viewDraft, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
 
             const themeLabel = document.getElementById('theme-toggle-label');
             if (themeLabel) {
@@ -1354,6 +1395,10 @@ class FantasyApp {
                 btnDraft && btnDraft.classList.add('active');
                 viewDraft && viewDraft.classList.add('active');
                 this.renderDraft();
+            } else if (tab === 'paradigms') {
+                btnParadigms && btnParadigms.classList.add('active');
+                viewParadigms && viewParadigms.classList.add('active');
+                this.renderParadigms();
             } else if (tab === 'admin') {
                 btnAdmin && btnAdmin.classList.add('active');
                 viewAdmin && viewAdmin.classList.add('active');
@@ -1368,6 +1413,7 @@ class FantasyApp {
         if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
         if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
+        if (btnParadigms) btnParadigms.addEventListener('click', () => switchTab('paradigms'));
         if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
 
         // Setup smooth scrolling for "On This Page" subnav pills on League Home
@@ -1455,12 +1501,14 @@ class FantasyApp {
         const firstYear = parseInt(this.leagueSettings.firstYear) || 2015;
         const lastYear = parseInt(this.leagueSettings.lastYear) || new Date().getFullYear();
 
-        if (btnAll) btnAll.textContent = `All Years (${firstYear}–${lastYear})`;
+        const firstDisplay = this.formatSeasonYear(firstYear);
+        const lastDisplay = this.formatSeasonYear(lastYear);
+        if (btnAll) btnAll.textContent = `All Years (${firstDisplay}, as ${lastDisplay})`;
 
         if (selStart && selEnd) {
             let optionsHTML = '';
             for (let y = firstYear; y <= lastYear; y++) {
-                optionsHTML += `<option value="${y}">${y}</option>`;
+                optionsHTML += `<option value="${y}">${this.formatSeasonYear(y)}</option>`;
             }
             selStart.innerHTML = optionsHTML;
             selEnd.innerHTML = optionsHTML;
@@ -1660,7 +1708,7 @@ class FantasyApp {
                     <div class="hero-manager-name" style="font-size:1.1rem;color:var(--text-primary);font-weight:bold;">${m1Name}</div>
                 </div>
                 <div class="hero-record-col">
-                    <div class="hero-record-label">All-Time Head-to-Head Record (${range.min}${range.min !== range.max ? ' - ' + range.max : ''})</div>
+                    <div class="hero-record-label">All-Time Head-to-Head Record (${this.formatSeasonYear(range.min)}${range.min !== range.max ? ', as ' + this.formatSeasonYear(range.max) : ''})</div>
                     <div class="hero-big-record">${m1Wins} - ${m2Wins}${ties > 0 ? ' - ' + ties : ''}</div>
                     <div class="hero-win-pct">${m1Name} Win Pct: ${winPct1}% (${totalGames} Games)</div>
                     <div class="hero-comparison-bar">
@@ -1695,14 +1743,14 @@ class FantasyApp {
 
             const clickHandler = !isPlayed
                 ? `onclick="alert('This matchup has not been played yet.')"`
-                : (g.year < 2018
+                : (g.year < 2018 && this.leagueSettings?.platform !== 'yahoo'
                     ? `onclick="alert('ESPN has removed public access to player boxscore data prior to 2018.')"`
                     : `onclick="window.app.openBoxscoreModal(${g.year}, ${g.week}, '${g.home_manager_id}', '${g.away_manager_id}')"`);
 
             cardsHtml += `
                 <div class="${cardClass}" ${clickHandler}>
                     <div class="matchup-date-badge">
-                        <div class="matchup-year-week">${g.year} • Week ${g.week}</div>
+                        <div class="matchup-year-week">${this.formatSeasonYear(g.year)} • Week ${g.week}</div>
                         <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${!isPlayed ? 'Upcoming Matchup' : (isPlayoffs ? 'Playoffs • ' + (g.playoff_round || getPlayoffRoundName(g.year, g.week)) : 'Regular Season')}</div>
                     </div>
                     <div class="matchup-teams-comparison">
@@ -1770,12 +1818,12 @@ class FantasyApp {
                     <div class="summary-stat-box">
                         <div class="summary-stat-label">Largest Blowout Win</div>
                         <div class="summary-stat-value">${maxBlowout ? `+${maxBlowout.margin.toFixed(2)} pts` : '-'}</div>
-                        <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;margin-top:4px;">${maxBlowout ? `${maxBlowout.winner} (${maxBlowout.season} W${maxBlowout.week})` : '-'}</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;margin-top:4px;">${maxBlowout ? `${maxBlowout.winner} (${this.formatSeasonYear(maxBlowout.season)} W${maxBlowout.week})` : '-'}</div>
                     </div>
                     <div class="summary-stat-box">
                         <div class="summary-stat-label">Closest Matchup Margin</div>
                         <div class="summary-stat-value">${minMargin ? `+${minMargin.margin.toFixed(2)} pts` : '-'}</div>
-                        <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;margin-top:4px;">${minMargin ? `${minMargin.winner} (${minMargin.season} W${minMargin.week})` : '-'}</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);font-weight:600;margin-top:4px;">${minMargin ? `${minMargin.winner} (${this.formatSeasonYear(minMargin.season)} W${minMargin.week})` : '-'}</div>
                     </div>
                 </div>
             `;
@@ -1882,8 +1930,10 @@ class FantasyApp {
                         
                         const statsLine = formatPlayerStats(p);
                         const nflMatchupInfo = [p.nfl_team, p.nfl_game_result, statsLine].filter(Boolean).join(' • ');
+                        const headshot = p.headshot_url || p.headshotUrl;
+                        const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
-                        html += `<div class="player-row"><div class="player-left"><span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                        html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
                     } else {
                         const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
                         html += `<div class="player-row" style="opacity:0.45;"><div class="player-left"><span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name" style="font-style:italic;color:var(--text-muted);">Empty</div></div></div><div class="player-right"><div class="player-pts">0.00</div></div></div>`;
@@ -1895,8 +1945,10 @@ class FantasyApp {
                     const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${p.projected_points.toFixed(2)}</div>` : '';
                     const statsLine = formatPlayerStats(p);
                     const nflMatchupInfo = [p.nfl_team, p.nfl_game_result, statsLine].filter(Boolean).join(' • ');
+                    const headshot = p.headshot_url || p.headshotUrl;
+                    const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
-                    html += `<div class="player-row"><div class="player-left"><span class="slot-badge flex">EXTRA</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                    html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge flex">EXTRA</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
                 });
 
                 if (bench.length > 0) {
@@ -1908,8 +1960,10 @@ class FantasyApp {
                         
                         const statsLine = formatPlayerStats(p);
                         const nflMatchupInfo = [p.nfl_team, p.nfl_game_result, statsLine].filter(Boolean).join(' • ');
+                        const headshot = p.headshot_url || p.headshotUrl;
+                        const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
-                        html += `<div class="player-row" style="opacity:0.8;"><div class="player-left"><span class="slot-badge ${sc}">${slotLabel}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                        html += `<div class="player-row" style="opacity:0.8;"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotLabel}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? p.fantasy_points.toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
                     });
                 }
             }
@@ -1921,7 +1975,7 @@ class FantasyApp {
         modalContent.innerHTML = `
             <div class="modal-header">
                 <div class="modal-title-area">
-                    <h2>${season} • Week ${week} ${m && m.is_playoff ? ' • Playoffs (' + (roundName || 'Playoffs') + ')' : ' • Regular Season'}</h2>
+                    <h2>${this.formatSeasonYear(season)} • Week ${week} ${m && m.is_playoff ? ' • Playoffs (' + (roundName || 'Playoffs') + ')' : ' • Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
@@ -1937,6 +1991,216 @@ class FantasyApp {
 
         if (typeof modal.showModal === 'function') modal.showModal();
         else modal.style.display = 'block';
+    }
+
+    renderParadigms() {
+        const container = document.getElementById('paradigm-content');
+        const subnav = document.getElementById('paradigms-subnav');
+        const btnPr = document.getElementById('btn-paradigm-pr');
+        const btnRiv = document.getElementById('btn-paradigm-rivalries');
+        if (!container) return;
+
+        const hasPr = !!(this.paradigms?.power_rankings?.current_ranking || (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) || (this.powerRankingsHistory && this.powerRankingsHistory.length > 0));
+        const hasRiv = !!(Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0);
+
+        if (btnPr) btnPr.style.display = hasPr ? '' : 'none';
+        if (btnRiv) btnRiv.style.display = hasRiv ? '' : 'none';
+
+        if (!this.activeParadigmSubtab) {
+            this.activeParadigmSubtab = hasPr ? 'pr' : (hasRiv ? 'rivalries' : null);
+        }
+
+        const showSubtab = (tab) => {
+            this.activeParadigmSubtab = tab;
+            if (btnPr) btnPr.classList.toggle('active', tab === 'pr');
+            if (btnRiv) btnRiv.classList.toggle('active', tab === 'rivalries');
+
+            if (tab === 'pr') {
+                container.innerHTML = `<div id="rankings"></div>`;
+                if (this.powerRankingsEngine) {
+                    this.powerRankingsEngine.containerId = 'rankings';
+                    this.powerRankingsEngine.render();
+                }
+            } else if (tab === 'rivalries') {
+                this.renderRivalries(container);
+            }
+        };
+
+        if (btnPr) btnPr.onclick = () => showSubtab('pr');
+        if (btnRiv) btnRiv.onclick = () => showSubtab('rivalries');
+
+        if (this.activeParadigmSubtab) {
+            showSubtab(this.activeParadigmSubtab);
+        }
+    }
+
+    renderRivalries(container) {
+        if (!container) container = document.getElementById('paradigm-content');
+        if (!container) return;
+
+        const rivalries = Array.isArray(this.paradigms?.rivalries) ? this.paradigms.rivalries : [];
+        if (rivalries.length === 0) {
+            container.innerHTML = `<div class="card" style="text-align: center; color: var(--text-muted); padding: 2rem;">No rivalries configured for this league.</div>`;
+            return;
+        }
+
+        const getRivalryHistory = (mgr1, mgr2) => {
+            const matches = [];
+            if (!this.matchups) return matches;
+            const n1 = (mgr1 || '').toLowerCase().trim();
+            const n2 = (mgr2 || '').toLowerCase().trim();
+
+            for (const m of this.matchups) {
+                const yr = Number(m.year || m.season);
+                const wk = Number(m.week);
+                if (yr >= 2026 && wk === 13) {
+                    const hId = (m.home_manager_id || m.team_1_manager_id || '').toLowerCase();
+                    const aId = (m.away_manager_id || m.team_2_manager_id || '').toLowerCase();
+                    const hName = (m.home_manager_name || m.team_1_manager_name || '').toLowerCase();
+                    const aName = (m.away_manager_name || m.team_2_manager_name || '').toLowerCase();
+
+                    const match1 = (hId === n1 || hName.includes(n1) || aId === n1 || aName.includes(n1));
+                    const match2 = (hId === n2 || hName.includes(n2) || aId === n2 || aName.includes(n2));
+                    if (match1 && match2) {
+                        matches.push(m);
+                    }
+                }
+            }
+            return matches;
+        };
+
+        let cardsHtml = '';
+        rivalries.forEach(rivalry => {
+            const history = getRivalryHistory(rivalry.manager1, rivalry.manager2);
+            let wins1 = 0;
+            let wins2 = 0;
+            let pts1 = 0.0;
+            let pts2 = 0.0;
+
+            history.forEach(m => {
+                const s1 = Number(m.home_score !== undefined ? m.home_score : m.team_1_actual_points) || 0;
+                const s2 = Number(m.away_score !== undefined ? m.away_score : m.team_2_actual_points) || 0;
+                pts1 += s1;
+                pts2 += s2;
+                if (s1 > s2) wins1++;
+                else if (s2 > s1) wins2++;
+            });
+
+            const inauguralYear = this.formatSeasonYear(2026);
+            let drawerContent = '';
+            if (history.length === 0) {
+                drawerContent = `
+                    <div class="dungeon-inaugural-banner">
+                        <strong>Inaugural Matchup: ${inauguralYear} Season</strong>
+                        No annual rivalry games contested yet. Future scores, winners, and boxscores will appear here automatically starting in ${inauguralYear}.
+                    </div>
+                `;
+            } else {
+                drawerContent = `<div class="dungeon-matchup-list">`;
+                history.forEach(m => {
+                    const s1 = Number(m.home_score !== undefined ? m.home_score : m.team_1_actual_points) || 0;
+                    const s2 = Number(m.away_score !== undefined ? m.away_score : m.team_2_actual_points) || 0;
+                    const t1 = m.home_team_name || m.team_1_name || 'Team 1';
+                    const t2 = m.away_team_name || m.team_2_name || 'Team 2';
+                    const yr = Number(m.year || m.season);
+                    drawerContent += `
+                        <div class="dungeon-matchup-row" onclick="window.app && window.app.openBoxscoreModal(${yr}, ${m.week}, '${m.home_manager_id || m.team_1_manager_id}', '${m.away_manager_id || m.team_2_manager_id}')">
+                            <div class="dungeon-matchup-year">${this.formatSeasonYear(yr)} Week ${m.week}</div>
+                            <div class="dungeon-matchup-score">${t1} ${s1.toFixed(2)} vs ${s2.toFixed(2)} ${t2}</div>
+                        </div>
+                    `;
+                });
+                drawerContent += `</div>`;
+            }
+
+            cardsHtml += `
+                <div class="dungeon-card">
+                    <div>
+                        <div class="dungeon-card-header">
+                            <div class="dungeon-rivalry-title-grid">
+                                <div class="dungeon-rivalry-cell cell-left">
+                                    <span class="dungeon-rivalry-name">${rivalry.surname1}</span>
+                                </div>
+                                <div class="dungeon-vs-text">VS.</div>
+                                <div class="dungeon-rivalry-cell cell-right">
+                                    <span class="dungeon-rivalry-name">${rivalry.surname2}</span>
+                                </div>
+                            </div>
+                            <div class="dungeon-rivalry-underline"></div>
+                        </div>
+
+                        <div class="dungeon-blurb-box">
+                            <span class="dungeon-blurb-label">Rivalry Feud Chronicle</span>
+                            <div class="dungeon-blurb-text">
+                                ${rivalry.writeup || ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="dungeon-record-showcase">
+                            <div class="dungeon-record-main">${wins1} - ${wins2}</div>
+                            <div class="dungeon-record-label">All-Time Rivalry Record</div>
+                            <div class="dungeon-points-split">
+                                <div class="dungeon-pts-box">
+                                    <div class="dungeon-pts-name">${rivalry.surname1}</div>
+                                    <div class="dungeon-pts-val">${pts1.toFixed(1)}</div>
+                                    <div class="dungeon-pts-label">Total Pts</div>
+                                </div>
+                                <div class="dungeon-pts-box">
+                                    <div class="dungeon-pts-name">${rivalry.surname2}</div>
+                                    <div class="dungeon-pts-val">${pts2.toFixed(1)}</div>
+                                    <div class="dungeon-pts-label">Total Pts</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="dungeon-btn-view" onclick="window.app ? window.app.toggleRivalryDrawer(this) : (window.toggleRivalryDrawer && window.toggleRivalryDrawer(this))">
+                            View Rivalry Matchups
+                        </button>
+                        <div class="dungeon-matchups-drawer">
+                            <div class="dungeon-matchups-drawer-inner">
+                                ${drawerContent}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = `
+            <div class="rivalry-dungeon-container">
+                <div class="dungeon-masthead" style="position: relative;">
+                    <h1 class="dungeon-main-title">Rivalry Week</h1>
+                    <blockquote class="dungeon-quote">
+                        <p>Were half to half the world by the ears and he.</p>
+                        <p>Upon my party, I'ld revolt to make</p>
+                        <p>Only my wars with him: he is a lion</p>
+                        <p>That I am proud to hunt.</p>
+                    </blockquote>
+                    <div class="dungeon-quote-credit">, as William Shakespeare, <em>Coriolanus</em></div>
+                    <p class="dungeon-subtitle">
+                        Every manager is bound to an eternal rival. Contested annually during the week of Thanksgiving, where rivalry records are carved in stone forever.
+                    </p>
+
+                    <div class="dungeon-mike-box">
+                        <span class="dungeon-box-tag">COMMISSIONER MANIFESTO</span>
+                        <p>"I have no enemies" is what I would say if I had no enemies. But everyone has enemies. Opps. Rivals. And for the first time in league history, we have a week dedicated to that feeling in your chest that you get when you see their team name across from yours on the matchups page. It just means more. This is rivalry week.</p>
+                    </div>
+                </div>
+
+                <div class="dungeon-rivalry-grid">
+                    ${cardsHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    toggleRivalryDrawer(btn) {
+        const drawer = btn.nextElementSibling;
+        if (!drawer) return;
+        const isOpen = drawer.classList.toggle('open');
+        btn.textContent = isOpen ? 'Hide Rivalry Matchups' : 'View Rivalry Matchups';
     }
 
     updateAdminTabVisibility() {
@@ -1977,6 +2241,11 @@ class FantasyApp {
         const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
         const leagueSlug = this.leagueSlug || window.location.pathname.substring(1).replace(/\/$/, "") || "league";
+
+        const currentPlatform = (this.credentials?.platform || this.leagueSettings?.platform || 'espn').toLowerCase();
+        const syncStatus = this.syncStatus || {};
+        const isAuthRequired = syncStatus.status === 'auth_required';
+        const lastSynced = this.credentials?.last_synced || syncStatus.last_synced || 'Not synced yet';
 
         // Check 30-day slug change limit
         const lastSlugChange = this.leagueSettings?.last_slug_change_at;
@@ -2153,6 +2422,11 @@ class FantasyApp {
                                 <span class="admin-nav-item-title">Administrator Role</span>
                                 <span class="admin-nav-item-sub">Admin Email, Transfer</span>
                             </a>
+
+                            <a href="#admin-sec-sync" class="admin-nav-item" data-section="admin-sec-sync">
+                                <span class="admin-nav-item-title">Provider &amp; Weekly Sync</span>
+                                <span class="admin-nav-item-sub">Credentials, Privacy, Sync Status</span>
+                            </a>
                         </div>
                     </nav>
                 </aside>
@@ -2197,6 +2471,26 @@ class FantasyApp {
                             </div>
                         </div>
                         <div id="admin-self-claim-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                    </div>
+                ` : ''}
+
+                <!-- Provider Auth / Privacy Warning Card -->
+                ${isAuthRequired ? `
+                    <div class="card admin-section-card" style="margin-top: 1.5rem; background: #fff1f2; border: 1px solid #fecdd3; border-left: 4px solid #e11d48; padding: 1.25rem 1.5rem; border-radius: 8px;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 260px;">
+                                <div style="font-size: 0.82rem; font-weight: 800; color: #be123c; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem;">
+                                    Weekly Stats Sync Paused: League Privacy Changed
+                                </div>
+                                <p style="font-size: 0.88rem; color: #881337; margin: 0 0 6px 0; line-height: 1.45;">
+                                    Automated weekly updates are temporarily paused because your league on <strong>${currentPlatform.toUpperCase()}</strong> appears to have been switched to <strong>Private</strong>, or your host authorization expired.
+                                </p>
+                                <p style="font-size: 0.82rem; color: #9f1239; margin: 0;">
+                                    Please provide your private credentials in the Provider &amp; Weekly Sync section below so weekly matchups and stats can resume syncing automatically.
+                                </p>
+                            </div>
+                            <a href="#admin-sec-sync" class="btn" style="background: #e11d48; color: #fff; padding: 8px 16px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; text-decoration: none; white-space: nowrap;">Update Credentials</a>
+                        </div>
                     </div>
                 ` : ''}
 
@@ -2632,6 +2926,102 @@ class FantasyApp {
                         <button id="btn-open-transfer-admin-modal" class="btn" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="background: #cbd5e1; color: #64748b; padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: not-allowed; border: none;"' : 'style="background: #b45309; color: #fff; padding: 9px 18px; font-weight: 700; font-size: 0.85rem; border-radius: 6px; cursor: pointer; border: none;"'}>Transfer Admin Status</button>
                     </div>
                 </div>
+
+                <!-- 8. PROVIDER CONNECTION & WEEKLY SYNC -->
+                <div id="admin-sec-sync" class="card admin-section-card" style="margin-top: 2rem;">
+                    <div class="admin-card-header">
+                        <div>
+                            <h2>Provider Connection &amp; Weekly Sync</h2>
+                            <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">Manage your active fantasy host connection, private credentials, and automated weekly updates.</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.25rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <!-- Status Row -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary);">Active Current Platform:</span>
+                                    <span style="display: inline-block; font-size: 0.78rem; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(212, 175, 55, 0.15); color: #b45309; text-transform: uppercase;">
+                                        ${currentPlatform}
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.82rem; color: var(--text-muted);">
+                                    Sync Status: 
+                                    <span style="font-weight: 700; color: ${isAuthRequired ? '#dc2626' : '#15803d'};">
+                                        ${isAuthRequired ? 'Sync Paused (Credentials Required)' : 'Active &amp; In-Season Syncing'}
+                                    </span>
+                                    ${lastSynced !== 'Not synced yet' ? ` &bull; Last Synced: ${new Date(lastSynced).toLocaleDateString()}` : ''}
+                                </div>
+                            </div>
+                            ${isAuthRequired ? `
+                                <span style="display: inline-block; font-size: 0.76rem; font-weight: 800; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 4px 10px; border-radius: 6px;">
+                                    Attention Required
+                                </span>
+                            ` : `
+                                <span style="display: inline-block; font-size: 0.76rem; font-weight: 800; background: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 4px 10px; border-radius: 6px;">
+                                    Sync Healthy
+                                </span>
+                            `}
+                        </div>
+
+                        <!-- Historical multi-platform notice -->
+                        <div style="margin-bottom: 1.25rem; padding: 0.85rem 1rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px;">
+                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px;">Multi-Platform Historical Support:</div>
+                            <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">
+                                If your league previously existed on other platforms (such as ESPN or Sleeper) before moving to ${currentPlatform.toUpperCase()}, those historical seasons remain permanently archived in your vault. Weekly automated synchronization pulls exclusively from your active platform for the current season.
+                            </p>
+                        </div>
+
+                        ${currentPlatform === 'espn' ? `
+                            <!-- ESPN Credentials Form -->
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem 1.25rem;">
+                                <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                                    ESPN Private League Cookies:
+                                </div>
+                                <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 12px 0; line-height: 1.45;">
+                                    If your ESPN league is set to Private, provide your <code>espn_s2</code> and <code>SWID</code> cookie values. These are used strictly to query official matchup and roster scores.
+                                </p>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                                    <div>
+                                        <label for="admin-sync-espn-s2" style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">espn_s2 Cookie:</label>
+                                        <input type="password" id="admin-sync-espn-s2" class="admin-input" placeholder="Paste espn_s2 value" value="${this.credentials?.s2 || ''}" ${isFounderInspection ? 'disabled style="background:#f8fafc; cursor:not-allowed;"' : ''}>
+                                    </div>
+                                    <div>
+                                        <label for="admin-sync-espn-swid" style="display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px;">SWID Cookie:</label>
+                                        <input type="text" id="admin-sync-espn-swid" class="admin-input" placeholder="{...}" value="${this.credentials?.swid || ''}" ${isFounderInspection ? 'disabled style="background:#f8fafc; cursor:not-allowed;"' : ''}>
+                                    </div>
+                                </div>
+                                <button id="btn-save-sync-credentials" class="btn-primary" ${isFounderInspection ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : 'style="padding: 7px 16px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer;"'}>
+                                    Save ESPN Credentials &amp; Resume Sync
+                                </button>
+                                <div id="sync-credentials-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.75rem;"></div>
+                            </div>
+                        ` : currentPlatform === 'yahoo' ? `
+                            <!-- Yahoo Re-authorization -->
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem 1.25rem;">
+                                <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                                    Yahoo Fantasy Sports Connection:
+                                </div>
+                                <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 12px 0; line-height: 1.45;">
+                                    Yahoo connections use secure OAuth 2.0. If your league changed permissions or authorization expired, re-authenticate your Yahoo account below.
+                                </p>
+                                <button id="btn-reconnect-yahoo" class="btn" ${isFounderInspection ? 'disabled style="background:#cbd5e1; color:#64748b; cursor:not-allowed;"' : 'style="background: #6001d2; color: #fff; padding: 8px 18px; font-size: 0.82rem; font-weight: 700; border-radius: 4px; cursor: pointer; border: none;"'}>
+                                    Reconnect Yahoo Account
+                                </button>
+                            </div>
+                        ` : `
+                            <!-- General / Sleeper -->
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem 1.25rem;">
+                                <div style="font-size: 0.84rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+                                    Platform ID:
+                                </div>
+                                <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0; line-height: 1.45;">
+                                    Platform ID: <code>${this.credentials?.leagueId || this.leagueSettings?.id || 'Connected'}</code>
+                                </p>
+                            </div>
+                        `}
+                    </div>
+                </div>
                 </main>
             </div>
         `;
@@ -2675,6 +3065,57 @@ class FantasyApp {
                 window.openAdminTransferModal(leagueSlug);
             }
         });
+
+        // Wire up Provider & Weekly Sync credentials saving
+        const btnSaveSync = container.querySelector('#btn-save-sync-credentials');
+        if (btnSaveSync) {
+            btnSaveSync.addEventListener('click', async () => {
+                const s2Val = container.querySelector('#admin-sync-espn-s2')?.value?.trim() || '';
+                const swidVal = container.querySelector('#admin-sync-espn-swid')?.value?.trim() || '';
+                btnSaveSync.disabled = true;
+                btnSaveSync.textContent = 'Saving...';
+                try {
+                    const credRef = dbRef(database, `leagues/${leagueSlug}/credentials`);
+                    await update(credRef, { s2: s2Val, swid: swidVal });
+                    const statusRef = dbRef(database, `leagues/${leagueSlug}/sync_status`);
+                    await update(statusRef, { status: 'healthy', updated_at: new Date().toISOString() });
+                    if (this.syncStatus) this.syncStatus.status = 'healthy';
+                    if (!this.credentials) this.credentials = {};
+                    this.credentials.s2 = s2Val;
+                    this.credentials.swid = swidVal;
+                    const feedbackEl = container.querySelector('#sync-credentials-feedback');
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.className = 'admin-feedback-msg success';
+                        feedbackEl.innerHTML = '✓ ESPN private credentials saved. Weekly synchronization will resume on schedule.';
+                    }
+                    setTimeout(() => { this.renderAdminDashboard(); }, 1800);
+                } catch (e) {
+                    console.error('Failed to update sync credentials:', e);
+                    alert('Failed to save credentials.');
+                } finally {
+                    btnSaveSync.disabled = false;
+                    btnSaveSync.textContent = 'Save ESPN Credentials & Resume Sync';
+                }
+            });
+        }
+
+        const btnReconnectYahoo = container.querySelector('#btn-reconnect-yahoo');
+        if (btnReconnectYahoo) {
+            btnReconnectYahoo.addEventListener('click', async () => {
+                try {
+                    const res = await fetch(`/api/yahoo?action=auth-url&redirect_uri=${encodeURIComponent(window.location.origin + '/api/yahoo/callback')}`);
+                    const data = await res.json();
+                    if (data.url) {
+                        window.location.href = data.url;
+                    } else {
+                        alert('Unable to initialize Yahoo OAuth.');
+                    }
+                } catch (e) {
+                    alert('Error reaching Yahoo auth service: ' + e.message);
+                }
+            });
+        }
 
         // Wire up Copy Claim Link buttons on manager rows
         container.querySelectorAll('.btn-copy-claim-link').forEach(btn => {
@@ -3809,11 +4250,51 @@ class FantasyApp {
                 }
             });
 
-            // 4. Remove source from members
+            // 4. Reassign draft results
+            (this.draftResults || []).forEach(d => {
+                if (d.manager_id === sourceId || d.managerId === sourceId) {
+                    d.manager_id = targetId;
+                    d.managerId = targetId;
+                    d.manager_name = targetName;
+                    d.managerName = targetName;
+                }
+            });
+
+            // 5. Reassign transactions
+            (this.transactions || []).forEach(t => {
+                if (t.manager_id === sourceId || t.managerId === sourceId) {
+                    t.manager_id = targetId;
+                    t.managerId = targetId;
+                    t.manager_name = targetName;
+                    t.managerName = targetName;
+                }
+            });
+
+            // 6. Inherit identity mappings (platform_ids, espn_ids, aliases)
+            const sourceMember = this.members.find(m => m.id === sourceId);
+            if (targetMember && sourceMember) {
+                if (!targetMember.platform_ids) targetMember.platform_ids = [targetMember.id];
+                for (const pid of (sourceMember.platform_ids || [sourceMember.id])) {
+                    if (!targetMember.platform_ids.includes(pid)) targetMember.platform_ids.push(pid);
+                }
+                if (!targetMember.espn_ids) targetMember.espn_ids = [targetMember.id];
+                for (const eid of (sourceMember.espn_ids || [])) {
+                    if (!targetMember.espn_ids.includes(eid)) targetMember.espn_ids.push(eid);
+                }
+                if (!targetMember.aliases) targetMember.aliases = [targetMember.name];
+                if (sourceMember.name && !targetMember.aliases.includes(sourceMember.name)) {
+                    targetMember.aliases.push(sourceMember.name);
+                }
+                for (const a of (sourceMember.aliases || [])) {
+                    if (!targetMember.aliases.includes(a)) targetMember.aliases.push(a);
+                }
+            }
+
+            // 7. Remove source from members
             this.members = this.members.filter(m => m.id !== sourceId);
             this.managers = this.managers.filter(m => m.id !== sourceId);
 
-            // 5. Save updated datasets to Firebase RTDB
+            // 8. Save updated datasets to Firebase RTDB
             if (this.leagueSlug) {
                 const membersRef = dbRef(database, `leagues/${this.leagueSlug}/members`);
                 const matchupsRef = dbRef(database, `leagues/${this.leagueSlug}/matchups`);
@@ -3824,11 +4305,24 @@ class FantasyApp {
                 await set(matchupsRef, this.matchups);
                 await set(standingsRef, this.standings);
                 await set(playerStatsRef, this.playerStats);
+
+                if (this.draftResults && this.draftResults.length > 0) {
+                    await set(dbRef(database, `leagues/${this.leagueSlug}/draft_results`), this.draftResults);
+                }
+                if (this.transactions && this.transactions.length > 0) {
+                    await set(dbRef(database, `leagues/${this.leagueSlug}/transactions`), this.transactions);
+                }
             }
 
-            // 6. Refresh UI components
+            // 9. Refresh UI & sub-engines
             this.setupH2HControls();
             this.renderAdminDashboard();
+            if (this.recordBook && typeof this.recordBook.init === 'function') {
+                this.recordBook.init();
+            }
+            if (this.draftEngine && typeof this.draftEngine.updateData === 'function') {
+                this.draftEngine.updateData({ managers: this.managers, draftResults: this.draftResults, leagueSettings: this.leagueSettings });
+            }
 
             if (feedbackEl) {
                 feedbackEl.style.display = 'block';

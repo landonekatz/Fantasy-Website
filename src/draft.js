@@ -40,6 +40,8 @@ export class VaultDraftEngine {
         this.managers = this.normalizeManagers(options.managers);
         this.leagueSettings = options.leagueSettings || {};
         this.scoringSettings = options.scoringSettings || {};
+        this.options = options;
+        this.seasonLabelConvention = options.seasonLabelConvention || options.leagueSettings?.seasonLabelConvention || 'kickoff';
         
         this.subTab = 'yearly'; // 'yearly' | 'overall' | 'team'
         this.nameMode = 'manager'; // 'manager' | 'team'
@@ -64,6 +66,14 @@ export class VaultDraftEngine {
         });
 
         this.init();
+    }
+
+    formatSeasonYear(year) {
+        if (year === undefined || year === null) return "";
+        const num = Number(year);
+        if (isNaN(num)) return `${year}`;
+        const isChampionship = (this.seasonLabelConvention === 'championship' || this.leagueSettings?.seasonLabelConvention === 'championship');
+        return isChampionship ? `${num + 1}` : `${num}`;
     }
 
     normalizeDraftResults(raw) {
@@ -1293,7 +1303,7 @@ export class VaultDraftEngine {
         // Year Selector Buttons HTML
         const yearButtonsHTML = this.seasons.map(yr => `
             <button class="season-pill-btn ${yr === this.selectedYear ? 'active' : ''}" data-year="${yr}">
-                ${yr}
+                ${this.formatSeasonYear(yr)}
             </button>
         `).join('');
 
@@ -1306,7 +1316,7 @@ export class VaultDraftEngine {
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                     </div>
                     <div class="draft-unplayed-content">
-                        <h3>${this.selectedYear} Draft Completed · Season Pending Kickoff</h3>
+                        <h3>${this.formatSeasonYear(this.selectedYear)} Draft Completed · Season Pending Kickoff</h3>
                         <p>Weekly game statistics have not started yet for this season. The <strong>Landon Draft Index (LDI)</strong> will automatically populate starting in Week 1 as weekly game data is recorded, dialing in continuously as the season progresses.</p>
                     </div>
                 </div>
@@ -1513,6 +1523,10 @@ export class VaultDraftEngine {
 
             const posClass = `pos-${(p.position || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
+            const headshotHtml = (p.headshot_url || p.headshotUrl)
+                ? `<img src="${p.headshot_url || p.headshotUrl}" alt="${p.playerName}" class="pick-player-headshot" onerror="this.style.display='none'">`
+                : '';
+
             return `
                 <div class="draft-pick-row">
                     <div class="pick-num-badge">
@@ -1522,6 +1536,7 @@ export class VaultDraftEngine {
 
                     <div class="pick-info-col">
                         <div class="pick-top-line">
+                            ${headshotHtml}
                             <span class="pick-player-name">${p.playerName}</span>
                             <span class="pick-pos-pill ${posClass}">${p.position}${p.nflTeam ? ' · ' + p.nflTeam : ''}</span>
                         </div>
@@ -1716,8 +1731,8 @@ export class VaultDraftEngine {
         }
 
         const sortedAsc = [...this.seasons].sort((a, b) => a - b);
-        const yearOptionsStartHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.overallCustomStart) === Number(y) ? 'selected' : ''}>${y}</option>`).join('');
-        const yearOptionsEndHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.overallCustomEnd) === Number(y) ? 'selected' : ''}>${y}</option>`).join('');
+        const yearOptionsStartHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.overallCustomStart) === Number(y) ? 'selected' : ''}>${this.formatSeasonYear(y)}</option>`).join('');
+        const yearOptionsEndHTML = sortedAsc.map(y => `<option value="${y}" ${Number(this.overallCustomEnd) === Number(y) ? 'selected' : ''}>${this.formatSeasonYear(y)}</option>`).join('');
 
         const formatLdiVal = (val, showPlus = true) => {
             const num = Number(val);
@@ -1872,7 +1887,7 @@ export class VaultDraftEngine {
                                 <select id="overall-filter-year-select" class="draft-filter-select">
                                     <option value="all" ${['all', '2020-present', 'custom'].includes(this.overallYearFilter) ? 'selected' : ''}>-- Single Year --</option>
                                     ${this.seasons.map(yr => `
-                                        <option value="${yr}" ${String(this.overallYearFilter) === String(yr) ? 'selected' : ''}>${yr} Season</option>
+                                        <option value="${yr}" ${String(this.overallYearFilter) === String(yr) ? 'selected' : ''}>${this.formatSeasonYear(yr)} Season</option>
                                     `).join('')}
                                 </select>
                             </div>

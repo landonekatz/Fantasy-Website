@@ -6307,6 +6307,218 @@ dialog.notes-modal-dialog::backdrop {
     }
 }
 
+/* Player Cutout Headshots */
+.player-headshot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.pick-player-headshot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    margin-right: 8px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Explore Paradigms & Rivalry Week */
+.rivalry-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rivalry-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.rivalry-card-header {
+    margin-bottom: 1rem;
+}
+
+.rivalry-names-grid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-heading, 'Newsreader', serif);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.rivalry-name {
+    color: var(--text-primary);
+    text-transform: uppercase;
+}
+
+.rivalry-vs {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--accent-gold);
+    background: rgba(153, 27, 27, 0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(153, 27, 27, 0.2);
+}
+
+.rivalry-divider {
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-gold) 0%, transparent 100%);
+    margin-top: 0.5rem;
+    opacity: 0.6;
+}
+
+.rivalry-blurb-box {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    margin: 1rem 0;
+}
+
+.rivalry-blurb-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-gold);
+    margin-bottom: 0.25rem;
+}
+
+.rivalry-blurb-text {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.rivalry-record-showcase {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.rivalry-record-numbers {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-family: var(--font-heading, 'Newsreader', serif);
+}
+
+.rivalry-record-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+}
+
+.rivalry-points-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.rivalry-pts-box .pts-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.rivalry-pts-box .pts-val {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.rivalry-pts-box .pts-lbl {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.btn-toggle-rivalry-drawer {
+    width: 100%;
+    margin-top: 0.75rem;
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-toggle-rivalry-drawer:hover {
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border-color: var(--border-highlight);
+}
+
+.rivalry-drawer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.rivalry-drawer.open {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.rivalry-drawer-inner {
+    padding-top: 0.5rem;
+}
+
+.rivalry-matchup-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    background: var(--bg-main);
+    margin-bottom: 0.35rem;
+    font-size: 0.82rem;
+    transition: background 0.15s ease;
+}
+
+.rivalry-matchup-row:hover {
+    background: var(--bg-card-hover);
+}
+
+.rivalry-matchup-year {
+    font-weight: 700;
+    color: var(--accent-gold);
+}
+
+.rivalry-matchup-score {
+    color: var(--text-secondary);
+}
+
 
 
 

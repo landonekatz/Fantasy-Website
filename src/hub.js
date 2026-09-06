@@ -236,8 +236,49 @@ let currentLeagueCreds = null;
 
   if (btnAuthContinue) {
     btnAuthContinue.addEventListener('click', async () => {
-      if (inputPlatform && inputPlatform.value !== 'espn') {
-        const plat = inputPlatform.value.charAt(0).toUpperCase() + inputPlatform.value.slice(1);
+      const platform = inputPlatform ? inputPlatform.value : 'espn';
+
+      if (platform === 'yahoo') {
+        const yahooLeagueIdInput = document.getElementById('input-yahoo-id');
+        const yLeagueId = yahooLeagueIdInput ? yahooLeagueIdInput.value.trim() : '';
+        if (!yLeagueId) {
+          // Trigger the 1-click OAuth flow
+          const btnOauth = document.getElementById('btn-yahoo-oauth');
+          if (btnOauth) btnOauth.click();
+          return;
+        }
+
+        const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'Yahoo League';
+        currentLeagueCreds = { platform: 'yahoo', leagueId: yLeagueId, customName: rawName };
+
+        if (stepAuth && step1) {
+          stepAuth.style.display = 'none';
+          step1.style.display = 'block';
+        }
+
+        try {
+          const res = await fetch(`/api/scrape-yahoo-season?league_key=${encodeURIComponent(yLeagueId)}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (currentLeagueCreds) {
+            currentLeagueCreds.members = data.members;
+          }
+          if (step1 && step2) {
+            step1.style.display = 'none';
+            step2.style.display = 'block';
+          }
+        } catch (err) {
+          alert('Failed to fetch Yahoo league: ' + err.message);
+          if (step1 && stepAuth) {
+            step1.style.display = 'none';
+            stepAuth.style.display = 'block';
+          }
+        }
+        return;
+      }
+
+      if (platform !== 'espn') {
+        const plat = platform.charAt(0).toUpperCase() + platform.slice(1);
         alert(`${plat} integration is coming soon!`);
         return;
       }
@@ -261,7 +302,6 @@ let currentLeagueCreds = null;
       const s2 = s2Input ? s2Input.value.trim() : '';
       const swid = swidInput ? swidInput.value.trim() : '';
       const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
-      const platform = inputPlatform ? inputPlatform.value : 'espn';
       currentLeagueCreds = { platform, leagueId, s2, swid, customName: rawName };
 
       if (stepAuth && step1) {
@@ -329,23 +369,39 @@ let currentLeagueCreds = null;
               
               const normalizeString = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
               
-              const getActiveOptions = (inactiveMember) => {
+              const getMergeOptions = (targetMember) => {
                 let options = '<option value="">Keep Separate</option>';
                 let matchedId = null;
-                activeManagers.forEach(active => {
-                  const activeHandle = active.displayName || 'unknown';
-                  const activeAlias = active.alias;
-                  
-                  const isMatch = (
-                    normalizeString(inactiveMember.alias) === normalizeString(activeAlias) || 
-                    (inactiveMember.displayName && inactiveMember.displayName !== 'unknown' && inactiveMember.displayName === activeHandle)
-                  );
-                  if (isMatch) matchedId = active.id;
-                  
-                  options += `<option value="${active.id}" ${isMatch ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
-                });
-                if (matchedId && !inactiveMember.mergedInto) {
-                   inactiveMember.mergedInto = matchedId;
+
+                const otherActive = data.members.filter(m => m.isActive && m.id !== targetMember.id);
+                if (otherActive.length > 0) {
+                  options += '<optgroup label="Active Managers">';
+                  otherActive.forEach(active => {
+                    const activeHandle = active.displayName || 'unknown';
+                    const activeAlias = active.alias;
+                    const isMatch = (
+                      normalizeString(targetMember.alias) === normalizeString(activeAlias) || 
+                      (targetMember.displayName && targetMember.displayName !== 'unknown' && targetMember.displayName === activeHandle)
+                    );
+                    if (isMatch) matchedId = active.id;
+                    const isSelected = targetMember.mergedInto === active.id;
+                    options += `<option value="${active.id}" ${isSelected ? 'selected' : ''}>Merge into: ${activeAlias}</option>`;
+                  });
+                  options += '</optgroup>';
+                }
+
+                const otherInactive = data.members.filter(m => !m.isActive && m.id !== targetMember.id);
+                if (otherInactive.length > 0) {
+                  options += '<optgroup label="Historical / Inactive Managers">';
+                  otherInactive.forEach(inactive => {
+                    const isSelected = targetMember.mergedInto === inactive.id;
+                    options += `<option value="${inactive.id}" ${isSelected ? 'selected' : ''}>Merge into: ${inactive.alias}</option>`;
+                  });
+                  options += '</optgroup>';
+                }
+
+                if (matchedId && !targetMember.mergedInto) {
+                   targetMember.mergedInto = matchedId;
                 }
                 return options;
               };
@@ -370,7 +426,7 @@ let currentLeagueCreds = null;
                   ` : '';
 
                   activeHtml.push(`
-                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                       <div style="display: flex; align-items: center; gap: 0.75rem;">
                         <input type="checkbox" class="mgr-chk" data-index="${i}" checked>
                         <div>
@@ -378,7 +434,10 @@ let currentLeagueCreds = null;
                           <div style="font-size: 0.75rem; color: var(--ink-muted);">Manager: @${handle}</div>
                         </div>
                       </div>
-                      <div style="display: flex; align-items: center;">
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <select class="form-input mgr-merge-select" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
+                          ${getMergeOptions(m)}
+                        </select>
                         <input type="text" value="${alias}" class="form-input mgr-alias" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                         ${mergeBtnHtml}
                       </div>
@@ -386,7 +445,7 @@ let currentLeagueCreds = null;
                   `);
                 } else {
                   inactiveHtml.push(`
-                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: 0.85;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-card-alt); padding: 0.75rem; border-radius: 6px; border: 1px solid var(--border-line); opacity: 0.85; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                       <div style="display: flex; align-items: center; gap: 0.75rem;">
                         <input type="checkbox" class="mgr-chk" data-index="${i}">
                         <div>
@@ -396,7 +455,7 @@ let currentLeagueCreds = null;
                       </div>
                       <div style="display: flex; gap: 0.5rem;">
                         <select class="form-input mgr-merge-select" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.8rem; width: 140px;">
-                          ${getActiveOptions(m)}
+                          ${getMergeOptions(m)}
                         </select>
                         <input type="text" value="${alias}" class="form-input mgr-alias" data-index="${i}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; width: 120px;" placeholder="Alias">
                       </div>
@@ -482,7 +541,12 @@ let currentLeagueCreds = null;
               document.querySelectorAll('.mgr-merge-select').forEach(select => {
                 select.addEventListener('change', (e) => {
                   const idx = parseInt(e.target.getAttribute('data-index'));
-                  data.members[idx].mergedInto = e.target.value;
+                  const val = e.target.value;
+                  data.members[idx].mergedInto = val;
+                  if (val) {
+                    data.members[idx].isActive = false;
+                    renderManagerList();
+                  }
                 });
               });
 
@@ -700,13 +764,14 @@ let currentLeagueCreds = null;
   const groupEspnLeagueId = document.getElementById('group-espn-league-id');
 
   function updateEspnFields() {
-    if (!inputPlatform || !groupEspnLeagueId) return;
+    if (!inputPlatform) return;
     const isEspn = inputPlatform.value === 'espn' && (!inputLeagueType || inputLeagueType.value !== 'multiple-diff');
+    const isYahoo = inputPlatform.value === 'yahoo';
     
     // Only show League ID input if they have selected a privacy option
     const modalInputAccess = document.getElementById('modal-input-access');
     const privacySelected = modalInputAccess ? (modalInputAccess.value !== '') : true;
-    groupEspnLeagueId.style.display = (isEspn && privacySelected) ? 'block' : 'none';
+    if (groupEspnLeagueId) groupEspnLeagueId.style.display = (isEspn && privacySelected) ? 'block' : 'none';
 
     // Show s2/swid if private or unknown
     const modalEspnPrivate = document.getElementById('modal-espn-private');
@@ -714,6 +779,37 @@ let currentLeagueCreds = null;
       const isPrivateOrUnsure = modalInputAccess.value === 'private' || modalInputAccess.value === 'unknown';
       modalEspnPrivate.style.display = (isEspn && privacySelected && isPrivateOrUnsure) ? 'block' : 'none';
     }
+
+    const modalYahooSection = document.getElementById('modal-yahoo-section');
+    if (modalYahooSection) {
+      modalYahooSection.style.display = (isYahoo && privacySelected) ? 'block' : 'none';
+    }
+  }
+
+  const btnYahooOAuth = document.getElementById('btn-yahoo-oauth');
+  if (btnYahooOAuth) {
+    btnYahooOAuth.addEventListener('click', async () => {
+      const statusEl = document.getElementById('yahoo-oauth-status');
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.textContent = 'Connecting to Yahoo Fantasy OAuth...';
+      }
+      try {
+        const res = await fetch('/api/yahoo?action=auth-url');
+        const data = await res.json();
+        if (data.authUrl) {
+          window.location.href = data.authUrl;
+        } else {
+          throw new Error(data.error || 'Failed to generate Yahoo authorization link');
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.style.color = '#ef4444';
+          statusEl.textContent = 'Connection error: ' + err.message;
+        }
+      }
+    });
   }
 
   if (inputPlatform) {

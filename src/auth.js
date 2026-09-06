@@ -325,15 +325,7 @@ const AuthEngine = {
       }
       
       if (!league.managers || league.managers.length === 0) {
-        if (league.leagueId === 'dmsfantasy') {
-          try {
-            const resp = await fetch('/dmsfantasy/data/managers.json');
-            if (resp.ok) {
-              const d = await resp.json();
-              league.managers = d.managers || [];
-            }
-          } catch (e) {}
-        } else if (database) {
+        if (database) {
           try {
             const memSnap = await rtdbGet(dbRef(database, `leagues/${league.leagueId}/members`));
             if (memSnap.exists()) {
@@ -341,6 +333,15 @@ const AuthEngine = {
             } else {
               const mgrSnap = await rtdbGet(dbRef(database, `leagues/${league.leagueId}/managers`));
               if (mgrSnap.exists()) league.managers = mgrSnap.val() || [];
+            }
+          } catch (e) {}
+        }
+        if ((!league.managers || league.managers.length === 0) && league.leagueId === 'dmsfantasy') {
+          try {
+            const resp = await fetch('/dmsfantasy/data/managers.json');
+            if (resp.ok) {
+              const d = await resp.json();
+              league.managers = d.managers || [];
             }
           } catch (e) {}
         }

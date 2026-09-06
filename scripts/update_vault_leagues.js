@@ -15,9 +15,30 @@
  *   node scripts/update_vault_leagues.js [--dry-run] [--league=<slug>] [--verbose]
  */
 
+import fs from 'fs';
+import path from 'path';
 import { fetchEspnSeasonData } from '../api/scrape-season.js';
+import { fetchYahooSeasonData } from '../api/scrape-yahoo-season.js';
 import { compileVaultData } from '../src/compiler.js';
 import { nflGamesService } from '../src/nfl_games.js';
+
+// Load .env.local if present
+try {
+  const envPath = path.resolve(process.cwd(), '.env.local');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx !== -1) {
+        const k = trimmed.substring(0, eqIdx).trim();
+        const v = trimmed.substring(eqIdx + 1).trim();
+        if (!process.env[k]) process.env[k] = v;
+      }
+    });
+  }
+} catch (e) {}
 
 const FIREBASE_DB_URL = 'https://fantasy-vault-4f8da-default-rtdb.firebaseio.com';
 
@@ -28,8 +49,8 @@ const IS_VERBOSE = args.includes('--verbose');
 const LEAGUE_FLAG = args.find(a => a.startsWith('--league='));
 const TARGET_LEAGUE = LEAGUE_FLAG ? LEAGUE_FLAG.split('=')[1].trim() : null;
 
-// Leagues that have dedicated local scrapers (DMS has Yahoo scraper, Gaywood has local scraper)
-const EXCLUDED_LEAGUES = new Set(['dmsfantasy']);
+// Excluded leagues set (empty by default as Yahoo & ESPN are both dynamically synced via API)
+const EXCLUDED_LEAGUES = new Set([]);
 
 function log(msg, ...rest) {
   const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -61,6 +82,34 @@ async function saveToFirebase(path, data) {
     body: JSON.stringify(data)
   });
   return res.ok;
+}
+
+/**
+ * Flag a league as requiring authentication (privacy changed to private or credentials expired),
+ * and queue a notification for the commissioner.
+ */
+async function recordAuthRequired(slug, platform, settings, errMsg) {
+  log(`  [ALERT] League /${slug} requires credentials (switched to private or token expired): ${errMsg}`);
+  await saveToFirebase(`leagues/${slug}/sync_status`, {
+    status: 'auth_required',
+    platform,
+    reason: 'privacy_changed_or_unauthorized',
+    message: `Automated weekly sync paused: league appears to have switched to private or platform credentials need renewal.`,
+    error: errMsg,
+    admin_email: settings?.admin_email || null,
+    last_attempt: new Date().toISOString()
+  });
+
+  if (settings?.admin_email) {
+    log(`  [Notification] Queuing alert to commissioner: ${settings.admin_email}`);
+    await saveToFirebase(`leagues/${slug}/admin_alerts/sync_warning`, {
+      type: 'auth_required',
+      to: settings.admin_email,
+      subject: `Action Required: Weekly Sync Paused for ${settings?.name || slug}`,
+      body: `Hi Commissioner,\n\nOur weekly sync system encountered an access restriction while fetching the latest stats for "${settings?.name || slug}". This typically occurs when a league's privacy settings are switched from Public to Private on ${platform.toUpperCase()}, or when platform credentials expire.\n\nPlease visit your Vault Admin Dashboard to input your private league credentials or re-authorize your platform connection so weekly updates can continue uninterrupted.\n\nThe Fantasy Vault Team`,
+      created_at: new Date().toISOString()
+    });
+  }
 }
 
 /**
@@ -112,11 +161,6 @@ async function syncLeague(slug) {
   log(`  League ID   : ${leagueId}`);
   log(`  Stored Years: ${settings?.firstYear || '?'} - ${settings?.lastYear || '?'}`);
 
-  if (platform !== 'espn') {
-    log(`  [Notice] Automated synchronization currently targets ESPN and Sleeper API platforms.`);
-    return;
-  }
-
   // 2. Discover active & new seasons
   const nflState = await getNflState();
   const currentYear = parseInt(nflState.season, 10) || new Date().getFullYear();
@@ -124,46 +168,80 @@ async function syncLeague(slug) {
 
   log(`  Current NFL Season: ${currentYear} (Week ${nflState.week})`);
 
-  // Check if currentYear is available on the provider
-  const yearsToCheck = [...new Set([currentYear, lastRecordedYear].filter(Boolean))];
-
   const seasonsData = [];
 
-  for (const yr of yearsToCheck) {
-    log(`  Checking season ${yr} on ESPN...`);
-    try {
-      const seasonRes = await fetchEspnSeasonData({
-        leagueId,
-        year: yr,
-        s2,
-        swid,
-        checkOnly: false
-      });
+  if (platform === 'yahoo') {
+    const refreshToken = credentials.refreshToken || credentials.refresh_token || process.env.YAHOO_REFRESH_TOKEN;
+    const leagueKey = credentials.leagueKey || (credentials.leagueId ? `nfl.l.${credentials.leagueId}` : (settings?.id ? `nfl.l.${settings.id}` : null));
 
-      if (seasonRes && seasonRes.data) {
-        const hasPicks = (seasonRes.data.draftDetail?.drafted === true) || (seasonRes.data.draftDetail?.picks || []).some(p => p.playerId > 0);
-        const schedule = seasonRes.data.schedule || [];
-        const hasGames = schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
-
-        if (hasGames || hasPicks) {
-          log(`    -> Found ${yr}: ${hasGames ? 'In-Season / Completed Games' : 'Draft Completed (Pre-Season)'}`);
-          seasonsData.push(seasonRes);
-        } else {
-          log(`    -> Found ${yr} on ESPN: Scheduled / Pre-Draft order set, but draft has not occurred yet. Skipping.`);
-        }
-      } else {
-        log(`    -> Season ${yr} not found or inaccessible on ESPN.`);
-      }
-    } catch (err) {
-      log(`    -> Error fetching ${yr}: ${err.message}`);
+    if (!leagueKey) {
+      log(`  [Error] No Yahoo league key or ID configured for /${slug}.`);
+      return;
     }
 
-    // Rate-limit pause
-    await sleep(500);
+    log(`  Checking active season on Yahoo API (leagueKey: ${leagueKey})...`);
+    try {
+      const seasonRes = await fetchYahooSeasonData({ leagueKey, refreshToken });
+      if (seasonRes && seasonRes.data) {
+        log(`    -> Found Yahoo Season ${seasonRes.year} (${seasonRes.data.teams?.length || 0} teams, ${seasonRes.data.schedule?.length || 0} matchups, ${seasonRes.data.draftDetail?.picks?.length || 0} draft picks)`);
+        seasonsData.push(seasonRes);
+      } else {
+        log(`    -> No season data returned from Yahoo API for /${slug}.`);
+      }
+    } catch (err) {
+      log(`    -> Error fetching Yahoo season for /${slug}: ${err.message}`);
+      if (err.message.includes('AUTH_REQUIRED') || err.message.includes('No Yahoo access token') || err.message.includes('Token refresh failed') || err.message.includes('401') || err.message.includes('403')) {
+        await recordAuthRequired(slug, platform, settings, err.message);
+        return;
+      }
+    }
+  } else if (platform === 'espn') {
+    // Check if currentYear is available on ESPN
+    const yearsToCheck = [...new Set([currentYear, lastRecordedYear].filter(Boolean))];
+
+    for (const yr of yearsToCheck) {
+      log(`  Checking season ${yr} on ESPN...`);
+      try {
+        const seasonRes = await fetchEspnSeasonData({
+          leagueId,
+          year: yr,
+          s2,
+          swid,
+          checkOnly: false
+        });
+
+        if (seasonRes && seasonRes.data) {
+          const hasPicks = (seasonRes.data.draftDetail?.drafted === true) || (seasonRes.data.draftDetail?.picks || []).some(p => p.playerId > 0);
+          const schedule = seasonRes.data.schedule || [];
+          const hasGames = schedule.some(s => s.winner !== 'UNDECIDED' || (s.home && s.home.totalPoints > 0));
+
+          if (hasGames || hasPicks) {
+            log(`    -> Found ${yr}: ${hasGames ? 'In-Season / Completed Games' : 'Draft Completed (Pre-Season)'}`);
+            seasonsData.push(seasonRes);
+          } else {
+            log(`    -> Found ${yr} on ESPN: Scheduled / Pre-Draft order set, but draft has not occurred yet. Skipping.`);
+          }
+        } else {
+          log(`    -> Season ${yr} not found or inaccessible on ESPN.`);
+        }
+      } catch (err) {
+        log(`    -> Error fetching ${yr}: ${err.message}`);
+        if (err.message.includes('AUTH_REQUIRED') || err.message.includes('401') || err.message.includes('403')) {
+          await recordAuthRequired(slug, platform, settings, err.message);
+          return;
+        }
+      }
+
+      // Rate-limit pause
+      await sleep(500);
+    }
+  } else {
+    log(`  [Notice] Automated synchronization currently targets Yahoo and ESPN API platforms.`);
+    return;
   }
 
   if (seasonsData.length === 0) {
-    log(`  [Notice] No active seasons could be fetched from ESPN for /${slug}. Stored data preserved.`);
+    log(`  [Notice] No active seasons could be fetched from ${platform.toUpperCase()} for /${slug}. Stored data preserved.`);
     return;
   }
 
@@ -180,10 +258,19 @@ async function syncLeague(slug) {
 
   // 5. Compile the updated payload
   log(`  Compiling Vault payload with draft rollover and live scores...`);
+  const existingSeasonLabelConvention = settings?.seasonLabelConvention || (await fetchFromFirebase(`leagues/${slug}/seasonLabelConvention`)) || (slug === 'dmsfantasy' ? 'championship' : 'standard');
+  const existingParadigms = await fetchFromFirebase(`leagues/${slug}/paradigms`);
+  const existingRivalries = await fetchFromFirebase(`leagues/${slug}/rivalries`);
+
   const compiledPayload = compileVaultData(
     seasonsData,
     existingMembers,
-    settings?.name || leagueName
+    settings?.name || leagueName,
+    null,
+    {
+      seasonLabelConvention: existingSeasonLabelConvention,
+      paradigms: existingParadigms || (existingRankings ? { power_rankings: existingRankings, rivalries: existingRivalries } : undefined)
+    }
   );
 
   if (!compiledPayload) {
@@ -191,12 +278,13 @@ async function syncLeague(slug) {
     return;
   }
 
-  // Preserve and merge historical draft picks, standings, matchups, and player stats for older seasons
+  // Preserve and merge historical draft picks, standings, matchups, player stats, and transactions
   const fetchedYearsSet = new Set(seasonsData.map(s => s.year));
   const existingDraft = await fetchFromFirebase(`leagues/${slug}/draft_results`) || [];
   const existingMatchups = await fetchFromFirebase(`leagues/${slug}/matchups`) || [];
   const existingStats = await fetchFromFirebase(`leagues/${slug}/weekly_player_stats`) || [];
   const existingTeamStats = await fetchFromFirebase(`leagues/${slug}/team_stats`) || [];
+  const existingTransactions = await fetchFromFirebase(`leagues/${slug}/transactions`) || [];
 
   const oldDraft = existingDraft.filter(p => !fetchedYearsSet.has(Number(p.year || p.season)));
   const draftMap = new Map();
@@ -217,6 +305,9 @@ async function syncLeague(slug) {
   const oldTeamStats = existingTeamStats.filter(ts => !fetchedYearsSet.has(Number(ts.year || ts.season)));
   compiledPayload.team_stats = [...(compiledPayload.team_stats || []), ...oldTeamStats];
 
+  const oldTransactions = existingTransactions.filter(t => !fetchedYearsSet.has(Number(t.year || t.season)));
+  compiledPayload.transactions = [...(compiledPayload.transactions || []), ...oldTransactions];
+
   compiledPayload.league_standings.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.final_rank || 99) - (b.final_rank || 99));
 
   // Recalculate start and end years
@@ -235,8 +326,25 @@ async function syncLeague(slug) {
     swid,
     last_synced: new Date().toISOString()
   };
+  if (credentials.leagueKey) {
+    compiledPayload.credentials.leagueKey = credentials.leagueKey;
+  }
+  if (credentials.refreshToken) {
+    compiledPayload.credentials.refreshToken = credentials.refreshToken;
+  }
   compiledPayload.league_settings.platform = platform;
   compiledPayload.league_settings.last_synced = new Date().toISOString();
+
+  if (existingSeasonLabelConvention) {
+    compiledPayload.seasonLabelConvention = existingSeasonLabelConvention;
+    compiledPayload.league_settings.seasonLabelConvention = existingSeasonLabelConvention;
+  }
+  if (existingParadigms) {
+    compiledPayload.paradigms = existingParadigms;
+  }
+  if (existingRivalries) {
+    compiledPayload.rivalries = existingRivalries;
+  }
 
   if (settings?.admin_email) {
     compiledPayload.league_settings.admin_email = settings.admin_email;
@@ -269,6 +377,13 @@ async function syncLeague(slug) {
     log(`    Total Seasons: ${compiledPayload.league_settings.totalSeasons}`);
     log(`    Draft Picks  : ${compiledPayload.draft_results?.length || 0}`);
     log(`    Matchups     : ${compiledPayload.matchups?.length || 0}`);
+
+    // Update sync_status to healthy and clear any previous auth warnings
+    await saveToFirebase(`leagues/${slug}/sync_status`, {
+      status: 'healthy',
+      last_synced: new Date().toISOString(),
+      platform
+    });
   } else {
     log(`  [ERROR] Failed to save updated payload to Firebase RTDB for /${slug}.`);
   }

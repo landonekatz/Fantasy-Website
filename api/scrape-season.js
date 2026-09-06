@@ -48,12 +48,17 @@ export async function fetchEspnSeasonData({ leagueId, year, s2 = '', swid = '', 
   for (const u of urlsToTry) {
     try {
       const r = await fetch(u, { headers, redirect: 'manual' });
+      if (r.status === 401 || r.status === 403) {
+        throw new Error('AUTH_REQUIRED: League is private or requires authentication cookies (espn_s2, swid).');
+      }
       if (r.ok) {
         const d = await r.json();
         seasonData = Array.isArray(d) ? d[0] : d;
         if (seasonData && seasonData.teams) break;
       }
-    } catch (e) {}
+    } catch (e) {
+      if (e.message?.startsWith('AUTH_REQUIRED')) throw e;
+    }
   }
 
   if (!seasonData) {

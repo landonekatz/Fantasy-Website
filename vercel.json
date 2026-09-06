@@ -6,8 +6,8 @@
     { "source": "/gaywoodfantasy/(.*)", "destination": "/gaywoodfantasyfootball", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/dmsfantasy", "destination": "/dmsfantasy/index.html" },
-    { "source": "/dmsfantasy/(.*)", "destination": "/dmsfantasy/index.html" },
+    { "source": "/dmsfantasy", "destination": "/vault.html" },
+    { "source": "/dmsfantasy/(.*)", "destination": "/vault.html" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/:slug([a-zA-Z0-9_-]+)", "destination": "/vault.html" },
