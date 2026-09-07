@@ -8,6 +8,10 @@ export async function fetchYahooSeasonData({ leagueKey, accessToken, refreshToke
   if (!leagueKey) {
     throw new Error('Missing leagueKey parameter (e.g. 449.l.80052)');
   }
+  let cleanKey = String(leagueKey).trim();
+  if (!cleanKey.includes('.l.')) {
+    cleanKey = `nfl.l.${cleanKey}`;
+  }
 
   let token = accessToken;
   if (!token && refreshToken) {
@@ -21,9 +25,9 @@ export async function fetchYahooSeasonData({ leagueKey, accessToken, refreshToke
 
   // 1. Fetch League Settings, Standings, and Teams
   const [settingsRes, standingsRes, teamsRes] = await Promise.all([
-    fetchYahooApi(`league/${leagueKey}/settings`, token),
-    fetchYahooApi(`league/${leagueKey}/standings`, token),
-    fetchYahooApi(`league/${leagueKey}/teams`, token)
+    fetchYahooApi(`league/${cleanKey}/settings`, token),
+    fetchYahooApi(`league/${cleanKey}/standings`, token),
+    fetchYahooApi(`league/${cleanKey}/teams`, token)
   ]);
 
   const leagueInfo = settingsRes?.fantasy_content?.league?.[0];
@@ -416,13 +420,14 @@ export async function fetchYahooSeasonData({ leagueKey, accessToken, refreshToke
 }
 
 export default async function handler(req, res) {
-  const { leagueKey, accessToken, refreshToken } = req.query;
-  if (!leagueKey) {
+  const targetKey = req.query.leagueKey || req.query.league_key || req.query.leagueId;
+  const { accessToken, refreshToken } = req.query;
+  if (!targetKey) {
     return res.status(400).json({ error: 'Missing leagueKey parameter' });
   }
 
   try {
-    const seasonData = await fetchYahooSeasonData({ leagueKey, accessToken, refreshToken });
+    const seasonData = await fetchYahooSeasonData({ leagueKey: targetKey, accessToken, refreshToken });
     return res.status(200).json(seasonData);
   } catch (err) {
     console.error('Yahoo Season Scraper Error:', err);

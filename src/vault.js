@@ -330,6 +330,23 @@ class FantasyApp {
                             if (data && data.data) seasonsData.push(data);
                         }
                     }
+                } else if (creds.platform === 'yahoo') {
+                    updateUI(20, "Connecting to Yahoo Fantasy API & syncing season records...");
+                    let cleanKey = String(leagueId || '').trim();
+                    if (!cleanKey.includes('.l.')) {
+                        cleanKey = `nfl.l.${cleanKey}`;
+                    }
+                    const url = `/api/scrape-yahoo-season?leagueKey=${encodeURIComponent(cleanKey)}`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.data) {
+                            seasonsData.push(data);
+                        }
+                    } else {
+                        const errJson = await res.json().catch(() => ({}));
+                        throw new Error(errJson.error || `Failed to fetch Yahoo league data (HTTP ${res.status}).`);
+                    }
                 } else {
                     const currentYear = new Date().getFullYear();
                     const possibleYears = Array.from({ length: 30 }, (_, i) => currentYear - i);
@@ -2340,49 +2357,110 @@ const matchupsData = bundleData.matchups || [];
                     </div>
                 `;
             } else {
-                const STANDARD_SLOTS = [
-                    { label: 'QB', test: p => p.lineup_slot_id === 0 || p.roster_slot === 'QB' || (!p.roster_slot && p.position === 'QB') },
-                    { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
-                    { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
-                    { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
-                    { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
-                    { label: 'TE', test: p => p.lineup_slot_id === 6 || p.roster_slot === 'TE' || (!p.roster_slot && p.position === 'TE') },
-                    { label: 'FLEX', test: p => p.lineup_slot_id === 23 || ['W/R/T', 'FLEX', 'W/R'].includes(p.roster_slot) || ['RB', 'WR', 'TE'].includes(p.roster_slot || p.position) },
-                    { label: 'K', test: p => p.lineup_slot_id === 17 || p.roster_slot === 'K' || p.position === 'K' },
-                    { label: 'DEF', test: p => p.lineup_slot_id === 16 || ['DEF', 'D/ST'].includes(p.roster_slot) || ['DEF', 'D/ST'].includes(p.position) }
-                ];
+                // Normalize slot labels for consistent display
+                const normalizeSlot = (slot) => {
+                    if (!slot) return null;
+                    const s = slot.toUpperCase();
+                    if (s === 'SUPER_FLEX' || s === 'SUPERFLEX' || s === 'QB_FLEX') return 'SFLEX';
+                    if (s === 'W/R/T' || s === 'W_R_T') return 'FLEX';
+                    if (s === 'W/R' || s === 'W_R') return 'FLEX';
+                    if (s === 'IDP_FLEX' || s === 'IDP') return 'IDP';
+                    if (s === 'REC_FLEX') return 'FLEX';
+                    return slot;
+                };
 
-                const remainingStarters = [...starters];
-                STANDARD_SLOTS.forEach(slot => {
-                    let idx = remainingStarters.findIndex(slot.test);
-                    if (idx !== -1) {
-                        const p = remainingStarters.splice(idx, 1)[0];
-                        const slotDisplay = (p.roster_slot === 'W/R/T' || p.roster_slot === 'W/R') ? p.roster_slot : slot.label;
-                        const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
+                // Determine if these players have explicit roster_slot labels (Sleeper/Yahoo)
+                // vs. ESPN players which use lineup_slot_id only.
+                const hasExplicitSlots = starters.some(p => p.roster_slot && p.roster_slot !== 'BN' && p.roster_slot !== 'IR');
+
+                if (hasExplicitSlots) {
+                    // Slot-first rendering: sort starters into a canonical slot order using their actual roster_slot.
+                    // This respects the manager's actual lineup (e.g., a TE in FLEX shows as FLEX, not TE).
+                    const SLOT_ORDER = ['QB', 'SFLEX', 'RB', 'WR', 'TE', 'FLEX', 'K', 'DEF', 'D/ST'];
+                    const grouped = {};
+                    const unslotted = [];
+
+                    starters.forEach(p => {
+                        const normalized = normalizeSlot(p.roster_slot) || 'FLEX';
+                        if (!grouped[normalized]) grouped[normalized] = [];
+                        grouped[normalized].push(p);
+                    });
+
+                    // Render in canonical order, then any extra slots not in SLOT_ORDER
+                    const renderedSlots = new Set();
+                    const renderSlotGroup = (slotKey, players) => {
+                        players.forEach(p => {
+                            const displaySlot = slotKey === 'FLEX' && (p.roster_slot === 'W/R/T' || p.roster_slot === 'W/R') ? p.roster_slot : slotKey;
+                            const sc = slotKey.toLowerCase().replace(/[^a-z]/g, '');
+                            const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
+                            const nflMatchupInfo = formatPlayerNflGameInfo(p);
+                            const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position);
+                            const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
+                            html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${displaySlot}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                        });
+                    };
+
+                    SLOT_ORDER.forEach(slotKey => {
+                        if (grouped[slotKey] && grouped[slotKey].length > 0) {
+                            renderSlotGroup(slotKey, grouped[slotKey]);
+                            renderedSlots.add(slotKey);
+                        }
+                    });
+
+                    // Any extra slots not in canonical order (e.g. IDP, SFLEX at end)
+                    Object.keys(grouped).forEach(slotKey => {
+                        if (!renderedSlots.has(slotKey)) {
+                            renderSlotGroup(slotKey, grouped[slotKey]);
+                        }
+                    });
+
+                } else {
+                    // ESPN greedy matching via lineup_slot_id or position
+                    const STANDARD_SLOTS = [
+                        { label: 'QB', test: p => p.lineup_slot_id === 0 || p.roster_slot === 'QB' || (!p.roster_slot && p.position === 'QB') },
+                        { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
+                        { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
+                        { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
+                        { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
+                        { label: 'TE', test: p => p.lineup_slot_id === 6 || p.roster_slot === 'TE' || (!p.roster_slot && p.position === 'TE') },
+                        { label: 'FLEX', test: p => p.lineup_slot_id === 23 || ['W/R/T', 'FLEX', 'W/R'].includes(p.roster_slot) || ['RB', 'WR', 'TE'].includes(p.roster_slot || p.position) },
+                        { label: 'K', test: p => p.lineup_slot_id === 17 || p.roster_slot === 'K' || p.position === 'K' },
+                        { label: 'DEF', test: p => p.lineup_slot_id === 16 || ['DEF', 'D/ST'].includes(p.roster_slot) || ['DEF', 'D/ST'].includes(p.position) }
+                    ];
+
+                    const remainingStarters = [...starters];
+                    STANDARD_SLOTS.forEach(slot => {
+                        let idx = remainingStarters.findIndex(slot.test);
+                        if (idx !== -1) {
+                            const p = remainingStarters.splice(idx, 1)[0];
+                            const slotDisplay = (p.roster_slot === 'W/R/T' || p.roster_slot === 'W/R') ? p.roster_slot : slot.label;
+                            const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
+                            const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
+                            
+                            const nflMatchupInfo = formatPlayerNflGameInfo(p);
+                            const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
+                            const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
+
+                            html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotDisplay}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
+                        } else {
+                            const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
+                            html += `<div class="player-row" style="opacity:0.45;"><div class="player-left"><span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name" style="font-style:italic;color:var(--text-muted);">Empty</div></div></div><div class="player-right"><div class="player-pts">0.00</div></div></div>`;
+                        }
+                    });
+
+                    // Any remaining starters that didn't fit into the fixed slots
+                    remainingStarters.forEach(p => {
+                        const slotDisplay = p.roster_slot || p.position || 'FLEX';
+                        const sc = slotDisplay.toLowerCase().replace(/[^a-z]/g, '');
                         const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
-                        
                         const nflMatchupInfo = formatPlayerNflGameInfo(p);
                         const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
                         const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
 
                         html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotDisplay}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
-                    } else {
-                        const sc = slot.label.toLowerCase().replace(/[^a-z]/g, '');
-                        html += `<div class="player-row" style="opacity:0.45;"><div class="player-left"><span class="slot-badge ${sc}">${slot.label}</span><div><div class="player-name" style="font-style:italic;color:var(--text-muted);">Empty</div></div></div><div class="player-right"><div class="player-pts">0.00</div></div></div>`;
-                    }
-                });
+                    });
+                }
 
-                // Any remaining starters that didn't fit into the fixed slots
-                remainingStarters.forEach(p => {
-                    const slotDisplay = p.roster_slot || p.position || 'FLEX';
-                    const sc = slotDisplay.toLowerCase().replace(/[^a-z]/g, '');
-                    const projHtml = p.projected_points != null && p.projected_points > 0 ? `<div class="player-proj">Proj: ${Number(p.projected_points).toFixed(2)}</div>` : '';
-                    const nflMatchupInfo = formatPlayerNflGameInfo(p);
-                    const headshot = p.headshot_url || p.headshotUrl || this.getPlayerHeadshot(p.player_name, p.position || p.roster_slot);
-                    const headshotHtml = headshot ? `<img src="${headshot}" class="player-headshot" alt="${p.player_name}" onerror="this.style.display='none'">` : '';
-
-                    html += `<div class="player-row"><div class="player-left">${headshotHtml}<span class="slot-badge ${sc}">${slotDisplay}</span><div><div class="player-name">${p.player_name}</div><div class="nfl-team">${nflMatchupInfo || 'NFL'}</div></div></div><div class="player-right"><div class="player-pts">${p.fantasy_points != null ? Number(p.fantasy_points).toFixed(2) : '0.00'}</div>${projHtml}</div></div>`;
-                });
 
                 if (bench.length > 0) {
                     html += `<div class="roster-section-title" style="margin-top:20px;"><span>Bench & IR</span></div>`;
@@ -3410,7 +3488,7 @@ const matchupsData = bundleData.matchups || [];
                                     <div>
                                         <div style="font-size: 0.75rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Live Preview (Result of Current Form Settings)</div>
                                         <div id="admin-loser-preview-text" style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
-                                            Projected Loser: <span style="color: #dc2626;" id="admin-loser-preview-name">Calculating...</span>
+                                            <span id="admin-loser-preview-label">Projected Loser:</span> <span style="color: #dc2626;" id="admin-loser-preview-name">Calculating...</span>
                                         </div>
                                         <div id="admin-loser-preview-stats" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;"></div>
                                     </div>
@@ -4150,14 +4228,20 @@ const matchupsData = bundleData.matchups || [];
 
         const updateLoserPreview = () => {
             const yr = getSelectedYear();
+            const currentSeasonYear = activeYearsList[0]; // Largest (most recent) year
+            const isCurrentSeason = yr >= currentSeasonYear;
+            const loserPreviewLabel = container.querySelector('#admin-loser-preview-label');
+
             const formConfig = getFormConfig();
             const previewRes = calculateSeasonLoser(yr, this.standings, this.matchups, { [yr]: formConfig }, this.leagueSettings);
             if (previewRes && previewRes.manager_id) {
                 const mgrName = this.getManagerName(previewRes.manager_id, previewRes.manager_name);
                 const tName = previewRes.team_name ? ` (${previewRes.team_name})` : '';
+                if (loserPreviewLabel) loserPreviewLabel.textContent = isCurrentSeason ? 'Projected Loser:' : 'Season Loser:';
                 if (loserPreviewName) loserPreviewName.innerHTML = `<strong>${mgrName}</strong>${tName}`;
                 if (loserPreviewStats) loserPreviewStats.textContent = `${previewRes.stats_summary} · ${previewRes.rule_description}`;
             } else {
+                if (loserPreviewLabel) loserPreviewLabel.textContent = isCurrentSeason ? 'Projected Loser:' : 'Season Loser:';
                 if (loserPreviewName) loserPreviewName.textContent = 'No standing data for selected season';
                 if (loserPreviewStats) loserPreviewStats.textContent = '';
             }

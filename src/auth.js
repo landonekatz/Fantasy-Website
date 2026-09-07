@@ -540,6 +540,61 @@ const AuthEngine = {
     }
   },
 
+  async saveFavoriteTeam(favoriteTeam) {
+    const session = this.getSession();
+    if (!session || !session.uid) return { success: false, message: "Not signed in" };
+    const teamValue = (favoriteTeam || '').trim();
+    if (!teamValue) return { success: false, message: "Please select an NFL franchise." };
+
+    try {
+      if (database) {
+        // 1. Direct write to user's root profile in RTDB
+        const userFavRef = dbRef(database, `users/${session.uid}/favorite_team`);
+        await rtdbSet(userFavRef, teamValue);
+
+        // 2. Cascade across any claims associated with this user
+        const userClaimsSnap = await rtdbGet(dbRef(database, `users/${session.uid}/claims`));
+        if (userClaimsSnap.exists()) {
+          const claims = userClaimsSnap.val();
+          for (const [leagueId, cData] of Object.entries(claims)) {
+            const mId = typeof cData === 'object' && cData !== null ? (cData.managerId || cData.id) : cData;
+            if (mId) {
+              try {
+                await rtdbSet(dbRef(database, `users/${session.uid}/claims/${leagueId}/favorite_team`), teamValue);
+              } catch (e) {}
+              try {
+                await rtdbSet(dbRef(database, `leagues/${leagueId}/claims/${mId}/favorite_team`), teamValue);
+              } catch (e) {}
+            }
+          }
+        }
+      }
+
+      // 3. Update Firestore user document if available
+      try {
+        if (db) {
+          const userRef = doc(db, 'users', session.uid);
+          await setDoc(userRef, { favorite_team: teamValue }, { merge: true });
+        }
+      } catch (fsErr) {
+        console.warn("Firestore favorite_team sync error:", fsErr);
+      }
+
+      // 4. Update memory session & localStorage cache
+      session.favorite_team = teamValue;
+      if (currentSession) currentSession.favorite_team = teamValue;
+      try {
+        localStorage.setItem('vault_cached_session', JSON.stringify(session));
+      } catch (e) {}
+
+      window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));
+      return { success: true, favoriteTeam: teamValue };
+    } catch (err) {
+      console.error("Save favorite team error:", err);
+      return { success: false, message: err.message };
+    }
+  },
+
   async linkUserLeague(leagueSlug, role = 'member', leagueName = '') {
     const session = this.getSession();
     if (!session) return { success: false, message: "Not signed in" };
@@ -692,6 +747,7 @@ onAuthStateChanged(auth, async (user) => {
     } catch (e) {}
 
     let lastLeague = currentSession?.last_league || localStorage.getItem('vault_last_league') || (isFounder ? 'dmsfantasy' : null);
+    let initialFavTeam = currentSession?.favorite_team || '';
     
     currentSession = {
       uid: user.uid,
@@ -702,6 +758,7 @@ onAuthStateChanged(auth, async (user) => {
       adminLeagues: isFounder ? ['dmsfantasy', ...adminLeagues] : adminLeagues,
       leagueDetails: leagueDetails,
       claims: claims,
+      favorite_team: initialFavTeam,
       last_league: lastLeague
     };
 
@@ -778,10 +835,22 @@ onAuthStateChanged(auth, async (user) => {
             });
           }
           // Check user's favorite NFL team
-          let favoriteTeam = '';
+          let favoriteTeam = currentSession?.favorite_team || '';
           const userFavSnap = await rtdbGet(dbRef(database, `users/${user.uid}/favorite_team`));
           if (userFavSnap.exists()) {
             favoriteTeam = userFavSnap.val() || '';
+          } else if (!favoriteTeam && userClaimsSnap.exists()) {
+            // Auto-migrate favorite team if recorded in a claimed profile
+            const rtdbClaims = userClaimsSnap.val();
+            for (const cData of Object.values(rtdbClaims)) {
+              if (typeof cData === 'object' && cData?.favorite_team) {
+                favoriteTeam = cData.favorite_team;
+                try {
+                  await rtdbSet(dbRef(database, `users/${user.uid}/favorite_team`), favoriteTeam);
+                } catch (e) {}
+                break;
+              }
+            }
           }
 
           currentSession = {

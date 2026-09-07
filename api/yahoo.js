@@ -229,8 +229,12 @@ export default async function handler(req, res) {
 
     // 5. League Metadata & Members preview (equivalent to /api/espn)
     if (action === 'league-meta' || !action) {
-      const targetKey = leagueKey || req.query.leagueId;
+      let targetKey = leagueKey || req.query.leagueId || req.query.league_key;
       if (!targetKey) return res.status(400).json({ error: 'Missing leagueKey or leagueId parameter' });
+      targetKey = String(targetKey).trim();
+      if (!targetKey.includes('.l.')) {
+        targetKey = `nfl.l.${targetKey}`;
+      }
 
       let tokenToUse = req.headers.authorization?.replace('Bearer ', '');
       if (!tokenToUse) {

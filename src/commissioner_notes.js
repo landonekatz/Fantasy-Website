@@ -757,8 +757,16 @@ export class CommissionerNotesEngine {
         const now = Date.now();
         const resolvedName = authorName || this.getCurrentUserDisplayName();
 
-        // 1. Move old current_note to archived_notes
-        if (this.data.current_note && (this.data.current_note.content || this.data.current_note.title)) {
+        // 1. Move old current_note to archived_notes (skip if it's the default placeholder)
+        const isOldNoteDefault = Boolean(
+            this.data.current_note?.is_default ||
+            (this.data.current_note?.id && this.data.current_note.id.startsWith('note_init_')) ||
+            (this.data.current_note?.content && (
+                this.data.current_note.content.trim().startsWith('(Notes from Commissioner will appear here') ||
+                this.data.current_note.content.trim().startsWith('(Commissioner notes will appear here')
+            ))
+        );
+        if (this.data.current_note && !isOldNoteDefault && (this.data.current_note.content || this.data.current_note.title)) {
             const archived = {
                 ...this.data.current_note,
                 archived_at: now
@@ -1004,6 +1012,7 @@ export class CommissionerNotesEngine {
                 </label>
                 <div class="tagline-presets-wrapper" style="margin-bottom: 8px;">
                     <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="League Updates" ${isFounderInspection ? 'disabled' : ''}>"League Updates"</button>
+                    <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Power Rankings" ${isFounderInspection ? 'disabled' : ''}>"Power Rankings"</button>
                     <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Note from the Commissioner" ${isFounderInspection ? 'disabled' : ''}>"Note from the Commissioner"</button>
                     <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Commissioner's Corner" ${isFounderInspection ? 'disabled' : ''}>"Commissioner's Corner"</button>
                     <button type="button" class="btn-tagline-preset btn-notes-title-preset" data-preset="Weekly Headlines" ${isFounderInspection ? 'disabled' : ''}>"Weekly Headlines"</button>

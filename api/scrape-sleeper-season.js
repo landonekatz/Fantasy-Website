@@ -77,16 +77,22 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
     usersMap.set(u.user_id, u);
   }
 
-  // Build playoff placements from bracket
+  // Determine if the season is actually complete via Sleeper's league status field.
+  // Possible values: 'pre_draft', 'drafting', 'in_season', 'post_season', 'complete'.
+  const leagueStatus = leagueRes.status || 'unknown';
+  const isSeasonComplete = leagueStatus === 'complete';
+
+  // Build playoff placements from bracket — ONLY when the championship game has a resolved winner.
+  // Never fall back to sort-order index: that would fabricate a champion for an unplayed season.
   const teamPlacements = new Map(); // roster_id -> final_rank
+  let bracketIsResolved = false;
   if (Array.isArray(winnersBracketRes)) {
     for (const m of winnersBracketRes) {
       if (m.p === 1) {
-        // Championship game
-        if (m.w) teamPlacements.set(m.w, 1);
+        // Championship game — only record if there's an actual winner
+        if (m.w) { teamPlacements.set(m.w, 1); bracketIsResolved = true; }
         if (m.l) teamPlacements.set(m.l, 2);
       } else if (m.p === 3) {
-        // 3rd place game
         if (m.w) teamPlacements.set(m.w, 3);
         if (m.l) teamPlacements.set(m.l, 4);
       } else if (m.p === 5) {
@@ -134,7 +140,10 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
     const totalMoves = roster.settings?.total_moves || 0;
 
     const memberId = ownerId ? String(ownerId) : `sleeper_roster_${rosterId}`;
-    const finalRank = teamPlacements.get(rosterId) || (idx + 1);
+    // Only assign a final rank when the bracket has a resolved champion.
+    // For pre-season or in-progress leagues, leave rankFinal as null so no phantom
+    // champion or loser is shown in the vault.
+    const finalRank = bracketIsResolved ? (teamPlacements.get(rosterId) || null) : null;
 
     members.push({
       id: memberId,
@@ -183,6 +192,11 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
     })
   );
 
+  // Build the ordered list of non-BN starter slot labels from the league's roster_positions.
+  // In Sleeper, starters[i] corresponds to rosterPositions[i] (BN/IR slots are excluded from starters).
+  const leagueRosterPositions = leagueRes.roster_positions || [];
+  const starterSlotLabels = leagueRosterPositions.filter(pos => pos !== 'BN' && pos !== 'IR' && pos !== 'TAXI');
+
   const weekResults = await Promise.all(weekDataPromises);
   const schedule = [];
   const isPpr = (leagueRes.scoring_settings?.rec || 0) >= 0.75;
@@ -216,10 +230,23 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
       // Helper to extract player entries with projections & stats
       const buildRosterEntries = (teamMatch) => {
         if (!teamMatch) return [];
-        const startersSet = new Set(teamMatch.starters || []);
+
+        // Build a map: playerId -> lineup slot label (QB, RB, WR, TE, FLEX, K, DEF, etc.)
+        // starters is ordered: starters[i] occupies starterSlotLabels[i]
+        const starterSlotMap = {};
+        (teamMatch.starters || []).forEach((pId, sIdx) => {
+          if (pId && pId !== '0') {
+            // Use the league's slot label at this index; fall back to 'FLEX' if out of range
+            starterSlotMap[pId] = starterSlotLabels[sIdx] || 'FLEX';
+          }
+        });
+
+        const startersSet = new Set(Object.keys(starterSlotMap));
+
+        // starters_points is indexed by position in the starters array
         const starterPointsMap = {};
         (teamMatch.starters || []).forEach((pId, sIdx) => {
-          if (teamMatch.starters_points && teamMatch.starters_points[sIdx] !== undefined) {
+          if (pId && pId !== '0' && teamMatch.starters_points && teamMatch.starters_points[sIdx] !== undefined) {
             starterPointsMap[pId] = teamMatch.starters_points[sIdx];
           }
         });
@@ -229,7 +256,7 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
         const entries = [];
 
         for (const pId of allPlayerIds) {
-          if (!pId) continue;
+          if (!pId || pId === '0') continue;
           const pInfo = sleeperPlayers[pId] || {};
           const isStarter = startersSet.has(pId);
           const actualScore = starterPointsMap[pId] !== undefined ? starterPointsMap[pId] : (playerPointsMap[pId] !== undefined ? playerPointsMap[pId] : 0);
@@ -245,16 +272,22 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
           }
 
           const fullName = pInfo.full_name || `${pInfo.first_name || ''} ${pInfo.last_name || ''}`.trim() || `Player ${pId}`;
+          // Player's actual NFL position (TE, WR, QB, etc.) — used for headshot fallback and display
           const pos = pInfo.position || (pId.length <= 3 ? 'DEF' : 'FLEX');
           const teamAbbr = pInfo.team || '';
+
+          // rosterSlot is the LINEUP SLOT the manager placed this player in:
+          //   - For starters: the actual slot label from the league's roster_positions (QB, RB, WR, TE, FLEX, K, DEF)
+          //   - For bench players: 'BN'
+          const rosterSlot = isStarter ? (starterSlotMap[pId] || pos) : 'BN';
 
           entries.push({
             playerId: String(pId),
             playerName: fullName,
-            position: pos,
+            position: pos,          // player's true NFL position
             nflTeam: teamAbbr,
             isStarter: isStarter,
-            rosterSlot: isStarter ? pos : 'BN',
+            rosterSlot: rosterSlot, // actual lineup slot (QB, RB, WR, TE, FLEX, K, DEF, BN)
             points: Math.round(actualScore * 100) / 100,
             projectedPoints: Math.round(projScore * 100) / 100,
             headshotUrl: pId.length <= 3 
@@ -300,6 +333,7 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
       gameCounter++;
     }
   }
+
 
   // 4. Fetch Draft Detail & Picks
   const draftDetail = {
@@ -411,6 +445,8 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
       settings: {
         name: leagueRes.name || `Sleeper League ${seasonYear}`,
         roster_positions: leagueRes.roster_positions || [],
+        league_status: leagueStatus,       // 'pre_draft' | 'drafting' | 'in_season' | 'post_season' | 'complete'
+        season_complete: isSeasonComplete, // true only when Sleeper marks the league as 'complete'
         scoringSettings: {
           sleeperRules: leagueRes.scoring_settings || {}
         },

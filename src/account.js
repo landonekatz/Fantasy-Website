@@ -28,6 +28,166 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     const closeAccountModalBtn = document.getElementById('close-account-modal');
     const accountModalContent = document.getElementById('account-modal-content');
 
+    // ==========================================
+    // FAVORITE NFL TEAM MODAL & AUTOMATIC PROMPT
+    // ==========================================
+    let favTeamModal = document.getElementById('favorite-team-modal');
+    if (!favTeamModal) {
+        favTeamModal = document.createElement('dialog');
+        favTeamModal.id = 'favorite-team-modal';
+        favTeamModal.className = 'modal';
+        favTeamModal.style.maxWidth = '460px';
+        favTeamModal.style.width = '92%';
+        favTeamModal.style.borderRadius = '12px';
+        favTeamModal.style.border = '1px solid rgba(212, 175, 55, 0.4)';
+        favTeamModal.style.boxShadow = '0 25px 50px -12px rgba(0,0,0,0.35)';
+        favTeamModal.style.padding = '0';
+        favTeamModal.style.background = '#ffffff';
+        favTeamModal.innerHTML = `
+            <div style="position: relative; padding: 2rem 1.75rem; text-align: center; background: #ffffff; border-radius: 12px;">
+                <button id="close-fav-team-modal" class="modal-close-x" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; color: #64748b; cursor: pointer; padding: 4px 8px; line-height: 1;" title="Close">&times;</button>
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(212, 175, 55, 0.12); border: 1px solid rgba(212, 175, 55, 0.35); color: #b45309; font-size: 1.15rem; font-weight: 800; margin-bottom: 0.85rem;">TFV</div>
+                <h3 style="font-family: var(--font-heading, 'Cinzel', serif); font-size: 1.35rem; color: #0f172a; margin: 0 0 0.35rem 0;">Select Your Favorite NFL Team</h3>
+                <div style="display: inline-block; background: #fef3c7; color: #b45309; font-size: 0.78rem; font-weight: 700; padding: 3px 12px; border-radius: 9999px; margin-bottom: 0.85rem; border: 1px solid #fde68a;">
+                    Trust us, this will be important later.
+                </div>
+                <p style="color: #64748b; font-size: 0.88rem; line-height: 1.45; margin: 0 0 1.25rem 0;">
+                    Please choose your favorite NFL franchise to personalize your manager profile across all your leagues in The Fantasy Vault.
+                </p>
+
+                <form id="fav-team-prompt-form" style="text-align: left;">
+                    <div style="margin-bottom: 1.25rem;">
+                        <label for="fav-team-prompt-select" style="display: block; font-size: 0.82rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem;">
+                            Favorite NFL Franchise
+                        </label>
+                        <select id="fav-team-prompt-select" required style="width: 100%; padding: 0.65rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.92rem; background: #fff; color: #0f172a; font-weight: 600;">
+                            <option value="">-- Select Your Favorite NFL Team --</option>
+                        </select>
+                    </div>
+                    <div id="fav-team-prompt-feedback" style="display: none; font-size: 0.82rem; margin-bottom: 0.85rem; font-weight: 600;"></div>
+                    <button type="submit" id="btn-save-fav-team-prompt" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; border-radius: 6px;">
+                        Save Favorite Team &rarr;
+                    </button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(favTeamModal);
+    }
+
+    window.openFavoriteTeamPrompt = function(forced = false) {
+        let modal = document.getElementById('favorite-team-modal');
+        if (!modal) return;
+        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        if (!session || !session.uid) return;
+
+        // If not forced and user already has a favorite team, don't show
+        if (!forced && session.favorite_team && session.favorite_team.trim()) return;
+
+        // Do not interrupt active vault building or universal import
+        if (window.location.search.includes('building=true')) return;
+        const importModal = document.getElementById('universal-import-modal');
+        if (importModal && importModal.open) return;
+
+        const selectEl = document.getElementById('fav-team-prompt-select');
+        if (selectEl && window.renderNflTeamSelectOptions) {
+            selectEl.innerHTML = `<option value="">-- Select Your Favorite NFL Team --</option>` + window.renderNflTeamSelectOptions(session.favorite_team || '');
+        }
+
+        const form = document.getElementById('fav-team-prompt-form');
+        const feedbackEl = document.getElementById('fav-team-prompt-feedback');
+        const submitBtn = document.getElementById('btn-save-fav-team-prompt');
+        const closeBtn = document.getElementById('close-fav-team-modal');
+
+        if (feedbackEl) {
+            feedbackEl.style.display = 'none';
+            feedbackEl.textContent = '';
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Favorite Team \u2192';
+        }
+
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                sessionStorage.setItem('vault_fav_team_prompt_dismissed', 'true');
+                modal.close();
+            };
+        }
+
+        if (form) {
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const chosenTeam = selectEl?.value?.trim();
+                if (!chosenTeam) {
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#dc2626';
+                        feedbackEl.textContent = 'Please select an NFL team. Trust us, this will be important later.';
+                    }
+                    return;
+                }
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Saving...';
+                }
+
+                try {
+                    const res = await window.AuthEngine.saveFavoriteTeam(chosenTeam);
+                    if (res && res.success) {
+                        sessionStorage.removeItem('vault_fav_team_prompt_dismissed');
+                        if (feedbackEl) {
+                            feedbackEl.style.display = 'block';
+                            feedbackEl.style.color = '#15803d';
+                            feedbackEl.textContent = `✓ Saved ${chosenTeam} as your favorite NFL team!`;
+                        }
+                        setTimeout(() => {
+                            modal.close();
+                            if (accountModal && accountModal.open && typeof window.renderAccountModal === 'function') {
+                                window.renderAccountModal();
+                            }
+                        }, 750);
+                    } else {
+                        throw new Error(res?.message || 'Failed to save');
+                    }
+                } catch (err) {
+                    console.error("Failed to save favorite NFL team:", err);
+                    if (feedbackEl) {
+                        feedbackEl.style.display = 'block';
+                        feedbackEl.style.color = '#dc2626';
+                        feedbackEl.textContent = err.message || 'Failed to save. Please try again.';
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Save Favorite Team \u2192';
+                    }
+                }
+            };
+        }
+
+        if (typeof modal.showModal === 'function' && !modal.open) {
+            modal.showModal();
+        }
+    };
+
+    function checkFavoriteTeamPrompt() {
+        if (typeof window.AuthEngine === 'undefined') return;
+        const session = window.AuthEngine.getSession();
+        if (!session || !session.uid) return;
+        if (session.favorite_team && session.favorite_team.trim()) return;
+
+        // If user already dismissed it during this specific page session, don't spam
+        if (sessionStorage.getItem('vault_fav_team_prompt_dismissed') === 'true') return;
+
+        // Slight delay to let page initialization complete
+        setTimeout(() => {
+            const cur = window.AuthEngine ? window.AuthEngine.getSession() : null;
+            if (cur && cur.uid && (!cur.favorite_team || !cur.favorite_team.trim())) {
+                window.openFavoriteTeamPrompt(false);
+            }
+        }, 1200);
+    }
+
     function capitalizeName(str, email) {
         if (email && email.toLowerCase() === 'landonekatz@gmail.com') return 'Landon Katz';
         if (!str || typeof str !== 'string') return '';
@@ -1200,6 +1360,18 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 </div>
             </div>
 
+            <div class="user-favorite-team" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.75rem 0.9rem; background: var(--bg-card-alt, #f8fafc); border: 1px solid var(--border-line, #e2e8f0); border-radius: 6px;">
+                <div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted, #64748b); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Favorite NFL Team</div>
+                    <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-primary, #0f172a);">
+                        ${session.favorite_team ? `<span>${session.favorite_team}</span>` : `<span style="color: #b45309; font-weight: 600; font-style: italic;">Not Selected</span>`}
+                    </div>
+                </div>
+                <button type="button" id="btn-edit-favorite-team" class="btn btn-sm btn-primary" style="padding: 4px 12px; font-size: 0.78rem; font-weight: 600; border-radius: 4px; cursor: pointer;">
+                    ${session.favorite_team ? 'Change' : 'Select Team'}
+                </button>
+            </div>
+
             <div class="joined-leagues" style="margin-bottom: 1.5rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
                     <h4 style="margin: 0; font-family: var(--font-heading, 'Cinzel', serif); font-size: 1rem; color: var(--accent-gold, #b45309);">Your Leagues</h4>
@@ -1245,6 +1417,14 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                 <button id="btn-account-logout" style="background: none; border: 1px solid var(--border-line, #cbd5e1); color: var(--text-muted, #64748b); padding: 0.4rem 0.85rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">Sign Out</button>
             </div>
         `;
+
+        // Wire favorite team change button
+        const btnEditFavTeam = document.getElementById('btn-edit-favorite-team');
+        if (btnEditFavTeam) {
+            btnEditFavTeam.addEventListener('click', () => {
+                window.openFavoriteTeamPrompt(true);
+            });
+        }
 
         // Wire founder view toggle button if present
         const btnToggleFounderMode = document.getElementById('btn-toggle-founder-mode');
@@ -1576,7 +1756,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                             <select id="u-import-platform" class="form-input" style="width: 100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; box-sizing: border-box;">
                                 <option value="sleeper" selected>Sleeper</option>
                                 <option value="espn">ESPN Fantasy</option>
-                                <option value="yahoo" disabled>Yahoo Fantasy (Coming Soon)</option>
+                                <option value="yahoo">Yahoo Fantasy</option>
                             </select>
                         </div>
                         <div id="u-privacy-container" style="display: none;">
@@ -1613,37 +1793,32 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                                    title="Drag to your Bookmarks Bar"
                                    style="background: var(--accent-gold, #b45309); color: #fff; font-size: 0.78rem; font-weight: 700; padding: 6px 12px; border-radius: 4px; text-decoration: none; cursor: grab; display: inline-flex; align-items: center; gap: 6px;">
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: inline-block;"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
-                                  Get ESPN Cookies (Drag to Bookmarks)
+                                  Copy ESPN Credentials (1-Click)
                                 </a>
-                            </div>
-                            <div style="font-size: 0.78rem; color: var(--text-muted, #64748b); line-height: 1.45;">
-                                <strong>Instructions:</strong>
-                                <ol style="margin: 4px 0 0 0; padding-left: 1.2rem; line-height: 1.5;">
-                                    <li>Drag the gold button above into your browser Bookmarks Bar (press <code>Cmd+Shift+B</code> or <code>Ctrl+Shift+B</code> if your bookmarks bar is hidden).</li>
-                                    <li>In a browser tab, open <a href="https://fantasy.espn.com" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309); text-decoration: underline;">fantasy.espn.com</a> and make sure you are logged in.</li>
-                                    <li>With your ESPN fantasy tab active and currently open, click this bookmark from your bookmarks bar, as it will instantly copy your credentials to your clipboard.</li>
-                                    <li>Return here and paste into either field below. Smart auto-detect will automatically split and fill both credentials.</li>
-                                </ol>
+                                <span style="font-size: 0.75rem; color: #64748b;">(Drag to bookmarks bar, click on fantasy.espn.com, then paste below)</span>
                             </div>
                         </div>
 
-                        <div style="margin-bottom: 0.65rem;">
-                            <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #854d0e); margin-bottom: 0.25rem;">ESPN s2 Cookie</label>
-                            <input type="text" id="u-import-s2" placeholder="Paste s2 cookie (e.g. AECsRJF...)" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: #0f172a; font-family: monospace; font-size: 0.8rem; box-sizing: border-box;">
+                        <!-- Manual Paste Fields -->
+                        <div style="background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-gold, #fde047); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem;">
+                            <div style="font-size: 0.75rem; color: #64748b; line-height: 1.45; margin-bottom: 0.5rem;">
+                                <strong>Manual Instructions:</strong>
+                                <ol style="margin: 4px 0 0 0; padding-left: 1.2rem; line-height: 1.5;">
+                                    <li>Log into your ESPN league on desktop at <a href="https://fantasy.espn.com" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309);">fantasy.espn.com</a>.</li>
+                                    <li>Right-click anywhere and select <strong>Inspect</strong> (or press <code>F12</code>).</li>
+                                    <li>Open <strong>Application</strong> &rarr; <strong>Cookies</strong> &rarr; <code>https://fantasy.espn.com</code>.</li>
+                                    <li>Copy the values for <code>espn_s2</code> and <code>swid</code> into the fields below.</li>
+                                </ol>
+                            </div>
+                            <div style="margin-bottom: 0.65rem;">
+                                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #854d0e); margin-bottom: 0.25rem;">ESPN s2 Cookie</label>
+                                <input type="text" id="u-import-s2" placeholder="Paste s2 cookie (e.g. AECsRJF...)" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: #0f172a; font-family: monospace; font-size: 0.8rem; box-sizing: border-box;">
+                            </div>
+                            <div style="margin-bottom: 0.75rem;">
+                                <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #854d0e); margin-bottom: 0.25rem;">ESPN SWID</label>
+                                <input type="text" id="u-import-swid" placeholder="Paste SWID (e.g. {1234-5678-ABCD})" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: #0f172a; font-family: monospace; font-size: 0.8rem; box-sizing: border-box;">
+                            </div>
                         </div>
-                        <div style="margin-bottom: 0.75rem;">
-                            <label style="display: block; font-size: 0.78rem; font-weight: 600; color: var(--accent-gold, #854d0e); margin-bottom: 0.25rem;">ESPN SWID</label>
-                            <input type="text" id="u-import-swid" placeholder="Paste SWID (e.g. {1234-5678-ABCD})" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px; background: #fff; color: #0f172a; font-family: monospace; font-size: 0.8rem; box-sizing: border-box;">
-                        </div>
-                        <details style="font-size: 0.78rem; color: var(--text-muted, #713f12);">
-                            <summary style="cursor: pointer; color: var(--accent-gold, #b45309); font-weight: 600;">Manual Developer Tools Guide</summary>
-                            <ol style="margin-top: 0.5rem; padding-left: 1.2rem; line-height: 1.5;">
-                                <li>Log into your ESPN league on desktop at <a href="https://fantasy.espn.com" target="_blank" rel="noopener" style="color: var(--accent-gold, #b45309);">fantasy.espn.com</a>.</li>
-                                <li>Right-click anywhere and select <strong>Inspect</strong> (or press <code>F12</code>).</li>
-                                <li>Open <strong>Application</strong> &rarr; <strong>Cookies</strong> &rarr; <code>https://fantasy.espn.com</code>.</li>
-                                <li>Copy the values for <code>espn_s2</code> and <code>swid</code> into the fields above.</li>
-                            </ol>
-                        </details>
                     </div>
 
                     <button type="submit" id="btn-u-import-fetch" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.95rem; font-weight: 600; cursor: pointer;">
@@ -1678,13 +1853,19 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             if (platformSelect) {
                 platformSelect.addEventListener('change', () => {
-                    const isSleeper = platformSelect.value === 'sleeper';
-                    if (isSleeper) {
+                    const platform = platformSelect.value;
+                    if (platform === 'sleeper') {
                         if (privacyContainer) privacyContainer.style.display = 'none';
                         if (espnPrivateBox) espnPrivateBox.style.display = 'none';
                         if (idLabel) idLabel.textContent = 'Sleeper Username or League ID';
                         if (idInput) idInput.placeholder = 'e.g. username or 1234567890';
                         if (idHint) idHint.innerHTML = 'Enter your Sleeper username (@username) to discover all your leagues, or enter a specific League ID.';
+                    } else if (platform === 'yahoo') {
+                        if (privacyContainer) privacyContainer.style.display = 'none';
+                        if (espnPrivateBox) espnPrivateBox.style.display = 'none';
+                        if (idLabel) idLabel.textContent = 'Yahoo League ID or League Key';
+                        if (idInput) idInput.placeholder = 'e.g. 123456 or 449.l.123456';
+                        if (idHint) idHint.innerHTML = 'Found in your Yahoo Fantasy browser URL (e.g. <code>football.fantasysports.yahoo.com/f1/123456</code>).';
                     } else {
                         if (privacyContainer) privacyContainer.style.display = 'block';
                         if (idLabel) idLabel.textContent = 'ESPN League ID';
@@ -1849,6 +2030,48 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                             renderStepThroughLine(sleeperData, rawName, slug);
                         } catch (err) {
                             alert("Sleeper Connection Failed: " + err.message);
+                            renderStep1();
+                        }
+                        return;
+                    }
+
+                    if (platform === 'yahoo') {
+                        renderLoading("Connecting to Yahoo Fantasy & discovering league data...");
+                        try {
+                            let cleanKey = leagueIdInput.trim();
+                            if (!cleanKey.includes('.l.')) {
+                                cleanKey = `nfl.l.${cleanKey}`;
+                            }
+                            const metaUrl = `/api/yahoo?action=league-meta&leagueKey=${encodeURIComponent(cleanKey)}`;
+                            const res = await fetch(metaUrl);
+                            const json = await res.json();
+                            if (!res.ok) {
+                                throw new Error(json.error || "Failed to fetch league data from Yahoo.");
+                            }
+
+                            fetchedLeagueData = {
+                                rawName,
+                                slug,
+                                platform: 'yahoo',
+                                leagueId: cleanKey,
+                                yahooData: json,
+                                espnData: {
+                                    members: (json.members || []).map(m => ({
+                                        id: m.id,
+                                        name: m.displayName || m.alias || m.id,
+                                        handle: m.id,
+                                        alias: m.alias || m.displayName || m.id,
+                                        avatar: m.avatar || '',
+                                        isActive: true,
+                                        mergedInto: ''
+                                    })),
+                                    seasons: [json.season || new Date().getFullYear()]
+                                }
+                            };
+
+                            renderStep2();
+                        } catch (err) {
+                            alert("Yahoo Connection Failed: " + err.message);
                             renderStep1();
                         }
                         return;
@@ -2151,7 +2374,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 <label style="font-size: 0.75rem; color: #64748b;">Alias:</label>
-                                <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 120px;">
+                                <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" placeholder="Real name or First + Last initial" title="We suggest using each manager's real name or name and last initial, as it will be useful later" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 140px;">
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 <label style="font-size: 0.75rem; color: #64748b;">Merge:</label>
@@ -2175,7 +2398,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 <label style="font-size: 0.75rem; color: #64748b;">Alias:</label>
-                                <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 120px;">
+                                <input type="text" class="u-mgr-alias" data-index="${idx}" value="${m.alias || m.name}" placeholder="Real name or First + Last initial" title="We suggest using each manager's real name or name and last initial, as it will be useful later" style="padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #0f172a; width: 140px;">
                             </div>
                             <div style="display: flex; align-items: center; gap: 0.35rem;">
                                 <label style="font-size: 0.75rem; color: #64748b;">Merge Target:</label>
@@ -2226,6 +2449,14 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                             <option value="">-- Select Your Favorite NFL Team --</option>
                             ${(window.renderNflTeamSelectOptions ? window.renderNflTeamSelectOptions(window.AuthEngine?.getSession()?.favorite_team) : '')}
                         </select>
+                    </div>
+                </div>
+
+                <!-- Manager Alias Guidance Box -->
+                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 10px;">
+                    <div style="color: #16a34a; font-weight: 800; font-size: 1rem; line-height: 1.2;">✓</div>
+                    <div style="font-size: 0.84rem; color: #166534; line-height: 1.45;">
+                        <strong style="color: #14532d;">Manager Alias Tip:</strong> We suggest using each manager's real name (e.g. <em>John Smith</em>) or name and last initial (e.g. <em>John S.</em>), as it will be useful later across head-to-head records, all-time leaderboards, and trophy rooms.
                     </div>
                 </div>
 
@@ -2642,9 +2873,18 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
     // Listen for auth state changes
     window.addEventListener('vault_auth_changed', () => {
         updateAccountButtonUI();
+        checkFavoriteTeamPrompt();
     });
 
     // Initial button render & URL check
     updateAccountButtonUI();
     checkUrlActions();
+
+    if (window.AuthEngine && typeof window.AuthEngine.ready === 'function') {
+        window.AuthEngine.ready().then(() => {
+            checkFavoriteTeamPrompt();
+        });
+    } else {
+        checkFavoriteTeamPrompt();
+    }
 })();

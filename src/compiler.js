@@ -570,7 +570,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
              posStr = POS_MAP[pp.player.defaultPositionId] || 'FLEX';
              isStarter = entry.lineupSlotId !== 20 && entry.lineupSlotId !== 21 && entry.lineupSlotId !== 24;
            } else if (entry.playerName || entry.playerId || entry.playerKey) {
-             // Yahoo format
+             // Yahoo / Sleeper format
              pId = entry.playerId || entry.playerKey;
              pName = entry.playerName || `Player ${pId}`;
              posStr = entry.position || 'FLEX';
@@ -598,6 +598,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               player_id: pId,
               player_name: pName,
               position: posStr,
+              roster_slot: entry.rosterSlot || null,  // actual lineup slot for Yahoo/Sleeper; null for ESPN (uses lineup_slot_id)
               lineup_slot_id: lineupSlotId,
               is_starter: isStarter,
               projected_points: Math.round(projScore * 100) / 100,
@@ -1110,6 +1111,12 @@ export function calculateSeasonLoser(year, standings = [], matchups = [], loserC
   const yr = Number(year);
   const seasonStandings = (standings || []).filter(s => Number(s.year || s.season) === yr);
   if (seasonStandings.length === 0) return null;
+
+  // Guard: if no games have been played yet (everyone at 0-0 with 0 points),
+  // the season hasn't started — don't fabricate a loser.
+  const totalGamesPlayed = seasonStandings.reduce((sum, s) => sum + (Number(s.wins) || 0) + (Number(s.losses) || 0) + (Number(s.ties) || 0), 0);
+  const totalPointsScored = seasonStandings.reduce((sum, s) => sum + (Number(s.points_for) || 0), 0);
+  if (totalGamesPlayed === 0 && totalPointsScored === 0) return null;
 
   const seasonMatchups = (matchups || []).filter(m => Number(m.year || m.season) === yr);
 
