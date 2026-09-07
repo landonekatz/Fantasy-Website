@@ -2980,8 +2980,22 @@ const matchupsData = bundleData.matchups || [];
         const currentAdminClaim = session ? (session.claims?.[leagueSlug] || (this.claims && Object.entries(this.claims).find(([k, v]) => v?.email === session.email)?.[0])) : null;
         const unclaimedMembers = sortedMembers.filter(m => !this.claims || (!this.claims[m.id] && (!m.espn_id || !this.claims[m.espn_id])));
         
-        // Build 3-column table rows: Manager Name (input + Save) | Active Seasons | Account & Actions
-        const managerRows = sortedMembers.map(m => {
+        // Categorize managers by active and inactive status
+        const isManagerActive = (m) => {
+            if (m.isActive === true) return true;
+            if (m.isActive === false) return false;
+            if (m.is_retired === true) return false;
+            const statusStr = String(m.status || '').toLowerCase().trim();
+            if (statusStr === 'active' || statusStr === 'current') return true;
+            if (statusStr === 'retired' || statusStr === 'inactive') return false;
+            return true;
+        };
+
+        const activeMembers = sortedMembers.filter(isManagerActive);
+        const inactiveMembers = sortedMembers.filter(m => !isManagerActive(m));
+
+        // Build 3-column table row for a manager
+        const buildManagerRow = (m, statusType) => {
             const memberMatchups = (this.matchups || []).filter(x => x.home_manager_id === m.id || x.away_manager_id === m.id || x.team_1_manager_id === m.id || x.team_2_manager_id === m.id);
             const yearsActive = [...new Set(memberMatchups.map(x => x.year || x.season).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
             const yearsStr = yearsActive.length > 0 ? `${yearsActive[0]}–${yearsActive[yearsActive.length - 1]} (${yearsActive.length} yr${yearsActive.length > 1 ? 's' : ''})` : 'Active';
@@ -2998,12 +3012,17 @@ const matchupsData = bundleData.matchups || [];
             const claimEmail = claim ? (claim.email || leagueUser?.email || claim.name || 'Claimed') : (leagueUser?.email || '');
             const isClaimed = Boolean(claim || leagueUser);
 
+            const statusBadge = statusType === 'active'
+                ? `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #ecfdf5; color: #15803d; border: 1px solid #bbf7d0; margin-left: 4px;"><span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #16a34a;"></span>Active</span>`
+                : `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; margin-left: 4px;"><span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #94a3b8;"></span>Inactive</span>`;
+
             return `
-                <tr data-manager-id="${m.id}">
+                <tr data-manager-id="${m.id}" data-status="${statusType}">
                     <td>
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <input type="text" class="admin-input mgr-rename-input" value="${m.name}" placeholder="Display name" ${isFounderInspection ? 'disabled title="Editing disabled in Founder Inspection Mode" style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box; background: #f8fafc; cursor: not-allowed;"' : 'style="flex: 1; min-width: 140px; padding: 6px 8px; font-size: 0.86rem; font-weight: 600; box-sizing: border-box;"'}>
                             <button class="btn-save-manager-name btn-primary" data-manager-id="${m.id}" ${isFounderInspection ? 'disabled title="Editing disabled in Founder Inspection Mode" style="padding: 5px 12px; font-size: 0.76rem; font-weight: 600; cursor: not-allowed; white-space: nowrap; border-radius: 4px; opacity: 0.5;"' : 'style="padding: 5px 12px; font-size: 0.76rem; font-weight: 600; cursor: pointer; white-space: nowrap; border-radius: 4px;"'}>Save</button>
+                            ${statusBadge}
                         </div>
                     </td>
                     <td style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap;">${yearsStr}</td>
@@ -3011,10 +3030,10 @@ const matchupsData = bundleData.matchups || [];
                         <div class="admin-actions-cell" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             ${isClaimed ? `
                                 <div style="display: inline-flex; flex-direction: column; gap: 2px;">
-                                    <span class="badge-registered" title="Claimed by ${claimEmail}${claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
+                                    <span class="badge-registered" title="Claimed by ${claimEmail}${claim && claim.claimedAt ? ' on ' + new Date(claim.claimedAt).toLocaleDateString() : ''}">
                                         <span style="color: #15803d; font-weight: 800;">✓</span> ${claimEmail}
                                     </span>
-                                    ${claim.claimedAt ? `
+                                    ${claim && claim.claimedAt ? `
                                         <span style="font-size: 0.7rem; color: var(--text-muted); padding-left: 2px;">Joined ${new Date(claim.claimedAt).toLocaleDateString()}</span>
                                     ` : ''}
                                 </div>
@@ -3032,7 +3051,44 @@ const matchupsData = bundleData.matchups || [];
                     </td>
                 </tr>
             `;
-        }).join('');
+        };
+
+        const activeManagerRows = activeMembers.map(m => buildManagerRow(m, 'active')).join('');
+        const inactiveManagerRows = inactiveMembers.map(m => buildManagerRow(m, 'inactive')).join('');
+
+        let managerRows = '';
+        if (activeMembers.length > 0) {
+            managerRows += `
+                <tr class="table-group-header" data-status-header="active">
+                    <td colspan="3" style="background: var(--bg-surface, #f8fafc); padding: 9px 14px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-primary); display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #16a34a;"></span>
+                                Active Managers (${activeMembers.length})
+                            </span>
+                            <span style="font-size: 0.72rem; font-weight: 700; color: #15803d; background: #ecfdf5; padding: 2px 8px; border-radius: 9999px; border: 1px solid #bbf7d0;">Current Season Roster</span>
+                        </div>
+                    </td>
+                </tr>
+                ${activeManagerRows}
+            `;
+        }
+        if (inactiveMembers.length > 0) {
+            managerRows += `
+                <tr class="table-group-header" data-status-header="inactive">
+                    <td colspan="3" style="background: var(--bg-surface, #f8fafc); padding: 9px 14px; border-top: 2px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px;">
+                                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span>
+                                Inactive / Historical Managers (${inactiveMembers.length})
+                            </span>
+                            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 9999px; border: 1px solid #cbd5e1;">Former Members</span>
+                        </div>
+                    </td>
+                </tr>
+                ${inactiveManagerRows}
+            `;
+        }
 
         // Build options for merge selector and season selector
         const managerOptions = sortedMembers.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
@@ -3570,6 +3626,23 @@ const matchupsData = bundleData.matchups || [];
                     </div>
 
                     <div style="margin-top: 1.25rem;">
+                        <div class="manager-roster-filters" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 0.85rem; flex-wrap: wrap;">
+                            <div style="display: inline-flex; align-items: center; gap: 4px; background: var(--bg-surface, #f1f5f9); padding: 3px; border-radius: 9999px; border: 1px solid var(--border-color);">
+                                <button type="button" class="btn-roster-filter active" data-filter="all" style="padding: 5px 14px; font-size: 0.78rem; font-weight: 700; border-radius: 9999px; border: none; background: var(--text-primary); color: #fff; cursor: pointer; transition: all 0.15s ease;">
+                                    All (${sortedMembers.length})
+                                </button>
+                                <button type="button" class="btn-roster-filter" data-filter="active" style="padding: 5px 14px; font-size: 0.78rem; font-weight: 700; border-radius: 9999px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.15s ease;">
+                                    Active (${activeMembers.length})
+                                </button>
+                                <button type="button" class="btn-roster-filter" data-filter="inactive" style="padding: 5px 14px; font-size: 0.78rem; font-weight: 700; border-radius: 9999px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.15s ease;">
+                                    Inactive (${inactiveMembers.length})
+                                </button>
+                            </div>
+                            <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">
+                                Showing <strong>${activeMembers.length} active</strong>, <strong>${inactiveMembers.length} inactive</strong>
+                            </div>
+                        </div>
+
                         <div class="admin-table-scroll">
                             <table class="admin-table">
                                 <thead>
@@ -3978,6 +4051,43 @@ const matchupsData = bundleData.matchups || [];
                         }
                     }
                     this.renderAdminDashboard();
+                }
+            });
+        });
+
+        // Wire up Roster Active/Inactive filter pills
+        container.querySelectorAll('.btn-roster-filter').forEach(pill => {
+            pill.addEventListener('click', () => {
+                container.querySelectorAll('.btn-roster-filter').forEach(p => {
+                    p.classList.remove('active');
+                    p.style.background = 'transparent';
+                    p.style.color = 'var(--text-secondary)';
+                });
+                pill.classList.add('active');
+                pill.style.background = 'var(--text-primary)';
+                pill.style.color = '#fff';
+
+                const filter = pill.getAttribute('data-filter');
+                const rows = container.querySelectorAll('#manager-roster-tbody tr[data-status]');
+                const headers = container.querySelectorAll('#manager-roster-tbody tr[data-status-header]');
+
+                if (filter === 'all') {
+                    rows.forEach(r => { r.style.display = ''; });
+                    headers.forEach(h => { h.style.display = ''; });
+                } else if (filter === 'active') {
+                    rows.forEach(r => {
+                        r.style.display = r.getAttribute('data-status') === 'active' ? '' : 'none';
+                    });
+                    headers.forEach(h => {
+                        h.style.display = h.getAttribute('data-status-header') === 'active' ? '' : 'none';
+                    });
+                } else if (filter === 'inactive') {
+                    rows.forEach(r => {
+                        r.style.display = r.getAttribute('data-status') === 'inactive' ? '' : 'none';
+                    });
+                    headers.forEach(h => {
+                        h.style.display = h.getAttribute('data-status-header') === 'inactive' ? '' : 'none';
+                    });
                 }
             });
         });

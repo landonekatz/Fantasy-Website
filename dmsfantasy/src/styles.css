@@ -4941,6 +4941,15 @@ body.rivalry-dungeon-mode .btn-claim-pill:hover {
     background: var(--bg-card-hover);
 }
 
+.admin-table tr.table-group-header:hover td {
+    background: var(--bg-surface, #f8fafc) !important;
+}
+
+.btn-roster-filter:hover:not(.active) {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: var(--text-primary) !important;
+}
+
 /* Merge Controls */
 .admin-merge-box {
     padding: 18px 20px;
