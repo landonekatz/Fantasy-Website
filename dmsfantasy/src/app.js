@@ -534,14 +534,19 @@ class FantasyApp {
         nflStats.preloadSeason(2025);
         nflStats.preloadSeason(2024);
 
-        // Fetch custom league settings, claims, and managers from Firebase RTDB
+        // Fetch custom league settings, claims, users, and managers from Firebase RTDB
+        this.users = {};
         try {
-            const [settingsSnap, claimsSnap, managersSnap, conventionSnap] = await Promise.all([
+            const [settingsSnap, claimsSnap, managersSnap, conventionSnap, usersSnap] = await Promise.all([
                 get(dbRef(database, `leagues/dmsfantasy/league_settings`)).catch(() => null),
                 get(dbRef(database, `leagues/dmsfantasy/claims`)).catch(() => null),
                 get(dbRef(database, `leagues/dmsfantasy/managers`)).catch(() => null),
-                get(dbRef(database, `leagues/dmsfantasy/seasonLabelConvention`)).catch(() => null)
+                get(dbRef(database, `leagues/dmsfantasy/seasonLabelConvention`)).catch(() => null),
+                get(dbRef(database, `leagues/dmsfantasy/users`)).catch(() => null)
             ]);
+            if (usersSnap && usersSnap.exists()) {
+                this.users = usersSnap.val() || {};
+            }
             if (settingsSnap && settingsSnap.exists()) {
                 this.leagueSettings = { ...this.leagueSettings, ...settingsSnap.val() };
                 this.seasonLabelConvention = this.leagueSettings.seasonLabelConvention || 'kickoff';
@@ -1051,8 +1056,11 @@ class FantasyApp {
             
             const mName = m.canonical_name || m.name || m.id;
             const claim = this.claims ? this.claims[m.id] : null;
-            const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
-            const isClaimed = Boolean(claim);
+            const leagueUser = (claim?.userId && this.users?.[claim.userId])
+                ? this.users[claim.userId]
+                : (this.users ? Object.values(this.users).find(u => u.managerId === m.id) : null);
+            const claimEmail = claim ? (claim.email || leagueUser?.email || claim.name || 'Claimed') : (leagueUser?.email || '');
+            const isClaimed = Boolean(claim || leagueUser);
 
             return `
                 <tr data-manager-id="${m.id}">

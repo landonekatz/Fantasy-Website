@@ -7,6 +7,7 @@
 import { nflStats } from './nfl_stats.js';
 import { nflHistoricalTeams } from './nfl_historical_teams.js';
 import { ldiEngine, LDIEngine, normalizeName } from './ldi_engine.js';
+import { lpiEngine, LPIEngine } from './lpi_engine.js';
 import { formatManagerDisplayName } from './formatters.js';
 
 function normalizePosition(rawPos, playerName = '') {
@@ -65,6 +66,11 @@ export class VaultDraftEngine {
         
         // Listen to LDI tuning changes for live instant re-render
         this.unsubscribeLdi = ldiEngine.subscribe(() => {
+            this.render();
+        });
+
+        // Listen to LPI updates for live instant re-render
+        this.unsubscribeLpi = lpiEngine.subscribe(() => {
             this.render();
         });
 
@@ -247,6 +253,9 @@ export class VaultDraftEngine {
     destroy() {
         if (this.unsubscribeLdi) {
             this.unsubscribeLdi();
+        }
+        if (this.unsubscribeLpi) {
+            this.unsubscribeLpi();
         }
     }
 
@@ -1000,21 +1009,40 @@ export class VaultDraftEngine {
         // Manager-Level Rollup & Standardized 1-100 Grade
         const managerLeaderboard = Object.values(managerPicksMap).map(mObj => {
             if (isUnplayedSeason) {
+                const lpiPicks = mObj.picks.map(p => {
+                    const pGrade = lpiEngine.computeProspectiveGrade({
+                        playerName: p.playerName,
+                        position: p.position,
+                        positionalDraftRank: p.positionRank,
+                        overallPickNumber: p.overallPick,
+                        totalSeasonWeeks: fullRegularSeasonWeeks || (year >= 2021 ? 18 : 17),
+                        numTeams: Object.keys(managerPicksMap).length || 12
+                    });
+                    return (pGrade && pGrade.isEligible) ? pGrade : null;
+                }).filter(Boolean);
+
+                let meanProjGrade = null;
+                let projGradeInfo = { grade: 'Pending', tier: 'pending', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.3)' };
+                if (lpiPicks.length > 0) {
+                    meanProjGrade = Math.round(lpiPicks.reduce((s, x) => s + x.prospectiveGrade, 0) / lpiPicks.length);
+                    projGradeInfo = LDIEngine.getScoreGrade(meanProjGrade);
+                }
+
                 return {
                     managerId: mObj.managerId,
                     managerName: mObj.managerName,
                     teamName: mObj.teamName,
                     totalPicks: mObj.picks.length,
-                    scoredPicksCount: 0,
+                    scoredPicksCount: lpiPicks.length,
                     LDI_manager_season: null,
                     compositeLdi: null,
                     meanLdi: null,
-                    draftIndex: null,
-                    isPending: true,
-                    gradeInfo: { grade: 'Pending', tier: 'pending', color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.3)' },
-                    hits: 0,
-                    busts: 0,
-                    steals: 0,
+                    draftIndex: meanProjGrade,
+                    isPending: meanProjGrade === null,
+                    gradeInfo: projGradeInfo,
+                    hits: lpiPicks.filter(p => p.prospectiveGrade >= 75).length,
+                    busts: lpiPicks.filter(p => p.prospectiveGrade <= 25).length,
+                    steals: lpiPicks.filter(p => p.prospectiveGrade >= 85).length,
                     picks: mObj.picks
                 };
             }
@@ -1045,6 +1073,9 @@ export class VaultDraftEngine {
             };
         }).sort((a, b) => {
             if (isUnplayedSeason) {
+                if (a.draftIndex !== null && b.draftIndex !== null) {
+                    return b.draftIndex - a.draftIndex;
+                }
                 const aSlot = a.picks[0]?.overallPick ?? 999;
                 const bSlot = b.picks[0]?.overallPick ?? 999;
                 return aSlot - bSlot;
@@ -1464,11 +1495,15 @@ export class VaultDraftEngine {
         // Manager Leaderboard Table/Chips
         const managerChipsHTML = managerLeaderboard.map((m, idx) => {
             if (isUnplayed) {
+                const g = m.gradeInfo || { grade: 'Pending', color: '#94a3b8' };
+                const scoreDisplay = m.draftIndex !== null 
+                    ? `${m.draftIndex} <small style="font-size:0.75em; color:var(--text-muted); font-weight: 600;">(PROJ ${g.grade})</small>`
+                    : 'Pending';
                 return `
-                    <div class="draft-mgr-chip clickable-mgr" data-mgr-id="${m.managerId}" style="border-left: 3px solid #94a3b8;" title="Season Pending">
+                    <div class="draft-mgr-chip clickable-mgr" data-mgr-id="${m.managerId}" style="border-left: 3px solid ${g.color};" title="Pre-Draft Projected Class Grade: ${m.draftIndex !== null ? m.draftIndex + '/100 (' + g.grade + ')' : 'Pending'} · Projected Hits: ${m.hits} · High Risk: ${m.busts}">
                         <span class="draft-chip-rank">#${idx + 1}</span>
                         <span class="draft-chip-name">${this.nameMode === 'team' ? m.teamName : m.managerName}</span>
-                        <span class="draft-chip-score" style="color: #94a3b8; font-weight: 600;">Pending</span>
+                        <span class="draft-chip-score" style="color: ${g.color}; font-weight: 800;">${scoreDisplay}</span>
                     </div>
                 `;
             }
@@ -1491,16 +1526,49 @@ export class VaultDraftEngine {
             const isDefOrK = (p.position === 'DEF' || p.position === 'D/ST' || p.position === 'K');
             const ldi = p.ldiResult;
 
-            // LDI Pick Score Badge
+            // LDI Pick Score Badge & LPI Prospective Grade
             let scoreBadge = '';
             if (isUnplayed) {
-                scoreBadge = `<span class="pick-val-badge pending" title="Weekly games pending">Pending</span>`;
+                if (isDefOrK) {
+                    scoreBadge = `<span class="pick-val-badge omitted" title="Kickers and Defenses are unrated in LPI / LDI">K / DEF</span>`;
+                } else {
+                    const pGrade = lpiEngine.computeProspectiveGrade({
+                        playerName: p.playerName,
+                        position: p.position,
+                        positionalDraftRank: p.positionRank,
+                        overallPickNumber: p.overallPick,
+                        totalSeasonWeeks: maxWeeks,
+                        numTeams: Object.keys(managerPicksMap).length || 12
+                    });
+                    if (pGrade && pGrade.isEligible) {
+                        const gTier = pGrade.gradeInfo?.tier || 'even';
+                        const gColor = pGrade.gradeInfo?.color || '#3b82f6';
+                        const gBg = pGrade.gradeInfo?.bg || 'rgba(59, 130, 246, 0.12)';
+                        const gBorder = pGrade.gradeInfo?.border || 'rgba(59, 130, 246, 0.3)';
+                        scoreBadge = `
+                            <span class="pick-val-badge lpi-projected ${gTier}" style="background: ${gBg}; color: ${gColor}; border: 1px solid ${gBorder};" title="LPI Pre-Draft Projected Grade: ${pGrade.prospectiveGrade} / 100 (${pGrade.gradeInfo?.grade || 'B'}) · Forecast: ${pGrade.predictedPpg} PPG (${pGrade.predictedSeasonTotal} pts) · Slot Exp: ${pGrade.expectedPpg} PPG (${pGrade.expectedSeasonTotal} pts) · Surplus: ${pGrade.residual >= 0 ? '+' : ''}${pGrade.residual} pts vs slot expectation at pick #${p.overallPick}">
+                                <strong>${pGrade.prospectiveGrade}</strong> <small style="font-size: 0.72em; opacity: 0.9; margin-left: 2px; font-weight: 700;">PROJ</small>
+                            </span>
+                        `;
+                    } else {
+                        scoreBadge = `<span class="pick-val-badge pending" title="Weekly games pending">Pending</span>`;
+                    }
+                }
             } else if (isDefOrK) {
                 scoreBadge = `<span class="pick-val-badge omitted" title="Kickers and Defenses are unrated in LDI">K / DEF</span>`;
             } else if (ldi && ldi.isScored) {
                 const gradeInfo = LDIEngine.getScoreGrade(ldi.pickDisplayScore);
+                const pGrade = lpiEngine.computeProspectiveGrade({
+                    playerName: p.playerName,
+                    position: p.position,
+                    positionalDraftRank: p.positionRank,
+                    overallPickNumber: p.overallPick,
+                    totalSeasonWeeks: p.possibleGames ? p.possibleGames + 1 : maxWeeks,
+                    numTeams: Object.keys(managerPicksMap).length || 12
+                });
+                const projGradeStr = (pGrade && pGrade.isEligible) ? ` · Pre-Draft Projected Grade: ${pGrade.prospectiveGrade} / 100 (${pGrade.gradeInfo?.grade || ''})` : '';
                 scoreBadge = `
-                    <span class="pick-val-badge ${gradeInfo.tier}" style="background: ${gradeInfo.bg}; color: ${gradeInfo.color}; border: 1px solid ${gradeInfo.border};" title="LDI Pick Score: ${ldi.pickDisplayScore} / 100 (${gradeInfo.grade}) · LDI Raw: ${ldi.LDI_pick >= 0 ? '+' : ''}${ldi.LDI_pick.toFixed(2)} · Residual: ${ldi.Residual >= 0 ? '+' : ''}${ldi.Residual.toFixed(1)} pts vs ${ldi.E_adj} exp (${ldi.eRate} PPG)">
+                    <span class="pick-val-badge ${gradeInfo.tier}" style="background: ${gradeInfo.bg}; color: ${gradeInfo.color}; border: 1px solid ${gradeInfo.border};" title="Final LDI Pick Score: ${ldi.pickDisplayScore} / 100 (${gradeInfo.grade})${projGradeStr} · LDI Raw: ${ldi.LDI_pick >= 0 ? '+' : ''}${ldi.LDI_pick.toFixed(2)} · Residual: ${ldi.Residual >= 0 ? '+' : ''}${ldi.Residual.toFixed(1)} pts vs ${ldi.E_adj} exp (${ldi.eRate} PPG)">
                         <strong>${ldi.pickDisplayScore}</strong> <small style="font-size: 0.72em; opacity: 0.9; margin-left: 2px; font-weight: 700;">LDI</small>
                     </span>
                 `;
@@ -1709,7 +1777,7 @@ export class VaultDraftEngine {
 
                 <!-- Manager Leaderboard Chip Bar -->
                 <div class="draft-leaderboard-bar">
-                    <div class="draft-leaderboard-title">${isUnplayed ? 'Draft Class Slots:' : 'Draft Efficiency Standings (LDI):'}</div>
+                    <div class="draft-leaderboard-title">${isUnplayed ? 'Pre-Draft Projected Standings (LPI):' : 'Draft Efficiency Standings (LDI):'}</div>
                     <div class="draft-chips-scroll">
                         ${managerChipsHTML}
                     </div>
@@ -2935,6 +3003,8 @@ export class VaultDraftEngine {
             if (e.target === modal) modal.close();
         });
     }
+
+
 
     openTradeModal(pickData) {
         if (!pickData) return;

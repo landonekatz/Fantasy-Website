@@ -503,6 +503,28 @@ const AuthEngine = {
       const claimRef = dbRef(database, `leagues/${leagueId}/claims/${managerId}`);
       await rtdbSet(claimRef, claimData);
 
+      // Also update /leagues/{leagueId}/users/{session.uid} directory
+      const leagueUserRef = dbRef(database, `leagues/${leagueId}/users/${session.uid}`);
+      const leagueUserData = {
+        userId: session.uid,
+        email: session.email || '',
+        name: cleanManagerName,
+        managerId: managerId,
+        managerName: cleanManagerName,
+        role: session.isFounder ? 'founder' : (session.adminLeagues?.includes(leagueId) ? 'admin' : 'member'),
+        claimedAt: Date.now()
+      };
+      if (teamValue) leagueUserData.favorite_team = teamValue;
+      await rtdbSet(leagueUserRef, leagueUserData);
+
+      // Ensure root user email and name are populated in /users/{session.uid}
+      if (session.email) {
+        await rtdbSet(dbRef(database, `users/${session.uid}/email`), session.email);
+      }
+      if (cleanManagerName) {
+        await rtdbSet(dbRef(database, `users/${session.uid}/name`), cleanManagerName);
+      }
+
       const userClaimData = {
         managerId: managerId,
         managerName: cleanManagerName,
@@ -563,7 +585,23 @@ const AuthEngine = {
                 await rtdbSet(dbRef(database, `users/${session.uid}/claims/${leagueId}/favorite_team`), teamValue);
               } catch (e) {}
               try {
-                await rtdbSet(dbRef(database, `leagues/${leagueId}/claims/${mId}/favorite_team`), teamValue);
+                const claimSnap = await rtdbGet(dbRef(database, `leagues/${leagueId}/claims/${mId}`));
+                if (claimSnap.exists()) {
+                  await rtdbSet(dbRef(database, `leagues/${leagueId}/claims/${mId}/favorite_team`), teamValue);
+                } else {
+                  // If claim was missing in the league, restore the full claim object so it never lacks email/userId
+                  await rtdbSet(dbRef(database, `leagues/${leagueId}/claims/${mId}`), {
+                    userId: session.uid,
+                    email: session.email || '',
+                    name: formatCapitalizedName(session.name, session.email),
+                    managerId: mId,
+                    favorite_team: teamValue,
+                    claimedAt: Date.now()
+                  });
+                }
+              } catch (e) {}
+              try {
+                await rtdbSet(dbRef(database, `leagues/${leagueId}/users/${session.uid}/favorite_team`), teamValue);
               } catch (e) {}
             }
           }
@@ -622,6 +660,25 @@ const AuthEngine = {
           name: leagueName || leagueSlug,
           joinedAt: Date.now()
         });
+
+        const leagueUserRef = dbRef(database, `leagues/${leagueSlug}/users/${session.uid}`);
+        const existingLeagueUserSnap = await rtdbGet(leagueUserRef);
+        const existingLeagueUser = existingLeagueUserSnap.exists() ? existingLeagueUserSnap.val() : {};
+        await rtdbSet(leagueUserRef, {
+          ...existingLeagueUser,
+          userId: session.uid,
+          email: session.email || existingLeagueUser.email || '',
+          name: session.name || existingLeagueUser.name || formatCapitalizedName(null, session.email),
+          role: role,
+          joinedAt: existingLeagueUser.joinedAt || Date.now()
+        });
+
+        if (session.email) {
+          await rtdbSet(dbRef(database, `users/${session.uid}/email`), session.email);
+        }
+        if (session.name) {
+          await rtdbSet(dbRef(database, `users/${session.uid}/name`), session.name);
+        }
       } catch (rtdbErr) {
         console.warn("RTDB league registration warning:", rtdbErr);
       }
@@ -853,10 +910,70 @@ onAuthStateChanged(auth, async (user) => {
             }
           }
 
+          // Self-heal claims and league user directory entries in RTDB
+          const cleanUserName = formatCapitalizedName(userData.name || user.displayName, user.email);
+          if (user.email) {
+            try { await rtdbSet(dbRef(database, `users/${user.uid}/email`), user.email); } catch (e) {}
+          }
+          if (cleanUserName) {
+            try { await rtdbSet(dbRef(database, `users/${user.uid}/name`), cleanUserName); } catch (e) {}
+          }
+
+          if (userClaimsSnap.exists()) {
+            const rtdbClaims = userClaimsSnap.val();
+            for (const [slug, cData] of Object.entries(rtdbClaims)) {
+              const mId = typeof cData === 'object' && cData !== null ? (cData.managerId || cData.id) : cData;
+              if (mId) {
+                try {
+                  const leagueClaimSnap = await rtdbGet(dbRef(database, `leagues/${slug}/claims/${mId}`));
+                  const existingClaim = leagueClaimSnap.exists() ? leagueClaimSnap.val() : null;
+                  if (!existingClaim || !existingClaim.email || !existingClaim.userId) {
+                    await rtdbSet(dbRef(database, `leagues/${slug}/claims/${mId}`), {
+                      userId: user.uid,
+                      email: user.email || existingClaim?.email || '',
+                      name: cleanUserName,
+                      managerId: mId,
+                      favorite_team: favoriteTeam || existingClaim?.favorite_team || '',
+                      claimedAt: cData.claimedAt || existingClaim?.claimedAt || Date.now()
+                    });
+                  }
+
+                  // Also ensure league users directory has complete info
+                  const leagueUserSnap = await rtdbGet(dbRef(database, `leagues/${slug}/users/${user.uid}`));
+                  const existingUser = leagueUserSnap.exists() ? leagueUserSnap.val() : null;
+                  if (!existingUser || !existingUser.email || !existingUser.managerId) {
+                    await rtdbSet(dbRef(database, `leagues/${slug}/users/${user.uid}`), {
+                      userId: user.uid,
+                      email: user.email || existingUser?.email || '',
+                      name: cleanUserName,
+                      role: isFounder ? 'founder' : (adminLeagues.includes(slug) ? 'admin' : 'member'),
+                      managerId: mId,
+                      managerName: cleanUserName,
+                      favorite_team: favoriteTeam || existingUser?.favorite_team || '',
+                      joinedAt: existingUser?.joinedAt || cData.claimedAt || Date.now(),
+                      claimedAt: cData.claimedAt || Date.now()
+                    });
+                  }
+                } catch (healErr) {
+                  console.warn(`Self-heal claim error for ${slug}/${mId}:`, healErr);
+                }
+              }
+            }
+          }
+
+          let allLeagues = currentSession?.allLeagues || [];
+          if (!allLeagues || allLeagues.length === 0) {
+            try {
+              allLeagues = await AuthEngine.fetchAllVaultLeagues();
+            } catch (e) {
+              allLeagues = [];
+            }
+          }
+
           currentSession = {
             uid: user.uid,
             email: user.email,
-            name: formatCapitalizedName(userData.name || user.displayName, user.email),
+            name: cleanUserName,
             isFounder: isFounder,
             joinedLeagues: isFounder ? ['dmsfantasy'] : joinedLeagues,
             adminLeagues: isFounder ? ['dmsfantasy'] : adminLeagues,

@@ -411,6 +411,33 @@ async function runMigration() {
   console.log(`- Power Rankings Editions: ${(compiledBundle.paradigms?.power_rankings?.archived_rankings?.length || 0) + 1}`);
   console.log(`- Rivalry Pairs: ${compiledBundle.paradigms?.rivalries?.length || 0}`);
 
+  // Preserve existing claims, users directory, and custom settings before saving
+  try {
+    const existingClaimsRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/claims.json`);
+    if (existingClaimsRes.ok) {
+      const existingClaims = await existingClaimsRes.json();
+      if (existingClaims && Object.keys(existingClaims).length > 0) {
+        compiledBundle.claims = existingClaims;
+      }
+    }
+    const existingUsersRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/users.json`);
+    if (existingUsersRes.ok) {
+      const existingUsers = await existingUsersRes.json();
+      if (existingUsers && Object.keys(existingUsers).length > 0) {
+        compiledBundle.users = existingUsers;
+      }
+    }
+    const existingSettingsRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/league_settings.json`);
+    if (existingSettingsRes.ok) {
+      const existingSettings = await existingSettingsRes.json();
+      if (existingSettings) {
+        compiledBundle.league_settings = { ...(compiledBundle.league_settings || {}), ...existingSettings };
+      }
+    }
+  } catch (presErr) {
+    console.warn('Could not preserve existing claims/users:', presErr);
+  }
+
   // Push to Firebase RTDB
   console.log(`\nSaving to Firebase RTDB (/leagues/dmsfantasy)...`);
   await saveToFirebase('leagues/dmsfantasy', compiledBundle);

@@ -6667,7 +6667,398 @@ dialog.notes-modal-dialog::backdrop {
     color: var(--text-secondary);
 }
 
+/* ==========================================================================
+   Landon Prospective Index (LPI) - Pre-Draft Predictive Framework Styles
+   ========================================================================== */
 
+.pick-val-badge.lpi-projected {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.2;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    white-space: nowrap;
+}
 
+.lpi-container {
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
 
+.lpi-view-header {
+    margin-bottom: 0.5rem;
+}
 
+.lpi-diag-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.lpi-diag-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.lpi-diag-card:hover {
+    border-color: var(--accent-blue, #2563eb);
+    transform: translateY(-1px);
+}
+
+.lpi-diag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lpi-diag-pos {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.lpi-diag-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--accent-blue, #2563eb);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    text-transform: uppercase;
+}
+
+.lpi-diag-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.lpi-diag-val {
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.lpi-diag-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-color);
+    padding-top: 6px;
+    margin-top: 2px;
+}
+
+/* Pick Simulator / Prospective Grade Calculator */
+.lpi-calc-card {
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(37, 99, 235, 0.04) 100%);
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.lpi-calc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(37, 99, 235, 0.15);
+    padding-bottom: 10px;
+}
+
+.lpi-calc-title {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.lpi-calc-tagline {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 2px 0 0 0;
+}
+
+.lpi-calc-grid {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr 1fr 1fr;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 16px;
+}
+
+.lpi-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lpi-input-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.lpi-input-field {
+    background: var(--bg-main, #0f172a);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    padding: 8px 12px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.lpi-input-field:focus {
+    border-color: var(--accent-blue, #2563eb);
+}
+
+.lpi-result-banner {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr 1fr 1fr;
+    gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px 18px;
+    align-items: center;
+}
+
+.lpi-grade-showcase {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-right: 14px;
+    border-right: 1px solid var(--border-color);
+}
+
+.lpi-grade-num {
+    font-size: 2.2rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.lpi-grade-letter {
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.lpi-stat-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.lpi-stat-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.lpi-stat-val {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.lpi-stat-sub {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+/* Controls Bar */
+.lpi-controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.lpi-pos-filter-group {
+    display: inline-flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+}
+
+.lpi-pos-filter-btn {
+    background: transparent;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.lpi-pos-filter-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+}
+
+.lpi-pos-filter-btn.active {
+    background: var(--accent-blue, #2563eb);
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+}
+
+.lpi-search-input {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    min-width: 260px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.lpi-search-input:focus {
+    border-color: var(--accent-blue, #2563eb);
+}
+
+/* Rankings Table */
+.lpi-table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow-x: auto;
+    box-shadow: var(--shadow-sm);
+}
+
+.lpi-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    text-align: left;
+}
+
+.lpi-table th {
+    background: var(--bg-main, #0f172a);
+    padding: 10px 14px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.lpi-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.lpi-table tr:hover td {
+    background: var(--bg-card-hover);
+}
+
+.lpi-table tr:last-child td {
+    border-bottom: none;
+}
+
+.lpi-proj-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 800;
+    font-size: 0.86rem;
+}
+
+.lpi-status-pill {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+.lpi-status-pill.rookie {
+    background: rgba(168, 85, 247, 0.12);
+    color: #a855f7;
+    border-color: rgba(168, 85, 247, 0.3);
+}
+
+.lpi-status-pill.injury {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-sim-slot {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-sim-slot:hover {
+    background: var(--accent-blue, #2563eb);
+    color: #ffffff;
+    border-color: var(--accent-blue, #2563eb);
+}
+
+@media (max-width: 900px) {
+    .lpi-calc-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .lpi-result-banner {
+        grid-template-columns: 1fr 1fr;
+    }
+    .lpi-grade-showcase {
+        grid-column: span 2;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+    }
+}

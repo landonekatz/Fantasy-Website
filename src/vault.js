@@ -1221,14 +1221,15 @@ const matchupsData = bundleData.matchups || [];
             }
         }
 
-        // Load live settings, claims & registration state from Firebase RTDB
         this.claims = {};
+        this.users = {};
         if (this.leagueSlug) {
             try {
-                const [settingsSnap, claimsSnap, conventionSnap] = await Promise.all([
+                const [settingsSnap, claimsSnap, conventionSnap, leagueUsersSnap] = await Promise.all([
                     get(dbRef(database, `leagues/${this.leagueSlug}/league_settings`)).catch(() => null),
                     get(dbRef(database, `leagues/${this.leagueSlug}/claims`)).catch(() => null),
-                    get(dbRef(database, `leagues/${this.leagueSlug}/seasonLabelConvention`)).catch(() => null)
+                    get(dbRef(database, `leagues/${this.leagueSlug}/seasonLabelConvention`)).catch(() => null),
+                    get(dbRef(database, `leagues/${this.leagueSlug}/users`)).catch(() => null)
                 ]);
                 if (settingsSnap && settingsSnap.exists()) {
                     const liveSettings = settingsSnap.val() || {};
@@ -1248,6 +1249,9 @@ const matchupsData = bundleData.matchups || [];
                 }
                 if (claimsSnap && claimsSnap.exists()) {
                     this.claims = claimsSnap.val() || {};
+                }
+                if (leagueUsersSnap && leagueUsersSnap.exists()) {
+                    this.users = leagueUsersSnap.val() || {};
                 }
                 // Also scan users table to guarantee 100% complete claim records with registered emails
                 try {
@@ -2988,8 +2992,11 @@ const matchupsData = bundleData.matchups || [];
                 (m.espn_ids && m.espn_ids.map(id => this.claims[id]).find(Boolean)) ||
                 Object.values(this.claims).find(c => c.managerId === m.id || (m.espn_id && c.managerId === m.espn_id) || (m.espn_ids && m.espn_ids.includes(c.managerId)))
             ) : null;
-            const claimEmail = claim ? (claim.email || claim.name || 'Claimed') : '';
-            const isClaimed = Boolean(claim);
+            const leagueUser = (claim?.userId && this.users?.[claim.userId])
+                ? this.users[claim.userId]
+                : (this.users ? Object.values(this.users).find(u => u.managerId === m.id || (m.espn_id && u.managerId === m.espn_id) || (m.espn_ids && m.espn_ids.includes(u.managerId))) : null);
+            const claimEmail = claim ? (claim.email || leagueUser?.email || claim.name || 'Claimed') : (leagueUser?.email || '');
+            const isClaimed = Boolean(claim || leagueUser);
 
             return `
                 <tr data-manager-id="${m.id}">
