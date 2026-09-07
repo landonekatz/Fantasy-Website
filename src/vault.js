@@ -2415,17 +2415,24 @@ const matchupsData = bundleData.matchups || [];
                     });
 
                 } else {
-                    // ESPN greedy matching via lineup_slot_id or position
+                    // ESPN greedy matching via lineup_slot_id or position.
+                    // IMPORTANT: Old Sleeper data cached in Firebase has lineup_slot_id=0 for every player
+                    // (because the compiler defaulted to 0 when no slot ID existed). This caused the
+                    // first starter to always be assigned to QB (lineup_slot_id 0 = ESPN QB slot).
+                    // Detect this: if ALL starters have lineup_slot_id===0, suppress slot-ID tests
+                    // and match solely on player position.
+                    const allSlotsZero = starters.length > 0 && starters.every(p => (p.lineup_slot_id === 0 || p.lineup_slot_id == null || p.lineup_slot_id === -1));
+
                     const STANDARD_SLOTS = [
-                        { label: 'QB', test: p => p.lineup_slot_id === 0 || p.roster_slot === 'QB' || (!p.roster_slot && p.position === 'QB') },
-                        { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
-                        { label: 'RB', test: p => p.lineup_slot_id === 2 || p.roster_slot === 'RB' || (!p.roster_slot && p.position === 'RB') },
-                        { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
-                        { label: 'WR', test: p => p.lineup_slot_id === 4 || p.roster_slot === 'WR' || (!p.roster_slot && p.position === 'WR') },
-                        { label: 'TE', test: p => p.lineup_slot_id === 6 || p.roster_slot === 'TE' || (!p.roster_slot && p.position === 'TE') },
-                        { label: 'FLEX', test: p => p.lineup_slot_id === 23 || ['W/R/T', 'FLEX', 'W/R'].includes(p.roster_slot) || ['RB', 'WR', 'TE'].includes(p.roster_slot || p.position) },
-                        { label: 'K', test: p => p.lineup_slot_id === 17 || p.roster_slot === 'K' || p.position === 'K' },
-                        { label: 'DEF', test: p => p.lineup_slot_id === 16 || ['DEF', 'D/ST'].includes(p.roster_slot) || ['DEF', 'D/ST'].includes(p.position) }
+                        { label: 'QB',   test: p => (!allSlotsZero && p.lineup_slot_id === 0)  || p.roster_slot === 'QB'   || (!p.roster_slot && p.position === 'QB') },
+                        { label: 'RB',   test: p => (!allSlotsZero && p.lineup_slot_id === 2)  || p.roster_slot === 'RB'   || (!p.roster_slot && p.position === 'RB') },
+                        { label: 'RB',   test: p => (!allSlotsZero && p.lineup_slot_id === 2)  || p.roster_slot === 'RB'   || (!p.roster_slot && p.position === 'RB') },
+                        { label: 'WR',   test: p => (!allSlotsZero && p.lineup_slot_id === 4)  || p.roster_slot === 'WR'   || (!p.roster_slot && p.position === 'WR') },
+                        { label: 'WR',   test: p => (!allSlotsZero && p.lineup_slot_id === 4)  || p.roster_slot === 'WR'   || (!p.roster_slot && p.position === 'WR') },
+                        { label: 'TE',   test: p => (!allSlotsZero && p.lineup_slot_id === 6)  || p.roster_slot === 'TE'   || (!p.roster_slot && p.position === 'TE') },
+                        { label: 'FLEX', test: p => (!allSlotsZero && p.lineup_slot_id === 23) || ['W/R/T', 'FLEX', 'W/R'].includes(p.roster_slot) || (!p.roster_slot && ['RB', 'WR', 'TE'].includes(p.position)) },
+                        { label: 'K',    test: p => (!allSlotsZero && p.lineup_slot_id === 17) || p.roster_slot === 'K'    || p.position === 'K' },
+                        { label: 'DEF',  test: p => (!allSlotsZero && p.lineup_slot_id === 16) || ['DEF', 'D/ST'].includes(p.roster_slot) || ['DEF', 'D/ST'].includes(p.position) }
                     ];
 
                     const remainingStarters = [...starters];

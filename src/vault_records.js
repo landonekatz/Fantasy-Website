@@ -453,6 +453,15 @@ Object.assign(TargetApp.prototype, {
         }).join('');
 
         // Championships List (Total Finals Wins)
+        // Pre-compute which years have actually been played (any team with wins/losses/points).
+        // This prevents phantom champions from pre-season Sleeper leagues already in the database.
+        const yearGamesPlayedMap = {};
+        for (const s of (this.standings || [])) {
+            const yr = Number(s.year || s.season);
+            if (!yearGamesPlayedMap[yr]) yearGamesPlayedMap[yr] = 0;
+            yearGamesPlayedMap[yr] += (Number(s.wins) || 0) + (Number(s.losses) || 0) + (Number(s.ties) || 0) + (Number(s.points_for) || 0);
+        }
+
         const champMap = {};
         let mostRecentChampYear = -1;
         let mostRecentChampManagerId = null;
@@ -461,6 +470,8 @@ Object.assign(TargetApp.prototype, {
             if (!this.filterSeasonByRule(s.year, filterObj)) continue;
             const mid = s.manager_id || s.id;
             if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
+            // Skip years where no games have been played (pre-season / future seasons)
+            if ((yearGamesPlayedMap[Number(s.year)] || 0) === 0) continue;
             if (s.final_rank === 1) {
                 if (!champMap[mid]) {
                     champMap[mid] = {

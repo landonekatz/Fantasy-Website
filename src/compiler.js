@@ -582,6 +582,9 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
              statLine = entry.rawStats || {};
              headshotUrl = entry.headshotUrl || '';
              injuryStatus = entry.injuryStatus || null;
+             // Sleeper/Yahoo entries don't have ESPN lineup_slot_id. Default to -1 (no slot)
+             // so the ESPN slot tests (e.g. lineup_slot_id === 0 = QB) never falsely match.
+             lineupSlotId = (entry.lineupSlotId !== undefined && entry.lineupSlotId !== null) ? entry.lineupSlotId : -1;
            } else {
              continue;
            }
