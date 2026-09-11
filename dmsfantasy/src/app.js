@@ -913,16 +913,20 @@ class FantasyApp {
 
         const m = (this.managers || []).find(mgr => {
             const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const alias = String(mgr.alias || '').toLowerCase().trim();
             const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
             const fullName = String(mgr.full_name || '').toLowerCase().trim();
             const dispName = String(mgr.display_name || '').toLowerCase().trim();
             const espnId = String(mgr.espn_id || '').toLowerCase().trim();
+            const pids = Array.isArray(mgr.platform_ids) ? mgr.platform_ids.map(p => String(p).toLowerCase().trim()) : [];
             return (id && (id === searchId || id === searchFallback)) ||
+                   (alias && (alias === searchId || alias === searchFallback)) ||
                    (name && (name === searchId || name === searchFallback)) ||
                    (fullName && (fullName === searchId || fullName === searchFallback)) ||
                    (dispName && (dispName === searchId || dispName === searchFallback)) ||
                    (espnId && (espnId === searchId || espnId === searchFallback)) ||
-                   ((searchId === 'ben' || searchId === 'benjamin') && (id === 'benjamin' || name === 'benjamin'));
+                   pids.includes(searchId) || pids.includes(searchFallback) ||
+                   ((searchId === 'ben' || searchId === 'benjamin') && (id === 'benjamin' || name === 'benjamin' || alias === 'benjamin'));
         });
 
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
@@ -943,7 +947,7 @@ class FantasyApp {
             nick = sessionNick;
         }
 
-        const baseName = m ? (m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
+        const baseName = m ? (m.alias || m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
 
         return formatManagerDisplayName(baseName, nick, allowNicknames);
     }
@@ -1136,10 +1140,18 @@ class FantasyApp {
         });
 
         const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab') || window.location.hash.replace(/^#/, '');
+        const cleanHash = window.location.hash.replace(/^#+/, '').split('#')[0].toLowerCase().trim();
+        const tabParam = urlParams.get('tab') || cleanHash;
         if (['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
             switchTab(tabParam);
         }
+
+        window.addEventListener('hashchange', () => {
+            const hashTab = window.location.hash.replace(/^#+/, '').split('#')[0].toLowerCase().trim();
+            if (hashTab && ['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(hashTab)) {
+                switchTab(hashTab);
+            }
+        });
     }
 
     renderParadigms() {

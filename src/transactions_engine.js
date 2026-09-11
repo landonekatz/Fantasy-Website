@@ -3310,24 +3310,12 @@ export class TransactionsEngine {
             </div>
 
             <!-- Top Level Sub-Views -->
-            <div id="tx-subview-trades" class="tx-subview" style="display: ${this.activeSubTab === 'trades' ? 'block' : 'none'};">
-                ${this.renderTradeMasterSection()}
-            </div>
-
-            <div id="tx-subview-overview" class="tx-subview" style="display: ${this.activeSubTab === 'overview' ? 'block' : 'none'};">
-                ${this.renderOverviewSection(ev)}
-            </div>
-
-            <div id="tx-subview-h2h" class="tx-subview" style="display: ${this.activeSubTab === 'h2h' ? 'block' : 'none'};">
-                ${this.renderH2HSection(ev)}
-            </div>
-
-            <div id="tx-subview-waivers" class="tx-subview" style="display: ${this.activeSubTab === 'waivers' ? 'block' : 'none'};">
-                ${this.renderWaiverWireSection(ev)}
-            </div>
-
-            <div id="tx-subview-feed" class="tx-subview" style="display: ${this.activeSubTab === 'feed' ? 'block' : 'none'};">
-                ${this.renderFeedSection(ev)}
+            <div id="tx-subview-content">
+                ${this.activeSubTab === 'trades' ? `<div id="tx-subview-trades" class="tx-subview">${this.renderTradeMasterSection()}</div>` : ''}
+                ${this.activeSubTab === 'overview' ? `<div id="tx-subview-overview" class="tx-subview">${this.renderOverviewSection(ev)}</div>` : ''}
+                ${this.activeSubTab === 'h2h' ? `<div id="tx-subview-h2h" class="tx-subview">${this.renderH2HSection(ev)}</div>` : ''}
+                ${this.activeSubTab === 'waivers' ? `<div id="tx-subview-waivers" class="tx-subview">${this.renderWaiverWireSection(ev)}</div>` : ''}
+                ${this.activeSubTab === 'feed' ? `<div id="tx-subview-feed" class="tx-subview">${this.renderFeedSection(ev)}</div>` : ''}
             </div>
         `;
 

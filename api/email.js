@@ -13,8 +13,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-
-  const { email, slug, joinCode, origin, to, subject, html } = req.body;
+  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+  const { email, slug, joinCode, origin, to, subject, html } = body;
 
   // Custom email dispatch (e.g. power rankings, draft grades, newsletters, sample templates)
   if ((to || email) && subject && html) {

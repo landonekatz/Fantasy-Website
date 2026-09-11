@@ -928,6 +928,20 @@ class FantasyApp {
         this.updateAdminTabVisibility();
         if (this.activeTab === 'draft') {
             this.renderDraft();
+        } else if (this.activeTab === 'newsletter') {
+            this.renderNewsletter();
+        } else if (this.activeTab === 'records') {
+            this.renderRecordBook();
+        } else if (this.activeTab === 'transactions') {
+            this.renderTransactions();
+        } else if (this.activeTab === 'h2h') {
+            this.renderH2H();
+        } else if (this.activeTab === 'rivalry') {
+            this.renderRivalryWeek();
+        } else if (this.activeTab === 'paradigms') {
+            this.renderParadigms();
+        } else if (this.activeTab === 'admin') {
+            this.renderAdminDashboard();
         }
 
         // Check for join code in URL params (e.g. ?join=CODE)
@@ -1143,10 +1157,55 @@ class FantasyApp {
             bundleData = this.precompiledBundle;
         } else {
             try {
-                const databaseRef = dbRef(database, `leagues/${slug}`);
-                const snapshot = await get(databaseRef);
-                if (snapshot.exists()) {
-                    bundleData = snapshot.val();
+                // Targeted fast fetch of essential UI nodes (under 1MB vs 19.1MB)
+                const coreKeys = [
+                    'league_settings', 'members', 'managers', 'league_standings',
+                    'matchups', 'draft_results', 'power_rankings', 'commissioner_notes',
+                    'paradigms', 'rivalries', 'claims', 'seasonLabelConvention',
+                    'seasons_metadata', 'scoring_settings', 'team_stats', 'credentials', 'sync_status'
+                ];
+                
+                const results = await Promise.all(coreKeys.map(k => 
+                    get(dbRef(database, `leagues/${slug}/${k}`)).then(s => s.exists() ? s.val() : null).catch(() => null)
+                ));
+
+                const dataMap = {};
+                coreKeys.forEach((k, i) => { dataMap[k] = results[i]; });
+
+                if (dataMap.league_settings || dataMap.members || dataMap.league_standings) {
+                    bundleData = dataMap;
+
+                    // Non-blocking background fetch for heavy datasets (weekly_player_stats 16MB + transactions 1MB)
+                    this.heavyDataPromise = Promise.all([
+                        get(dbRef(database, `leagues/${slug}/transactions`)).then(s => s.exists() ? s.val() : []).catch(() => []),
+                        get(dbRef(database, `leagues/${slug}/weekly_player_stats`)).then(s => s.exists() ? s.val() : []).catch(() => [])
+                    ]).then(([txs, stats]) => {
+                        this.transactions = txs || [];
+                        this.playerStats = stats || [];
+                        if (this.transactionsEngine) {
+                            this.transactionsEngine.setData({
+                                transactions: this.transactions,
+                                playerStats: this.playerStats,
+                                managers: this.managers,
+                                draftResults: this.draftResults,
+                                matchups: this.matchups,
+                                leagueSettings: this.leagueSettings,
+                                seasonsMetadata: this.seasonsMetadata,
+                                formatSeasonYear: (y) => this.formatSeasonYear(y)
+                            });
+                            this.transactionsEngine.render();
+                        }
+                        return { transactions: this.transactions, playerStats: this.playerStats };
+                    }).catch(err => {
+                        console.warn("Background fetch of heavy datasets completed with error:", err);
+                    });
+                } else {
+                    // Fallback to full league node if individual keys not found
+                    const databaseRef = dbRef(database, `leagues/${slug}`);
+                    const snapshot = await get(databaseRef);
+                    if (snapshot.exists()) {
+                        bundleData = snapshot.val();
+                    }
                 }
             } catch (err) {
                 console.error("Failed to load league data from database:", err);
@@ -1210,8 +1269,8 @@ class FantasyApp {
             return;
         }
 
-        const managersData = bundleData.members || [];
-const matchupsData = bundleData.matchups || [];
+        const managersData = bundleData.members || bundleData.managers || [];
+        const matchupsData = bundleData.matchups || [];
         const statsData = bundleData.weekly_player_stats || [];
         const standingsData = bundleData.league_standings || [];
         const transactionsData = bundleData.transactions || [];
@@ -1240,7 +1299,9 @@ const matchupsData = bundleData.matchups || [];
 
         if (managersData) {
             this.managersData = managersData;
-            const rawList = Array.isArray(managersData) ? managersData : (managersData.managers || []);
+            const rawList = Array.isArray(managersData) 
+                ? managersData 
+                : (managersData.managers || Object.values(managersData).filter(m => m && typeof m === 'object'));
             this.managers = rawList.map(m => {
                 const isRetired = (m.status && m.status.toLowerCase() === 'retired');
                 const rawName = m.name || m.display_name || m.full_name || m.manager_name;
@@ -1620,15 +1681,20 @@ const matchupsData = bundleData.matchups || [];
         const mList = (this.members && this.members.length > 0) ? this.members : (this.managers || []);
         const m = mList.find(mgr => {
             const id = String(mgr.id || mgr.manager_id || '').toLowerCase().trim();
+            const alias = String(mgr.alias || '').toLowerCase().trim();
             const name = String(mgr.name || mgr.manager_name || '').toLowerCase().trim();
             const fullName = String(mgr.full_name || '').toLowerCase().trim();
             const dispName = String(mgr.display_name || '').toLowerCase().trim();
             const espnId = String(mgr.espn_id || '').toLowerCase().trim();
+            const pids = Array.isArray(mgr.platform_ids) ? mgr.platform_ids.map(p => String(p).toLowerCase().trim()) : [];
             return (id && (id === searchId || id === searchFallback)) ||
+                   (alias && (alias === searchId || alias === searchFallback)) ||
                    (name && (name === searchId || name === searchFallback)) ||
                    (fullName && (fullName === searchId || fullName === searchFallback)) ||
                    (dispName && (dispName === searchId || dispName === searchFallback)) ||
-                   (espnId && (espnId === searchId || espnId === searchFallback));
+                   (espnId && (espnId === searchId || espnId === searchFallback)) ||
+                   pids.includes(searchId) || pids.includes(searchFallback) ||
+                   ((searchId === 'ben' || searchId === 'benjamin') && (id === 'benjamin' || name === 'benjamin' || alias === 'benjamin'));
         });
 
         const allowNicknames = this.leagueSettings?.allow_nicknames !== false;
@@ -1649,7 +1715,7 @@ const matchupsData = bundleData.matchups || [];
             nick = sessionNick;
         }
 
-        const baseName = m ? (m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
+        const baseName = m ? (m.alias || m.canonical_name || m.name || m.manager_name || m.display_name || m.full_name) : (fallbackName || managerId);
 
         return formatManagerDisplayName(baseName, nick, allowNicknames);
     }
@@ -1947,7 +2013,8 @@ const matchupsData = bundleData.matchups || [];
         });
 
         const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab') || window.location.hash.replace(/^#/, '');
+        const cleanHash = window.location.hash.replace(/^#+/, '').split('#')[0].toLowerCase().trim();
+        const tabParam = urlParams.get('tab') || cleanHash;
         let targetTab = tabParam;
         if (targetTab === 'rivalry') {
             const hasRivalry = Boolean(
@@ -1960,6 +2027,13 @@ const matchupsData = bundleData.matchups || [];
         if (['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(targetTab)) {
             switchTab(targetTab);
         }
+
+        window.addEventListener('hashchange', () => {
+            const hashTab = window.location.hash.replace(/^#+/, '').split('#')[0].toLowerCase().trim();
+            if (hashTab && ['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(hashTab)) {
+                switchTab(hashTab);
+            }
+        });
     }
 
     async renderNewsletter() {
@@ -2011,6 +2085,7 @@ const matchupsData = bundleData.matchups || [];
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: this.leagueSettings,
+                leagueSlug: this.leagueSlug,
                 seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: this.scoringSettings
             });
@@ -2022,6 +2097,7 @@ const matchupsData = bundleData.matchups || [];
                 transactions: this.transactions,
                 managers: this.managers,
                 leagueSettings: this.leagueSettings,
+                leagueSlug: this.leagueSlug,
                 seasonLabelConvention: this.seasonLabelConvention,
                 scoringSettings: this.scoringSettings
             });
@@ -2030,11 +2106,24 @@ const matchupsData = bundleData.matchups || [];
     }
 
     async renderTransactions() {
+        const container = document.getElementById('view-transactions');
+        if ((!this.transactions || this.transactions.length === 0) && this.heavyDataPromise) {
+            if (container) {
+                container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 360px; gap: 1rem;">
+                        <div class="vault-spinner" style="width: 42px; height: 42px; border: 3px solid rgba(212, 175, 55, 0.2); border-top-color: #d4af37; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                        <div style="color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.02em;">Loading League Transaction History...</div>
+                    </div>
+                `;
+            }
+            await this.heavyDataPromise;
+        }
+
         if (!this.transactionsEngine) {
             this.transactionsEngine = new TransactionsEngine({
                 containerId: 'view-transactions',
-                transactions: this.transactions,
-                playerStats: this.playerStats,
+                transactions: this.transactions || [],
+                playerStats: this.playerStats || [],
                 managers: this.managers,
                 draftResults: this.draftResults,
                 matchups: this.matchups,
@@ -2044,8 +2133,8 @@ const matchupsData = bundleData.matchups || [];
             });
         } else {
             this.transactionsEngine.setData({
-                transactions: this.transactions,
-                playerStats: this.playerStats,
+                transactions: this.transactions || [],
+                playerStats: this.playerStats || [],
                 managers: this.managers,
                 draftResults: this.draftResults,
                 matchups: this.matchups,
@@ -2942,7 +3031,7 @@ const matchupsData = bundleData.matchups || [];
                         <p>Only my wars with him: he is a lion</p>
                         <p>That I am proud to hunt.</p>
                     </blockquote>
-                    <div class="dungeon-quote-credit">— William Shakespeare, <em>Coriolanus</em></div>
+                    <div class="dungeon-quote-credit">, as William Shakespeare, <em>Coriolanus</em></div>
                     <p class="dungeon-subtitle">
                         Every manager is bound to an eternal rival. Contested annually during the week of Thanksgiving, where rivalry records are carved in stone forever.
                     </p>

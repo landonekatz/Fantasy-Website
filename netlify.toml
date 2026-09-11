@@ -21,15 +21,15 @@
   status = 301
   force = true
 
-# Route Dumbarton League HQ
+# Route Dumbarton League HQ (Vault League)
 [[redirects]]
   from = "/dmsfantasy"
-  to = "/dmsfantasy/index.html"
+  to = "/vault.html"
   status = 200
 
 [[redirects]]
   from = "/dmsfantasy/*"
-  to = "/dmsfantasy/index.html"
+  to = "/vault.html"
   status = 200
 
 # API endpoints

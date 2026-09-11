@@ -842,6 +842,8 @@ onAuthStateChanged(auth, async (user) => {
       uid: user.uid,
       email: user.email,
       name: formatCapitalizedName(currentSession?.name || user.displayName, user.email),
+      photoURL: user.photoURL || currentSession?.photoURL || '',
+      avatar: user.photoURL || currentSession?.avatar || '',
       isFounder: isFounder,
       joinedLeagues: joinedLeagues,
       adminLeagues: isFounder ? ['dmsfantasy', ...adminLeagues] : adminLeagues,

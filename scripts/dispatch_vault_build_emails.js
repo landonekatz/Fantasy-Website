@@ -16,6 +16,7 @@ import nodemailer from 'nodemailer';
 import { getDraftGradesTemplateA, getNewsletterTemplateC } from '../src/email_templates.js';
 import { lpiEngine } from '../src/lpi_engine.js';
 import { LDIEngine } from '../src/ldi_engine.js';
+import { NewsletterEngine } from '../src/newsletter_engine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,6 +66,8 @@ async function fetchJson(url) {
     }
 }
 
+import { VaultDraftEngine } from '../src/draft.js';
+
 export async function buildDispatchManifest() {
     console.log('Fetching users and leagues from The Fantasy Vault...');
     const [users, leaguesShallow] = await Promise.all([
@@ -76,114 +79,131 @@ export async function buildDispatchManifest() {
     const leagueDataMap = {};
 
     for (const slug of leagueSlugs) {
-        const [settings, draftResults, claims] = await Promise.all([
+        const [settings, draftResults, claims, managers, matchups, weeklyPlayerStats, transactions, standings, metadata] = await Promise.all([
             fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/league_settings.json`),
             fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/draft_results.json`),
-            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/claims.json`)
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/claims.json`),
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/managers.json`),
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/matchups.json`),
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/weekly_player_stats.json`),
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/transactions.json`),
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/league_standings.json`),
+            fetchJson(`${FIREBASE_DB_URL}/leagues/${slug}/seasons_metadata.json`)
         ]);
 
         const leagueName = settings?.name || (slug === 'dmsfantasy' ? 'The Dumbarton Fantasy Football League' : slug);
-        const firstYear = Number(settings?.firstYear || 2018);
-        const volume = (slug === 'dmsfantasy') ? 9 : Math.max(1, 2026 - firstYear + 1);
+        const convention = (slug === 'dmsfantasy') ? 'kickoff' : (settings?.seasonLabelConvention || 'kickoff');
 
-        // Compute 2026 draft rollups
-        const allPicks = Array.isArray(draftResults) ? draftResults : Object.values(draftResults || {});
-        const picks2026 = allPicks.filter(p => (Number(p.season) === 2026 || Number(p.year) === 2026));
+        const allDraft = Array.isArray(draftResults) ? draftResults : Object.values(draftResults || {});
+        const mgrList = Array.isArray(managers) ? managers : (managers?.managers || Object.values(managers || {}));
 
-        const posCounters = {};
-        picks2026.forEach(p => {
-            const pos = (p.position || '').toUpperCase();
-            posCounters[pos] = (posCounters[pos] || 0) + 1;
-            p.positionRank = posCounters[pos];
+        // Instantiate VaultDraftEngine for 100% parity with live website prospective draft room
+        const engine = new VaultDraftEngine({
+            containerId: 'dummy',
+            draftResults: allDraft,
+            weeklyPlayerStats: [], // Evaluates prospective pre-season draft audit
+            matchups: [],
+            transactions: Array.isArray(transactions) ? transactions : Object.values(transactions || {}),
+            managers: mgrList,
+            leagueSettings: {
+                ...(settings || {}),
+                name: leagueName,
+                seasonLabelConvention: convention
+            }
         });
 
-        const mgrPicksMap = {};
-        for (const p of picks2026) {
-            const mId = String(p.manager_id || p.managerId || p.team_id || p.teamId || '');
-            if (!mId) continue;
-            if (!mgrPicksMap[mId]) {
-                mgrPicksMap[mId] = {
-                    managerId: mId,
-                    managerName: cleanText(p.manager_name || mId),
-                    teamName: cleanText(p.team_name || `${p.manager_name || mId}'s Team`),
-                    picks: []
-                };
-            }
-            mgrPicksMap[mId].picks.push(p);
-        }
+        // Resolve latest draft season (e.g. 2027 raw in DMS which displays as 2026, 2026 in others)
+        const latestSeason = engine.seasons[0] || 2026;
+        const seasonDisplayYear = Number(engine.formatSeasonYear(latestSeason)) || latestSeason;
+        const firstYear = Number(settings?.firstYear || 2018);
+        const volume = (slug === 'dmsfantasy') ? 9 : Math.max(1, seasonDisplayYear - firstYear + 1);
 
-        const numTeams = Math.max(8, Object.keys(mgrPicksMap).length);
-        const draftLeaderboard = Object.values(mgrPicksMap).map(mObj => {
+        const analytics = engine.computeSeasonAnalytics(latestSeason);
+        const draftLeaderboard = analytics.managerLeaderboard || [];
+
+        const draftGradeLookup = new Map();
+        draftLeaderboard.forEach((m, idx) => {
+            m.rank = idx + 1;
+            m.score = m.draftIndex;
+            m.grade = m.gradeInfo?.grade || 'B';
+
             let bestPick = null;
             let maxResidual = -999;
-            const scoredPicks = mObj.picks.map(p => {
+            (m.picks || []).forEach(p => {
                 const res = lpiEngine.computeProspectiveGrade({
-                    playerName: p.player_name || p.playerName,
+                    playerName: p.playerName || p.player_name,
                     position: p.position,
-                    positionalDraftRank: p.positionRank,
-                    overallPickNumber: p.overall_pick || p.overallPick,
-                    numTeams
+                    positionalDraftRank: p.positionRank, // 100% exact parity with engine baseline
+                    overallPickNumber: p.overallPick || p.overall_pick,
+                    numTeams: draftLeaderboard.length || 12
                 });
                 if (res && res.isEligible && typeof res.prospectiveGrade === 'number') {
                     if (res.residual > maxResidual) {
                         maxResidual = res.residual;
-                        bestPick = `${p.player_name || p.playerName} (Round ${p.round || 1}, Pick ${p.overall_pick || p.overallPick})`;
+                        bestPick = `${p.playerName || p.player_name} (Round ${p.round || 1}, Pick ${p.overallPick || p.overall_pick})`;
                     }
-                    return res;
                 }
-                return null;
-            }).filter(Boolean);
+            });
+            m.bestPick = bestPick || `${m.picks[0]?.playerName || 'Top Pick'} (Round 1)`;
+            m.ldiValue = `${maxResidual >= 0 ? '+' : ''}${maxResidual.toFixed(1)} LDI Surplus`;
 
-            const meanGrade = scoredPicks.length > 0
-                ? Math.round(scoredPicks.reduce((s, x) => s + x.prospectiveGrade, 0) / scoredPicks.length)
-                : 76;
-            const gradeInfo = LDIEngine.getScoreGrade(meanGrade);
-            const totalSurplus = scoredPicks.reduce((s, x) => s + (x.residual || 0), 0);
-
-            return {
-                managerId: mObj.managerId,
-                managerName: mObj.managerName,
-                teamName: mObj.teamName,
-                grade: gradeInfo.grade,
-                score: meanGrade,
-                bestPick: bestPick || `${mObj.picks[0]?.player_name || 'Top Pick'} (Round 1)`,
-                ldiValue: `${totalSurplus >= 0 ? '+' : ''}${totalSurplus.toFixed(1)} LDI Surplus`
-            };
-        });
-
-        draftLeaderboard.sort((a, b) => b.score - a.score);
-        draftLeaderboard.forEach((r, idx) => { r.rank = idx + 1; });
-
-        const draftGradeLookup = new Map();
-        draftLeaderboard.forEach(r => {
-            draftGradeLookup.set(r.managerId, r);
-            draftGradeLookup.set(r.managerId.toLowerCase(), r);
-            draftGradeLookup.set(r.managerName.toLowerCase(), r);
+            draftGradeLookup.set(m.managerId, m);
+            draftGradeLookup.set(String(m.managerId).toLowerCase(), m);
+            draftGradeLookup.set(String(m.managerName).toLowerCase(), m);
+            const cleanFirst = String(m.managerName).toLowerCase().split(' ')[0];
+            if (cleanFirst) draftGradeLookup.set(cleanFirst, m);
+            const cleanRawId = String(m.managerId).replace(/[{}]/g, '').toLowerCase();
+            if (cleanRawId) draftGradeLookup.set(cleanRawId, m);
         });
 
         // Newsletter editorial copy per league (honors custom newsletter title from admin dashboard, defaulting to 'The Weekly Gazette')
         const customTitle = settings?.newsletter_title || settings?.newsletter_name || settings?.newsletterTitle;
         const newsletterTitle = customTitle || 'The Weekly Gazette';
-        let leadHeadline = 'Opening Week Carnage: Underdogs Shake Up The Vault';
-        let leadSnippet = 'A wild opening week brought unexpected upsets, breakout waiver gems, and down-to-the-wire matchups, as several perennial title favorites fell in opening-day battles.';
 
-        if (slug === 'gaywoodfantasyfootball') {
-            leadHeadline = 'Opening Week Fallout: Perennial Contenders Tested Early';
-            leadSnippet = 'Historic point margins and nailbiter finishes headline the season debut, as managers scramble for early waiver leverage across the board.';
-        } else if (slug === 'lamarkablefantasy') {
-            leadHeadline = 'The 2026 Season Kickoff: Roster Battles Heat Up in Lamarkable';
-            leadSnippet = 'High-octane starting rosters clashed in Week 1, as breakout rookie performances and waiver claims shift the early conference hierarchy.';
-        } else if (slug === 'fbo') {
-            leadHeadline = 'Opening Week Debut: Championship Race Ignites in FBO';
-            leadSnippet = 'The stage is set as early season fireworks showcase powerhouse rosters battling for early regular season supremacy.';
-        } else if (slug === 'dmsfantasy') {
-            leadHeadline = 'Opening Week Carnage: Underdogs Shake Up The Vault';
-            leadSnippet = 'A wild opening week brought unexpected upsets, breakout waiver gems, and down-to-the-wire matchups, as several perennial title favorites fell in opening-day battles.';
+        let leadHeadline = 'Opening Week Kickoff: Powerhouse Rosters Collide';
+        let leadSnippet = 'The regular season battle lines are drawn as managers across the league chase opening week momentum, as early statement victories reshape expectations.';
+
+        try {
+            const allMatchups = Array.isArray(matchups) ? matchups : Object.values(matchups || {});
+            const allStandings = Array.isArray(standings) ? standings : Object.values(standings || {});
+            const allStats = Array.isArray(weeklyPlayerStats) ? weeklyPlayerStats : Object.values(weeklyPlayerStats || {});
+            const allTx = Array.isArray(transactions) ? transactions : Object.values(transactions || {});
+            const allMeta = Array.isArray(metadata) ? metadata : Object.values(metadata || {});
+
+            const newsletterEngine = new NewsletterEngine({
+                leagueId: slug,
+                matchups: allMatchups,
+                standings: allStandings,
+                playerStats: allStats,
+                transactions: allTx,
+                seasonsMetadata: allMeta,
+                managers: mgrList,
+                claims: claims || {},
+                leagueSettings: {
+                    ...(settings || {}),
+                    name: leagueName,
+                    seasonLabelConvention: convention,
+                    newsletterTitle: newsletterTitle
+                }
+            });
+
+            const edition = newsletterEngine.generateEdition(latestSeason, 1);
+            if (edition && edition.leadStory && edition.leadStory.headline) {
+                leadHeadline = cleanText(edition.leadStory.headline);
+                if (edition.leadStory.text) {
+                    const rawSnippet = cleanText(edition.leadStory.text);
+                    const match = rawSnippet.match(/^([^\.!?]+[\.!?]+(\s+[^\.!?]+[\.!?]+)?)/);
+                    leadSnippet = match ? match[1] : (rawSnippet.slice(0, 180) + '...');
+                }
+            }
+        } catch (e) {
+            console.warn(`[NewsletterEngine] Could not generate dynamic edition for /${slug}:`, e.message);
         }
 
         leagueDataMap[slug] = {
             slug,
             name: leagueName,
+            seasonDisplayYear,
             volume,
             newsletterTitle,
             leadHeadline,
@@ -197,99 +217,104 @@ export async function buildDispatchManifest() {
     // Now gather all user recipients
     const dispatchList = [];
     const seenUserLeagueKeys = new Set();
-    let userEntries = Object.entries(users || {});
-    if (userEntries.length === 0) {
-        console.log('Top-level users table restricted or empty. Gathering recipients from league claims...');
-        const synthUsers = {};
-        for (const [slug, lData] of Object.entries(leagueDataMap)) {
-            for (const [mId, c] of Object.entries(lData.claims || {})) {
-                if (c && c.email && c.email.includes('@')) {
-                    const uId = c.userId || `synth_${c.email}`;
-                    if (!synthUsers[uId]) {
-                        synthUsers[uId] = {
-                            email: c.email,
-                            name: c.managerName || c.name || '',
-                            claims: {}
-                        };
-                    }
-                    synthUsers[uId].claims[slug] = { managerId: mId, managerName: c.managerName || c.name };
-                }
-            }
-        }
-        userEntries = Object.entries(synthUsers);
-    }
+    const recipientPairs = [];
 
-    for (const [uid, user] of userEntries) {
+    // From users table:
+    for (const [uid, user] of Object.entries(users || {})) {
         if (!user.email || !user.email.includes('@')) continue;
         const claims = user.claims || {};
-
         for (const [leagueSlug, claim] of Object.entries(claims)) {
-            const lData = leagueDataMap[leagueSlug];
-            if (!lData) continue;
-
-            const userKey = `${user.email.toLowerCase()}_${leagueSlug}`;
-            if (seenUserLeagueKeys.has(userKey)) continue;
-            seenUserLeagueKeys.add(userKey);
-
-            const mId = claim.managerId || claim.id || '';
-            const mGrade = lData.draftGradeLookup.get(mId) || 
-                           lData.draftGradeLookup.get(String(mId).toLowerCase()) || 
-                           lData.draftGradeLookup.get(String(claim.managerName || '').toLowerCase()) || 
-                           lData.draftLeaderboard[0] || {
-                               grade: 'B',
-                               score: 78,
-                               rank: 3,
-                               bestPick: 'Round 1 Selection',
-                               ldiValue: '+5.4 LDI Surplus',
-                               teamName: `${user.name}'s Squad`
-                           };
-
-            const cleanMgrName = cleanText(user.name || claim.managerName || 'Manager');
-            const cleanTeamName = cleanText(mGrade.teamName || `${cleanMgrName}'s Team`);
-            const leagueUrl = `https://thefantasyvault.com/${leagueSlug}`;
-
-            // 1. Weekly Newsletter Email
-            const newsletterHtml = getNewsletterTemplateC({
-                leagueName: lData.name,
-                newsletterTitle: lData.newsletterTitle,
-                weekNum: 1,
-                seasonYear: 2026,
-                leadHeadline: lData.leadHeadline,
-                leadSnippet: lData.leadSnippet,
-                leagueUrl: `${leagueUrl}#newsletter`
-            });
-
-            dispatchList.push({
-                type: 'newsletter',
+            recipientPairs.push({
+                email: user.email.trim(),
+                user,
                 leagueSlug,
-                to: user.email,
-                subject: `${lData.newsletterTitle}: Week 1 (Vol. ${lData.volume} • Issue 1)`,
-                html: newsletterHtml
-            });
-
-            // 2. Draft Audit & Grades Email
-            const draftHtml = getDraftGradesTemplateA({
-                leagueName: lData.name,
-                managerName: cleanMgrName,
-                teamName: cleanTeamName,
-                seasonYear: 2026,
-                grade: mGrade.grade,
-                score: mGrade.score,
-                bestPick: mGrade.bestPick,
-                draftRank: mGrade.rank,
-                totalTeams: lData.draftLeaderboard.length || 12,
-                ldiValue: mGrade.ldiValue,
-                leagueUrl: `${leagueUrl}#draft`
-            });
-
-            dispatchList.push({
-                type: 'draft_grades',
-                leagueSlug,
-                to: user.email,
-                subject: `${lData.name}: 2026 Draft Audit - Your Grade is Finalized (${mGrade.grade})`,
-                html: draftHtml
+                claim: claim || {},
+                claimKey: claim.managerId || claim.id || ''
             });
         }
+    }
+
+    // From league claims table (ensuring no claimed manager is missed):
+    for (const [slug, lData] of Object.entries(leagueDataMap)) {
+        for (const [mId, c] of Object.entries(lData.claims || {})) {
+            if (c && c.email && c.email.includes('@')) {
+                recipientPairs.push({
+                    email: c.email.trim(),
+                    user: { name: c.name || c.managerName || '' },
+                    leagueSlug: slug,
+                    claim: c,
+                    claimKey: mId
+                });
+            }
+        }
+    }
+
+    for (const { email, user, leagueSlug, claim, claimKey } of recipientPairs) {
+        const lData = leagueDataMap[leagueSlug];
+        if (!lData) continue;
+
+        const userKey = `${email.toLowerCase()}_${leagueSlug}`;
+        if (seenUserLeagueKeys.has(userKey)) continue;
+        seenUserLeagueKeys.add(userKey);
+
+        const mId = claim.managerId || claim.id || claimKey || '';
+        const cleanClaimName = String(claim.managerName || claim.name || '').toLowerCase();
+        const cleanFirst = cleanClaimName.split(/[\s@._-]+/)[0];
+        const cleanRawId = String(mId).replace(/[{}]/g, '').toLowerCase();
+
+        const mGrade = lData.draftGradeLookup.get(mId) || 
+                       lData.draftGradeLookup.get(String(mId).toLowerCase()) || 
+                       lData.draftGradeLookup.get(cleanRawId) ||
+                       lData.draftGradeLookup.get(cleanClaimName) || 
+                       lData.draftGradeLookup.get(cleanFirst) || 
+                       lData.draftLeaderboard[0];
+
+        // Strict manager name single source of truth: use admin-defined alias
+        const cleanMgrName = cleanText(mGrade.managerName || claim.managerName || user.name || 'Manager');
+        const cleanTeamName = cleanText(mGrade.teamName || `${cleanMgrName}'s Team`);
+        const leagueUrl = `https://thefantasyvault.com/vault.html?league=${leagueSlug}`;
+
+        // 1. Weekly Newsletter Email
+        const newsletterHtml = getNewsletterTemplateC({
+            leagueName: lData.name,
+            newsletterTitle: lData.newsletterTitle,
+            weekNum: 1,
+            seasonYear: lData.seasonDisplayYear,
+            leadHeadline: lData.leadHeadline,
+            leadSnippet: lData.leadSnippet,
+            leagueUrl: leagueUrl
+        });
+
+        dispatchList.push({
+            type: 'newsletter',
+            leagueSlug,
+            to: email,
+            subject: `CORRECTION: ${lData.newsletterTitle}: Week 1 (Vol. ${lData.volume} • Issue 1)`,
+            html: newsletterHtml
+        });
+
+        // 2. Draft Audit & Grades Email
+        const draftHtml = getDraftGradesTemplateA({
+            leagueName: lData.name,
+            managerName: cleanMgrName,
+            teamName: cleanTeamName,
+            seasonYear: lData.seasonDisplayYear,
+            grade: mGrade.grade,
+            score: mGrade.score,
+            bestPick: mGrade.bestPick,
+            draftRank: mGrade.rank,
+            totalTeams: lData.draftLeaderboard.length || 12,
+            ldiValue: mGrade.ldiValue,
+            leagueUrl: leagueUrl
+        });
+
+        dispatchList.push({
+            type: 'draft_grades',
+            leagueSlug,
+            to: email,
+            subject: `CORRECTION: ${lData.name}: ${lData.seasonDisplayYear} Draft Audit - Your Grade is Finalized (${mGrade.grade})`,
+            html: draftHtml
+        });
     }
 
     return dispatchList;
@@ -346,13 +371,16 @@ async function main() {
 
     // Attempt Vercel API endpoint with retry / watch support
     console.log('\nDispatching via Vercel endpoint (https://fantasyvault.vercel.app/api/email)...');
-    const maxAttempts = isWatch ? 12 : 1;
+    const maxAttempts = isWatch ? 30 : 1;
+    const sentIds = new Set();
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        let successCount = 0;
         let requiresRedeploy = false;
 
         for (const e of emails) {
+            const emailId = `${e.leagueSlug}:${e.type}:${e.to}`;
+            if (sentIds.has(emailId)) continue;
+
             try {
                 const resp = await fetch('https://fantasyvault.vercel.app/api/email', {
                     method: 'POST',
@@ -364,11 +392,21 @@ async function main() {
                         html: e.html
                     })
                 });
-                const data = await resp.json();
+
+                let data = {};
+                try {
+                    data = await resp.json();
+                } catch (_) {
+                    data = { error: 'Non-JSON response from endpoint' };
+                }
+
                 if (resp.ok && data.success) {
-                    successCount++;
-                    console.log(`[OK] (${successCount}/${emails.length}) Dispatched ${e.type} to ${e.to} [${e.leagueSlug}]`);
+                    sentIds.add(emailId);
+                    console.log(`[OK] (${sentIds.size}/${emails.length}) Dispatched ${e.type} to ${e.to} [${e.leagueSlug}]`);
                 } else if (resp.status === 400 && data.error && data.error.includes('Missing email, slug')) {
+                    requiresRedeploy = true;
+                    break;
+                } else if (resp.status >= 500 || resp.status === 404) {
                     requiresRedeploy = true;
                     break;
                 } else {
@@ -376,16 +414,18 @@ async function main() {
                 }
             } catch (err) {
                 console.error(`[FAIL] Request error for ${e.to}:`, err.message);
+                requiresRedeploy = true;
+                break;
             }
         }
 
-        if (successCount === emails.length) {
-            console.log(`\n[SUCCESS] All ${successCount} emails successfully delivered to Fantasy Vault managers!`);
+        if (sentIds.size === emails.length) {
+            console.log(`\n[SUCCESS] All ${sentIds.size} emails successfully delivered to Fantasy Vault managers!`);
             return;
         }
 
-        if (requiresRedeploy && isWatch && attempt < maxAttempts) {
-            console.log(`[WAIT] Vercel build still deploying (attempt ${attempt}/${maxAttempts}). Retrying in 10s...`);
+        if ((requiresRedeploy || sentIds.size < emails.length) && isWatch && attempt < maxAttempts) {
+            console.log(`[WAIT] Vercel deploy in progress (attempt ${attempt}/${maxAttempts}, dispatched ${sentIds.size}/${emails.length}). Retrying in 10s...`);
             await new Promise(r => setTimeout(r, 10000));
         } else if (requiresRedeploy && !isWatch) {
             console.log(`\n[NOTICE] The live Vercel server is currently running the prior commit.`);

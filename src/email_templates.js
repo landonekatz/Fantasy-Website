@@ -17,6 +17,7 @@
 
 // Shared base styles and light editorial shell
 function emailShell({ title, previewText, bodyContent, leagueName = 'The Dumbarton League', leagueUrl = 'https://thefantasyvault.com/dmsfantasy', topBorder = '3px double #0f172a' }) {
+    const cleanLeagueUrl = String(leagueUrl || '').replace(/#.*$/, '');
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,7 +51,7 @@ function emailShell({ title, previewText, bodyContent, leagueName = 'The Dumbart
                     <div style="font-family: 'Newsreader', Georgia, 'Times New Roman', serif; font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 2px; letter-spacing: -0.3px;">${leagueName}</div>
                   </td>
                   <td align="right" valign="middle">
-                    <a href="${leagueUrl}" style="display: inline-block; font-size: 11px; font-weight: 700; color: #0f172a; text-decoration: none; padding: 6px 12px; border-radius: 4px; background-color: #f8fafc; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px;">League HQ</a>
+                    <a href="${cleanLeagueUrl}" style="display: inline-block; font-size: 11px; font-weight: 700; color: #0f172a; text-decoration: none; padding: 6px 12px; border-radius: 4px; background-color: #f8fafc; border: 1px solid #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px;">League HQ</a>
                   </td>
                 </tr>
               </table>
@@ -71,7 +72,7 @@ function emailShell({ title, previewText, bodyContent, leagueName = 'The Dumbart
               <p style="font-size: 11px; color: #64748b; line-height: 1.5; margin: 0 0 10px 0;">
                 Automated league intelligence dispatch for registered managers.
               </p>
-              <a href="${leagueUrl}" style="font-size: 11px; color: #1d4ed8; text-decoration: none; font-weight: 700;">Open League Portal &rarr;</a>
+              <a href="${cleanLeagueUrl}" style="font-size: 11px; color: #1d4ed8; text-decoration: none; font-weight: 700;">Open League Portal &rarr;</a>
             </td>
           </tr>
 
@@ -345,7 +346,7 @@ export function getDraftGradesTemplateA({
       </div>
 
       <div style="text-align: center;">
-        <a href="${leagueUrl}#draft" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '')}#draft" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
           View Full Draft Board &amp; Analysis &rarr;
         </a>
       </div>
@@ -639,7 +640,7 @@ export function getNewsletterTemplateC({
 
       <!-- Clean CTA -->
       <div style="text-align: left; margin-bottom: 8px;">
-        <a href="${leagueUrl}#newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '')}#newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
           Read Full Newsletter &rarr;
         </a>
       </div>

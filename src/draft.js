@@ -148,6 +148,10 @@ export class VaultDraftEngine {
         if (Array.isArray(raw)) return raw;
         if (Array.isArray(raw.managers)) return raw.managers;
         if (Array.isArray(raw.members)) return raw.members;
+        if (typeof raw === 'object') {
+            const vals = Object.values(raw).filter(v => v && typeof v === 'object');
+            if (vals.length > 0) return vals;
+        }
         return [];
     }
 
@@ -286,7 +290,7 @@ export class VaultDraftEngine {
                                   m.isActive === false || 
                                   (m.status || '').toLowerCase() === 'retired' || 
                                   m.status_group === 'Retired Managers';
-                const baseName = m.canonical_name || m.name || m.manager_name || id;
+                const baseName = m.alias || m.canonical_name || m.name || m.manager_name || id;
                 const winAppClaims = typeof window !== 'undefined' ? window.app?.claims : undefined;
                 const nick = m.nickname || (this.claims && this.claims[id]?.nickname) || (winAppClaims && winAppClaims[id]?.nickname) || '';
                 const displayName = formatManagerDisplayName(baseName, nick, allowNicknames);
@@ -358,31 +362,31 @@ export class VaultDraftEngine {
         // 3. Claims in app instance
         const appClaims = (this.claims) || (window.app?.claims) || {};
         if (!targetId && appClaims) {
-            const foundClaim = Object.entries(appClaims).find(([mId, c]) => {
-                if (session.uid && c?.userId === session.uid) return true;
-                if (session.email && c?.email && c.email.toLowerCase() === session.email.toLowerCase()) return true;
+            const claimEntry = Object.entries(appClaims).find(([mId, c]) => {
+                if (c && c.userId === session.uid) return true;
+                if (c && c.email && session.email && c.email.toLowerCase() === session.email.toLowerCase()) return true;
                 return false;
             });
-            if (foundClaim) targetId = foundClaim[0];
+            if (claimEntry) targetId = claimEntry[0];
         }
 
-        // 4. Founder identity (Landon)
+        // 4. Founder identity fallback (Landon)
         const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
         if (!targetId && isFounder) {
             targetId = 'landon';
         }
 
-        // 5. Match against managerLeaderboard
         let matched = null;
         if (targetId) {
-            const cleanTarget = String(targetId).toLowerCase();
+            const cleanTargetId = String(targetId).toLowerCase();
             matched = managerLeaderboard.find(m => {
                 const mId = String(m.managerId || '').toLowerCase();
-                return mId === cleanTarget;
+                const mName = String(m.managerName || '').toLowerCase();
+                return mId === cleanTargetId || mName === cleanTargetId || (m.platform_ids && m.platform_ids.some(pid => String(pid).toLowerCase() === cleanTargetId));
             });
         }
 
-        // 6. Name match fallback
+        // 5. Name match fallback
         if (!matched && session.name) {
             const cleanName = session.name.trim().toLowerCase();
             matched = managerLeaderboard.find(m => {
@@ -391,7 +395,7 @@ export class VaultDraftEngine {
             });
         }
 
-        // 7. Founder fallback by name if targetId 'landon' was not matched directly
+        // 6. Founder name fallback if targetId 'landon' was not matched directly
         if (!matched && isFounder) {
             matched = managerLeaderboard.find(m => {
                 const name = String(m.managerName || '').toLowerCase();
@@ -406,12 +410,46 @@ export class VaultDraftEngine {
      * Resolve Manager Avatar URL with Graceful Fallbacks
      */
     getManagerAvatarUrl(managerId, fallbackName = '') {
-        const mgrs = Array.isArray(this.managers) ? this.managers : (this.managers?.managers || []);
+        let mgrs = Array.isArray(this.managers) ? this.managers : (this.managers?.managers || []);
+        if (!mgrs.length && typeof window !== 'undefined') {
+            mgrs = window.app?.managers || window.app?.members || window.FANTASY_DATA?.members || window.FANTASY_DATA?.managers || [];
+        }
         const cleanId = String(managerId || '').toLowerCase();
+        const cleanFallback = String(fallbackName || '').toLowerCase();
         const found = mgrs.find(m => String(m.id || m.manager_id || '').toLowerCase() === cleanId || 
-                                     String(m.name || m.canonical_name || '').toLowerCase() === String(fallbackName || '').toLowerCase());
+                                     String(m.alias || m.name || m.canonical_name || '').toLowerCase() === cleanFallback ||
+                                     (m.platform_ids && m.platform_ids.some(pid => String(pid).toLowerCase() === cleanId)));
 
         const session = typeof window !== 'undefined' && window.AuthEngine?.getSession ? window.AuthEngine.getSession() : null;
+        const appClaims = (this.claims) || (typeof window !== 'undefined' ? window.app?.claims : null) || {};
+        const userClaim = appClaims[cleanId] || (found ? appClaims[found.id] : null);
+
+        const isValidCustomAvatar = (url) => {
+            if (!url || typeof url !== 'string') return false;
+            const clean = url.trim().toLowerCase();
+            return clean && !clean.includes('default_user_profile_pic') && !clean.includes('nfl_1.png');
+        };
+
+        const candidates = [
+            found?.logo_url,
+            found?.avatar,
+            found?.avatar_url,
+            found?.photoURL,
+            userClaim?.avatar,
+            userClaim?.photoURL,
+            userClaim?.logo_url,
+            session?.photoURL,
+            session?.avatar
+        ];
+
+        for (const c of candidates) {
+            if (isValidCustomAvatar(c)) return c;
+        }
+
+        // Guaranteed authentic avatar for Landon if not resolved above
+        if (cleanId === 'landon' || cleanFallback.includes('landon')) {
+            return 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/f5d05065311484b29b90c8480db84f2b6ee5226325fb7dd446f369c6f93c5708.jpg';
+        }
 
         return found?.logo_url || found?.avatar || found?.avatar_url || session?.photoURL || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
     }
@@ -828,7 +866,13 @@ export class VaultDraftEngine {
             const nflTeam = pick.nfl_team || pick.nflTeam || '';
             const mgrId = pick.manager_id || pick.managerId || '';
             const mgrList = this.getManagerList();
-            const mgrName = pick.manager_name || pick.managerName || (mgrList.find(m => String(m.id).toLowerCase() === String(mgrId).toLowerCase())?.name || 'Manager');
+            const matchedMgr = mgrList.find(m => 
+                (mgrId && String(m.id).toLowerCase() === String(mgrId).toLowerCase()) ||
+                (mgrId && m.platform_ids && m.platform_ids.some(pid => String(pid).toLowerCase() === String(mgrId).toLowerCase())) ||
+                (pick.manager_name && String(m.name).toLowerCase() === String(pick.manager_name).toLowerCase()) ||
+                (pick.manager_name && String(m.baseName).toLowerCase() === String(pick.manager_name).toLowerCase())
+            );
+            const mgrName = matchedMgr?.name || pick.manager_name || pick.managerName || 'Manager';
             const teamName = pick.team_name || pick.teamName || mgrName;
 
             // Positional draft rank
@@ -1818,7 +1862,7 @@ export class VaultDraftEngine {
                             <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-left: 6px;">Slot #${slotIdx + 1}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            ${mRollup && !isUnplayed ? `<span class="draft-chip-score" style="color: ${mRollup.gradeInfo?.color || '#10b981'}; font-weight: 800;" title="LDI Draft Efficiency Grade">${mRollup.draftIndex} / 100 (${mRollup.gradeInfo?.grade || 'B'})</span>` : ''}
+                            ${mRollup && mRollup.draftIndex !== null ? `<span class="draft-chip-score" style="color: ${mRollup.gradeInfo?.color || '#10b981'}; font-weight: 800;" title="${isUnplayed ? 'LPI Prospective Pre-Draft Grade' : 'LDI Draft Efficiency Grade'}">${mRollup.draftIndex} / 100 (${mRollup.gradeInfo?.grade || 'B'})</span>` : ''}
                             <span class="round-pick-count">${mPicks.length} Picks</span>
                         </div>
                     </div>

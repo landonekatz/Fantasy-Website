@@ -333,6 +333,29 @@ async function syncLeague(slug) {
   const oldTransactions = existingTransactions.filter(t => !fetchedYearsSet.has(Number(t.year || t.season)));
   compiledPayload.transactions = [...(compiledPayload.transactions || []), ...oldTransactions];
 
+  // Preserve canonical members, aliases, and logos
+  const existingMembersMap = new Map();
+  (existingMembers || []).forEach(m => existingMembersMap.set(m.id, m));
+  (compiledPayload.members || []).forEach(m => {
+    if (existingMembersMap.has(m.id)) {
+      const orig = existingMembersMap.get(m.id);
+      existingMembersMap.set(m.id, {
+        ...orig,
+        ...m,
+        name: orig.alias || orig.name || m.name,
+        alias: orig.alias || m.alias || orig.name || m.name,
+        canonical_name: orig.alias || orig.name || m.name,
+        manager_name: orig.alias || orig.name || m.name,
+        logo_url: orig.logo_url || orig.avatar || m.logo_url || m.avatar || '',
+        avatar: orig.avatar || orig.logo_url || m.avatar || m.logo_url || ''
+      });
+    } else {
+      existingMembersMap.set(m.id, m);
+    }
+  });
+  compiledPayload.members = Array.from(existingMembersMap.values());
+  compiledPayload.managers = compiledPayload.members;
+
   compiledPayload.league_standings.sort((a, b) => (b.year || 0) - (a.year || 0) || (a.final_rank || 99) - (b.final_rank || 99));
 
   // Recalculate start and end years

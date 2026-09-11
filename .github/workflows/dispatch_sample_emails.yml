@@ -24,6 +24,8 @@ jobs:
       - name: Wait for Vercel Deploy & Dispatch Multi-League Emails
         env:
           FIREBASE_DATABASE_SECRET: ${{ secrets.FIREBASE_DATABASE_SECRET }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
         run: |
           echo "Starting multi-league email dispatch for all Fantasy Vault users..."
           node scripts/dispatch_vault_build_emails.js --watch
