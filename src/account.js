@@ -179,9 +179,17 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
         // If user already dismissed it during this specific page session, don't spam
         if (sessionStorage.getItem('vault_fav_team_prompt_dismissed') === 'true') return;
 
+        // If join flow or claim flow is active in URL or modal, avoid interrupting
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('join') || urlParams.has('manager') || sessionStorage.getItem('vault_pending_join_code')) return;
+        const accountModal = document.getElementById('account-modal');
+        if (accountModal && accountModal.open) return;
+
         // Slight delay to let page initialization complete
         setTimeout(() => {
             const cur = window.AuthEngine ? window.AuthEngine.getSession() : null;
+            const modalNow = document.getElementById('account-modal');
+            if (modalNow && modalNow.open) return;
             if (cur && cur.uid && (!cur.favorite_team || !cur.favorite_team.trim())) {
                 window.openFavoriteTeamPrompt(false);
             }
@@ -920,6 +928,7 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
                     </div>
 
                     <form id="claim-email-form">
+                        <input type="text" id="claim-input-name" class="admin-input" placeholder="Your Full Name (e.g. Will Lehmann)" style="width: 100%; margin-bottom: 0.75rem; box-sizing: border-box; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px;">
                         <input type="email" id="claim-input-email" class="admin-input" placeholder="Your Email Address" required style="width: 100%; margin-bottom: 0.75rem; box-sizing: border-box; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px;">
                         <input type="password" id="claim-input-password" class="admin-input" placeholder="Password" required style="width: 100%; margin-bottom: 1rem; box-sizing: border-box; padding: 0.6rem; border: 1px solid var(--border-line, #cbd5e1); border-radius: 4px;">
                         <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.65rem; font-weight: 600;">Sign In / Create Account &rarr;</button>
@@ -943,12 +952,13 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             document.getElementById('claim-email-form')?.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const fullName = document.getElementById('claim-input-name')?.value.trim() || '';
                 const em = document.getElementById('claim-input-email').value.trim();
                 const pw = document.getElementById('claim-input-password').value;
                 const btn = e.target.querySelector('button[type="submit"]');
                 if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
                 try {
-                    await window.AuthEngine.loginWithEmail(em, pw);
+                    await window.AuthEngine.loginWithEmail(em, pw, fullName);
                     window.startManagerClaimFlow(code, onSuccess);
                 } catch (err) {
                     if (btn) { btn.disabled = false; btn.textContent = 'Sign In / Create Account →'; }
@@ -1098,7 +1108,9 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
             const btn = e.target.querySelector('button[type="submit"]');
             if (btn) { btn.disabled = true; btn.textContent = 'Linking Profile...'; }
 
-            const finalRes = await window.AuthEngine.finalizeJoin(code, selected.value, favoriteTeam);
+            const targetMgr = (availableManagers || []).find(m => m.id === selected.value) || (managers || []).find(m => (m.id || m.manager_id) === selected.value);
+            const managerName = targetMgr?.canonical_name || targetMgr?.name || '';
+            const finalRes = await window.AuthEngine.finalizeJoin(code, selected.value, favoriteTeam, managerName);
             if (finalRes.success) {
                 if (typeof window.AuthEngine.recordActiveLeague === 'function') {
                     window.AuthEngine.recordActiveLeague(league.leagueId);

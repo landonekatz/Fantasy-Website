@@ -6,6 +6,8 @@ import { nflStats } from './nfl_stats.js';
 import { formatManagerDisplayName } from './formatters.js';
 import { CommissionerNotesEngine } from './commissioner_notes.js';
 import { PowerRankingsEngine } from './power_rankings.js';
+import { TransactionsEngine } from './transactions_engine.js';
+import { NewsletterEngine } from './newsletter_engine.js';
 export function getMatchupRoundLabel(m) {
     if (!m) return '';
     const gt = String(m.game_type || '').toLowerCase().trim();
@@ -15,6 +17,59 @@ export function getMatchupRoundLabel(m) {
     if (m.is_toilet_bowl || gt.includes('toilet') || pr.includes('toilet')) {
         return 'Toilet Bowl';
     }
+}
+
+export function isToiletBowlGame(g, standings = []) {
+    if (!g) return false;
+    const gt = String(g.game_type || '').toLowerCase();
+    const pr = String(g.playoff_round || '').toLowerCase();
+    const bn = String(g.bracket_name || '').toLowerCase();
+    const note = String(g.note || g.description || '').toLowerCase();
+    if (gt.includes('toilet') || gt.includes('sacko') || 
+        pr.includes('toilet') || pr.includes('sacko') || pr.includes('11th') || pr.includes('12th') ||
+        bn.includes('toilet') || bn.includes('sacko') ||
+        note.includes('toilet') || note.includes('sacko') ||
+        g.is_toilet_bowl) {
+        return true;
+    }
+    const wk = Number(g.week);
+    if (wk >= 14 && Array.isArray(standings) && standings.length >= 4) {
+        const yr = Number(g.season || g.year);
+        const yrStandings = standings.filter(s => Number(s.season || s.year) === yr).sort((a, b) => (Number(b.rank || 0)) - (Number(a.rank || 0)));
+        if (yrStandings.length >= 4) {
+            const m1 = String(g.team_1_manager_id || g.home_manager_id || '').toLowerCase();
+            const m2 = String(g.team_2_manager_id || g.away_manager_id || '').toLowerCase();
+            const lastMgr = String(yrStandings[0]?.manager_id || '').toLowerCase();
+            const secondLastMgr = String(yrStandings[1]?.manager_id || '').toLowerCase();
+            if ((m1 === lastMgr && m2 === secondLastMgr) || (m1 === secondLastMgr && m2 === lastMgr)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+export function isConsolationGame(g, standings = []) {
+    if (!g) return false;
+    if (isToiletBowlGame(g, standings)) return false;
+    const gt = String(g.game_type || '').toLowerCase();
+    const pr = String(g.playoff_round || '').toLowerCase();
+    const bn = String(g.bracket_name || '').toLowerCase();
+    if (g.is_consolation) return true;
+    if (gt === 'consolation' || gt.includes('consolation') || gt.includes('3rd')) return true;
+    if (pr.includes('consolation') || pr.includes('3rd') || pr.includes('5th') || pr.includes('7th') || pr.includes('9th')) return true;
+    if (bn.includes('consolation')) return true;
+    return false;
+}
+
+export function getToiletBowlGameInfo(g, standings = []) {
+    if (!isToiletBowlGame(g, standings)) return null;
+    const gt = String(g.game_type || '').toLowerCase();
+    const pr = String(g.playoff_round || '').toLowerCase();
+    if (pr.includes('semi') || gt.includes('semi')) {
+        return { type: 'semi', label: 'Toilet Bowl • Semifinal' };
+    }
+    return { type: 'final', label: 'Toilet Bowl • Final' };
 
     // 2. 3rd Place Consolation Game
     if (gt.includes('3rd') || pr.includes('3rd')) {
@@ -206,6 +261,7 @@ class FantasyApp {
         this.paradigms = {};
         this.db = null;
         this.notesEngine = null;
+        this.transactionsEngine = null;
     }
 
     isRawChampionshipYearBasis() {
@@ -564,6 +620,7 @@ class FantasyApp {
 
                 <!-- Email & Password Form -->
                 <form id="guard-email-form" style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    <input type="text" id="guard-input-name" placeholder="Full Name (for new registrations)" style="width: 100%; padding: 0.65rem 0.8rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-size: 0.88rem; box-sizing: border-box;">
                     <input type="email" id="guard-input-email" placeholder="name@example.com" required style="width: 100%; padding: 0.65rem 0.8rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-size: 0.88rem; box-sizing: border-box;">
                     <input type="password" id="guard-input-pass" placeholder="Password" required style="width: 100%; padding: 0.65rem 0.8rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-size: 0.88rem; box-sizing: border-box;">
                     <button type="submit" style="width: 100%; padding: 0.7rem; background: #0f172a; color: #fff; font-weight: 700; border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer;">Sign In / Register</button>
@@ -624,11 +681,12 @@ class FantasyApp {
         if (emailForm) {
             emailForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const name = document.getElementById('guard-input-name')?.value.trim() || '';
                 const email = document.getElementById('guard-input-email')?.value.trim();
                 const pass = document.getElementById('guard-input-pass')?.value;
                 if (!email || !pass) return;
                 try {
-                    await window.AuthEngine.loginWithEmail(email, pass);
+                    await window.AuthEngine.loginWithEmail(email, pass, name);
                     await checkAndUnlock();
                 } catch (err) {
                     showError("Sign In failed: " + err.message);
@@ -865,6 +923,7 @@ class FantasyApp {
         if (founderBar) founderBar.remove();
         this.initPowerRankings();
         this.setupH2HControls();
+        this.renderAdminOnboardingPopover();
         this.renderH2H();
         this.updateAdminTabVisibility();
         if (this.activeTab === 'draft') {
@@ -892,6 +951,52 @@ class FantasyApp {
         if (bar) bar.remove();
     }
 
+    getDefaultScoringRules() {
+        return {
+            "Passing": [
+                { name: "Passing Yards (25 yards per point)", points: 0.04 },
+                { name: "Passing Touchdowns", points: 4 },
+                { name: "Interceptions Thrown", points: -2 },
+                { name: "2-Point Conversion Pass", points: 2 }
+            ],
+            "Rushing": [
+                { name: "Rushing Yards (10 yards per point)", points: 0.1 },
+                { name: "Rushing Touchdowns", points: 6 },
+                { name: "2-Point Conversion Rush", points: 2 }
+            ],
+            "Receiving": [
+                { name: "Receptions (Half-PPR)", points: 0.5 },
+                { name: "Receiving Yards (10 yards per point)", points: 0.1 },
+                { name: "Receiving Touchdowns", points: 6 },
+                { name: "2-Point Conversion Reception", points: 2 }
+            ],
+            "Kicking": [
+                { name: "Each PAT Made", points: 1 },
+                { name: "Extra Point Missed", points: -1 },
+                { name: "Field Goals (0-39 yards)", points: 3 },
+                { name: "Field Goals (40-49 yards)", points: 4 },
+                { name: "Field Goals (50+ yards)", points: 5 }
+            ],
+            "Team Defense and Special Teams": [
+                { name: "Each Sack", points: 1 },
+                { name: "Interceptions", points: 2 },
+                { name: "Fumbles Recovered", points: 2 },
+                { name: "Defensive Touchdowns", points: 6 },
+                { name: "Safeties", points: 2 },
+                { name: "Blocked Kicks", points: 2 },
+                { name: "0 Points Allowed", points: 10 },
+                { name: "1-6 Points Allowed", points: 7 },
+                { name: "7-13 Points Allowed", points: 4 },
+                { name: "14-20 Points Allowed", points: 1 },
+                { name: "28-34 Points Allowed", points: -1 },
+                { name: "35+ Points Allowed", points: -4 }
+            ],
+            "Miscellaneous": [
+                { name: "Total Fumbles Lost", points: -2 }
+            ]
+        };
+    }
+
     openSettingsModal(season) {
         const modal = document.getElementById('settings-modal');
         const content = document.getElementById('settings-modal-content');
@@ -900,8 +1005,16 @@ class FantasyApp {
         if (modal && content && yearTitle) {
             yearTitle.textContent = `${season} Season`;
             
-            const settings = (this.scoringSettings && (this.scoringSettings[season] || this.scoringSettings[String(season)])) ||
+            let settings = (this.scoringSettings && (this.scoringSettings[season] || this.scoringSettings[String(season)])) ||
                              (this.leagueSettings && (this.leagueSettings[season] || this.leagueSettings.scoringRules));
+
+            if (!settings || Object.keys(settings).length === 0) {
+                if (this.scoringSettings && Object.keys(this.scoringSettings).length > 0) {
+                    settings = Object.values(this.scoringSettings)[0];
+                } else {
+                    settings = this.getDefaultScoringRules();
+                }
+            }
 
             if (!settings || Object.keys(settings).length === 0) {
                 content.innerHTML = '<p style="padding: 1rem; color: var(--text-muted);">No scoring settings available for this season.</p>';
@@ -1046,14 +1159,15 @@ class FantasyApp {
                 bundleData = window.FANTASY_DATA;
             } else if (slug === 'dmsfantasy') {
                 try {
-                    const [mgrs, stands, mat, stats, draft, tx, pr] = await Promise.all([
+                    const [mgrs, stands, mat, stats, draft, tx, pr, meta] = await Promise.all([
                         fetch('/dmsfantasy/data/managers.json').then(r => r.json()).catch(() => null),
                         fetch('/dmsfantasy/data/league_standings.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/matchups.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/weekly_player_stats.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/draft_results.json').then(r => r.json()),
                         fetch('/dmsfantasy/data/transactions.json').then(r => r.json()),
-                        fetch('/dmsfantasy/data/power_rankings_history.json').then(r => r.json()).catch(() => null)
+                        fetch('/dmsfantasy/data/power_rankings_history.json').then(r => r.json()).catch(() => null),
+                        fetch('/dmsfantasy/data/seasons_metadata.json').then(r => r.json()).catch(() => null)
                     ]);
                     bundleData = {
                         members: mgrs?.managers || [],
@@ -1064,6 +1178,7 @@ class FantasyApp {
                         draft_results: draft,
                         transactions: tx,
                         power_rankings_history: pr || [],
+                        seasons_metadata: meta || [],
                         league_settings: { name: 'The Dumbarton Fantasy Football League', firstYear: 2018, lastYear: 2026, totalSeasons: 10, scoring_format: 'Half-PPR (0.5)' }
                     };
                 } catch (e) {
@@ -1208,6 +1323,7 @@ const matchupsData = bundleData.matchups || [];
         this.draftResults = draftData || [];
         this.leagueSettings = settingsData || {};
         this.scoringSettings = bundleData.scoring_settings || bundleData.scoring_rules || {};
+        this.seasonsMetadata = bundleData.seasons_metadata || bundleData.seasonsMetadata || [];
 
         // Ensure clean 6-character random alphanumeric join code
         if (!this.leagueSettings.join_code || this.leagueSettings.join_code.length < 6 || /24$/.test(this.leagueSettings.join_code)) {
@@ -1283,6 +1399,9 @@ const matchupsData = bundleData.matchups || [];
                     if (claim && claim.nickname !== undefined && !m.nickname) {
                         m.nickname = claim.nickname;
                     }
+                    if (claim && claim.favorite_team && !m.favorite_team) {
+                        m.favorite_team = claim.favorite_team;
+                    }
                 });
             } catch (e) {
                 console.warn('Could not load claims from RTDB', e);
@@ -1298,6 +1417,9 @@ const matchupsData = bundleData.matchups || [];
                         const claim = this.claims[m.id] || this.claims[m.espn_id];
                         if (claim && claim.nickname !== undefined) {
                             m.nickname = claim.nickname;
+                        }
+                        if (claim && claim.favorite_team) {
+                            m.favorite_team = claim.favorite_team;
                         }
                     });
                     this.refreshNicknamesUI();
@@ -1359,6 +1481,16 @@ const matchupsData = bundleData.matchups || [];
 
         const footerTextEl = document.getElementById("footer-text");
         if (footerTextEl) footerTextEl.textContent = `${leagueName} Archive`;
+        
+        try {
+            if (this.leagueSlug) {
+                localStorage.setItem('vault_meta_' + this.leagueSlug.toLowerCase().trim(), JSON.stringify({
+                    title: titleEl ? titleEl.innerHTML : '',
+                    subtitle: tagline,
+                    est: editionInfoEl ? editionInfoEl.innerHTML : ''
+                }));
+            }
+        } catch (e) {}
         
         const recordsHeroLeagueNameEl = document.getElementById("records-hero-league-name");
         if (recordsHeroLeagueNameEl) recordsHeroLeagueNameEl.textContent = `The ${leagueName} Record Book`;
@@ -1647,24 +1779,59 @@ const matchupsData = bundleData.matchups || [];
 
     setupNavigation() {
         const btnHome = document.getElementById('btn-tab-home');
+        const btnNewsletter = document.getElementById('btn-tab-newsletter');
         const btnH2h = document.getElementById('btn-tab-h2h');
         const btnRecords = document.getElementById('btn-tab-records');
         const btnDraft = document.getElementById('btn-tab-draft');
+        const btnTransactions = document.getElementById('btn-tab-transactions');
         const btnRivalry = document.getElementById('btn-tab-rivalry');
         const btnParadigms = document.getElementById('btn-tab-paradigms');
         const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
+        const viewNewsletter = document.getElementById('view-newsletter');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
         const viewDraft = document.getElementById('view-draft');
+        const viewTransactions = document.getElementById('view-transactions');
         const viewRivalry = document.getElementById('view-rivalry');
         const viewParadigms = document.getElementById('view-paradigms');
         const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords, btnDraft, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords, viewDraft, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnNewsletter, btnH2h, btnRecords, btnDraft, btnTransactions, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewNewsletter, viewH2h, viewRecords, viewDraft, viewTransactions, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
+
+            const tabBtnMap = {
+                home: btnHome,
+                newsletter: btnNewsletter,
+                h2h: btnH2h,
+                records: btnRecords,
+                draft: btnDraft,
+                transactions: btnTransactions,
+                rivalry: btnRivalry,
+                paradigms: btnParadigms,
+                admin: btnAdmin
+            };
+
+            const tabViewMap = {
+                home: viewHome,
+                newsletter: viewNewsletter,
+                h2h: viewH2h,
+                records: viewRecords,
+                draft: viewDraft,
+                transactions: viewTransactions,
+                rivalry: viewRivalry,
+                paradigms: viewParadigms,
+                admin: viewAdmin
+            };
+
+            const targetBtn = tabBtnMap[tab];
+            const targetView = tabViewMap[tab];
+
+            // 1. Immediately highlight the clicked tab button and display view container
+            if (targetBtn) targetBtn.classList.add('active');
+            if (targetView) targetView.classList.add('active');
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
@@ -1693,55 +1860,73 @@ const matchupsData = bundleData.matchups || [];
                 }
             }
 
-            if (tab === 'home') {
-                btnHome && btnHome.classList.add('active');
-                viewHome && viewHome.classList.add('active');
-                const hasPr = Boolean(
-                    this.paradigms?.power_rankings?.enabled ||
-                    this.paradigms?.power_rankings?.current_ranking ||
-                    (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
-                    (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
-                    (this.powerRankingsEngine && (this.powerRankingsEngine.data?.current_ranking || this.powerRankingsEngine.data?.archived_rankings?.length > 0)) ||
-                    (this.leagueSlug === 'dmsfantasy')
-                );
-                if (hasPr && this.powerRankingsEngine) {
-                    this.powerRankingsEngine.containerId = 'rankings';
-                    this.powerRankingsEngine.render();
+            // 2. If Transactions or Draft haven't rendered yet, show loading spinner immediately
+            if (tab === 'transactions' && !this.transactionsRendered) {
+                if (viewTransactions && !viewTransactions.querySelector('.page-scroller-bar')) {
+                    viewTransactions.innerHTML = `
+                        <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                            <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                            <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Transactions Tracker...</div>
+                        </div>
+                    `;
                 }
-            } else if (tab === 'h2h') {
-                btnH2h && btnH2h.classList.add('active');
-                viewH2h && viewH2h.classList.add('active');
-                this.renderH2H();
-            } else if (tab === 'records') {
-                btnRecords && btnRecords.classList.add('active');
-                viewRecords && viewRecords.classList.add('active');
-                this.renderRecordBook();
-            } else if (tab === 'draft') {
-                btnDraft && btnDraft.classList.add('active');
-                viewDraft && viewDraft.classList.add('active');
-                this.renderDraft();
-            } else if (tab === 'rivalry') {
-                btnRivalry && btnRivalry.classList.add('active');
-                viewRivalry && viewRivalry.classList.add('active');
-                this.renderRivalryWeek();
-            } else if (tab === 'paradigms') {
-                btnParadigms && btnParadigms.classList.add('active');
-                viewParadigms && viewParadigms.classList.add('active');
-                this.renderParadigms();
-            } else if (tab === 'admin') {
-                btnAdmin && btnAdmin.classList.add('active');
-                viewAdmin && viewAdmin.classList.add('active');
-                this.renderAdminDashboard();
+            } else if (tab === 'draft' && !this.draftRendered) {
+                if (viewDraft && !viewDraft.querySelector('.draft-board-container')) {
+                    viewDraft.innerHTML = `
+                        <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                            <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                            <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Draft Central...</div>
+                        </div>
+                    `;
+                }
             }
+
+            // 3. Defer heavy execution by 20ms to yield to browser paint
+            setTimeout(() => {
+                if (tab === 'home') {
+                    const hasPr = Boolean(
+                        this.paradigms?.power_rankings?.enabled ||
+                        this.paradigms?.power_rankings?.current_ranking ||
+                        (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
+                        (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
+                        (this.powerRankingsEngine && (this.powerRankingsEngine.data?.current_ranking || this.powerRankingsEngine.data?.archived_rankings?.length > 0)) ||
+                        (this.leagueSlug === 'dmsfantasy')
+                    );
+                    if (hasPr && this.powerRankingsEngine) {
+                        this.powerRankingsEngine.containerId = 'rankings';
+                        this.powerRankingsEngine.render();
+                    }
+                } else if (tab === 'newsletter') {
+                    this.renderNewsletter();
+                } else if (tab === 'h2h') {
+                    this.renderH2H();
+                } else if (tab === 'records') {
+                    this.renderRecordBook();
+                } else if (tab === 'draft') {
+                    this.renderDraft();
+                    this.draftRendered = true;
+                } else if (tab === 'transactions') {
+                    this.renderTransactions();
+                    this.transactionsRendered = true;
+                } else if (tab === 'rivalry') {
+                    this.renderRivalryWeek();
+                } else if (tab === 'paradigms') {
+                    this.renderParadigms();
+                } else if (tab === 'admin') {
+                    this.renderAdminDashboard();
+                }
+            }, 20);
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
         this.switchTab = switchTab;
 
         if (btnHome) btnHome.addEventListener('click', () => switchTab('home'));
+        if (btnNewsletter) btnNewsletter.addEventListener('click', () => switchTab('newsletter'));
         if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
         if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
+        if (btnTransactions) btnTransactions.addEventListener('click', () => switchTab('transactions'));
         if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
         if (btnParadigms) btnParadigms.addEventListener('click', () => switchTab('paradigms'));
         if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
@@ -1772,9 +1957,48 @@ const matchupsData = bundleData.matchups || [];
             );
             if (!hasRivalry) targetTab = 'home';
         }
-        if (['home', 'h2h', 'records', 'draft', 'rivalry', 'paradigms', 'admin'].includes(targetTab)) {
+        if (['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(targetTab)) {
             switchTab(targetTab);
         }
+    }
+
+    async renderNewsletter() {
+        if (!this.newsletterEngine) {
+            this.newsletterEngine = new NewsletterEngine({
+                leagueId: this.leagueSlug || 'vault',
+                leagueSlug: this.leagueSlug || 'vault',
+                containerId: 'view-newsletter',
+                app: this,
+                claims: this.claims,
+                leagueSettings: this.leagueSettings,
+                newsletterTitle: this.leagueSettings?.newsletter_title || 'The Weekly Gazette',
+                managers: this.managers,
+                matchups: this.matchups,
+                standings: this.standings,
+                playerStats: this.playerStats,
+                draftResults: this.draftResults,
+                transactions: this.transactions,
+                seasonsMetadata: this.seasonsMetadata,
+                nflGames: this.nflGamesService?.allGames || []
+            });
+        } else {
+            this.newsletterEngine.setData({
+                leagueId: this.leagueSlug || 'vault',
+                leagueSlug: this.leagueSlug || 'vault',
+                claims: this.claims,
+                leagueSettings: this.leagueSettings,
+                newsletterTitle: this.leagueSettings?.newsletter_title || 'The Weekly Gazette',
+                managers: this.managers,
+                matchups: this.matchups,
+                standings: this.standings,
+                playerStats: this.playerStats,
+                draftResults: this.draftResults,
+                transactions: this.transactions,
+                seasonsMetadata: this.seasonsMetadata,
+                nflGames: this.nflGamesService?.allGames || []
+            });
+        }
+        this.newsletterEngine.render();
     }
 
     async renderDraft() {
@@ -1803,6 +2027,35 @@ const matchupsData = bundleData.matchups || [];
             });
         }
         await this.draftEngine.render();
+    }
+
+    async renderTransactions() {
+        if (!this.transactionsEngine) {
+            this.transactionsEngine = new TransactionsEngine({
+                containerId: 'view-transactions',
+                transactions: this.transactions,
+                playerStats: this.playerStats,
+                managers: this.managers,
+                draftResults: this.draftResults,
+                matchups: this.matchups,
+                leagueSettings: this.leagueSettings,
+                seasonsMetadata: this.seasonsMetadata,
+                formatSeasonYear: (y) => this.formatSeasonYear(y)
+            });
+        } else {
+            this.transactionsEngine.setData({
+                transactions: this.transactions,
+                playerStats: this.playerStats,
+                managers: this.managers,
+                draftResults: this.draftResults,
+                matchups: this.matchups,
+                leagueSettings: this.leagueSettings,
+                seasonsMetadata: this.seasonsMetadata,
+                formatSeasonYear: (y) => this.formatSeasonYear(y)
+            });
+        }
+        this.transactionsEngine.render();
+        window.transactionsEngine = this.transactionsEngine;
     }
 
     setupH2HControls() {
@@ -1975,7 +2228,13 @@ const matchupsData = bundleData.matchups || [];
 
         // Filter using home_manager_id / away_manager_id schema
         const filtered = this.matchups.filter(g => {
-            if (!this.includePlayoffs && g.is_playoff) return false;
+            // Strict exclusion: never include generic consolation games (3rd, 5th, 7th, 9th)
+            if (isConsolationGame(g, this.standings)) return false;
+
+            const isToilet = isToiletBowlGame(g, this.standings);
+            // If playoffs toggle is off, exclude real playoff games (Toilet Bowl is included so users can see them)
+            if (!this.includePlayoffs && g.is_playoff && !isToilet) return false;
+
             const y = g.season || g.year;
             if (y < range.min || y > range.max) return false;
             const involves1 = g.home_manager_id === m1Id || g.away_manager_id === m1Id || g.team_1_manager_id === m1Id || g.team_2_manager_id === m1Id;
@@ -2009,8 +2268,10 @@ const matchupsData = bundleData.matchups || [];
         let m1PlayoffWins = 0, m2PlayoffWins = 0;
         let maxBlowout = null;
         let minMargin = null;
-        // Only count actually played games for all-time stats
+        // Only count actually played regular season and official playoff games for all-time stats
+        // Toilet bowl games must NOT count toward anyone's regular season or playoff records
         const playedGames = filtered.filter(g => {
+            if (isToiletBowlGame(g, this.standings)) return false;
             const isM1Home = g.home_manager_id === m1Id || g.team_1_manager_id === m1Id;
             const s1 = isM1Home ? (g.home_score !== undefined ? g.home_score : g.team_1_actual_points) : (g.away_score !== undefined ? g.away_score : g.team_2_actual_points);
             const s2 = isM1Home ? (g.away_score !== undefined ? g.away_score : g.team_2_actual_points) : (g.home_score !== undefined ? g.home_score : g.team_1_actual_points);
@@ -2102,9 +2363,15 @@ const matchupsData = bundleData.matchups || [];
             const isPlayed = Number(t1Score) > 0 || Number(t2Score) > 0 || (g.winner && g.winner !== 'UNDECIDED');
             const isT1Win = isPlayed && ((isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY') || (t1Score > t2Score));
             const isT2Win = isPlayed && !isT1Win && t2Score > t1Score;
-            const isPlayoffs = g.is_playoff;
-            const cardClass = isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card';
+
+            const isToilet = isToiletBowlGame(g, this.standings);
+            const tbInfo = isToilet ? getToiletBowlGameInfo(g, this.standings) : null;
+            const isPlayoffs = g.is_playoff && !isToilet;
+            const cardClass = isToilet ? 'h2h-matchup-card toilet-bowl-game' : (isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card');
             const margin = isPlayed ? Math.abs(t1Score - t2Score).toFixed(2) : null;
+            const roundBadgeText = isToilet 
+                ? (tbInfo?.label || 'Toilet Bowl')
+                : (!isPlayed ? 'Upcoming Matchup' : (isPlayoffs ? 'Playoffs • ' + (getMatchupRoundLabel(g) || g.playoff_round || getPlayoffRoundName(g.year || g.season, g.week)) : 'Regular Season'));
 
             // Find top scoring starter for team 1 and team 2 in this game
             const gYr = Number(g.year || g.season);
@@ -2143,8 +2410,11 @@ const matchupsData = bundleData.matchups || [];
             cardsHtml += `
                 <div class="${cardClass}" ${clickHandler}>
                     <div class="matchup-date-badge">
-                        <div class="matchup-year-week">${this.formatSeasonYear(g.year || g.season)} • Week ${g.week}</div>
-                        <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${!isPlayed ? 'Upcoming Matchup' : (isPlayoffs ? 'Playoffs • ' + (getMatchupRoundLabel(g) || g.playoff_round || getPlayoffRoundName(g.year || g.season, g.week)) : 'Regular Season')}</div>
+                        <div class="matchup-year-week">
+                            <span>${this.formatSeasonYear(g.year || g.season)} • Week ${g.week}</span>
+                            <button type="button" class="btn-scoring-help" onclick="event.stopPropagation(); window.app.openSettingsModal(${g.year || g.season});" title="View Scoring Rules for ${g.year || g.season}">? Scoring</button>
+                        </div>
+                        <div class="matchup-game-type ${isToilet ? 'toilet-bowl-label' : (isPlayoffs ? 'playoff-label' : '')}">${roundBadgeText}</div>
                     </div>
                     <div class="matchup-teams-comparison">
                         <div class="team-box ${isT1Win ? 'winner' : ''}">
@@ -2516,78 +2786,9 @@ const matchupsData = bundleData.matchups || [];
     }
 
     renderParadigms() {
-        const subtabPr = document.getElementById('paradigm-subtab-pr');
-        const subtabRiv = document.getElementById('paradigm-subtab-rivalry');
-        const secPr = document.getElementById('sec-paradigm-pr');
-        const secRiv = document.getElementById('sec-paradigm-rivalry');
-        const prContainer = document.getElementById('paradigm-power-rankings-container');
-        const rivContainer = document.getElementById('paradigm-rivalry-container');
-
-        const hasPr = Boolean(
-            this.paradigms?.power_rankings?.enabled ||
-            this.paradigms?.power_rankings?.current_ranking ||
-            (Array.isArray(this.paradigms?.power_rankings?.archived_rankings) && this.paradigms.power_rankings.archived_rankings.length > 0) ||
-            (Array.isArray(this.powerRankingsHistory) && this.powerRankingsHistory.length > 0) ||
-            (this.powerRankingsEngine && (this.powerRankingsEngine.data?.current_ranking || this.powerRankingsEngine.data?.archived_rankings?.length > 0)) ||
-            (this.leagueSlug === 'dmsfantasy')
-        );
-        const hasRiv = Boolean(
-            (Array.isArray(this.paradigms?.rivalries) && this.paradigms.rivalries.length > 0) ||
-            (this.paradigms?.rivalries && typeof this.paradigms.rivalries === 'object' && Object.keys(this.paradigms.rivalries).length > 0) ||
-            (this.leagueSlug === 'dmsfantasy')
-        );
-
-        if (!this.activeParadigmSubtab) {
-            this.activeParadigmSubtab = 'pr';
-        }
-
-        const showSubtab = (tab) => {
-            this.activeParadigmSubtab = tab;
-            if (subtabPr) subtabPr.classList.toggle('active', tab === 'pr');
-            if (subtabRiv) subtabRiv.classList.toggle('active', tab === 'rivalry');
-            if (secPr) secPr.style.display = (tab === 'pr') ? 'block' : 'none';
-            if (secRiv) secRiv.style.display = (tab === 'rivalry') ? 'block' : 'none';
-
-            if (tab === 'pr') {
-                if (hasPr && this.powerRankingsEngine && prContainer) {
-                    this.powerRankingsEngine.containerId = 'paradigm-power-rankings-container';
-                    this.powerRankingsEngine.render();
-                } else if (prContainer) {
-                    prContainer.innerHTML = `
-                        <div class="card" style="text-align: center; padding: 3rem 2rem; max-width: 760px; margin: 0 auto; box-shadow: var(--shadow-sm);">
-                            <h2 style="font-family: var(--font-heading, 'Newsreader', serif); font-size: 1.8rem; margin-bottom: 0.75rem;">Power Rankings Paradigm</h2>
-                            <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem;">
-                                Power Rankings bring editorial depth, weekly analytical tiers, and bragging rights to your league. Published editions feature custom blurbs, movement indicators, and multi-author publishing access.
-                            </p>
-                            <div style="background: var(--bg-main, rgba(0,0,0,0.03)); border: 1px dashed var(--border-color, #ccc); border-radius: 8px; padding: 1.25rem; font-size: 0.9rem; color: var(--text-muted);">
-                                Power Rankings have not been published for this league yet. League Commissioners can initialize and publish rankings from the Admin Dashboard.
-                            </div>
-                        </div>
-                    `;
-                }
-            } else if (tab === 'rivalry') {
-                if (hasRiv && rivContainer) {
-                    this.renderRivalries(rivContainer);
-                } else if (rivContainer) {
-                    rivContainer.innerHTML = `
-                        <div class="card" style="text-align: center; padding: 3rem 2rem; max-width: 760px; margin: 0 auto; box-shadow: var(--shadow-sm);">
-                            <h2 style="font-family: var(--font-heading, 'Newsreader', serif); font-size: 1.8rem; margin-bottom: 0.75rem;">Rivalry Week Paradigm</h2>
-                            <p style="color: var(--text-muted); font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem;">
-                                Rivalry Week locks in permanent, bad-blood head-to-head matchups annually during a marquee regular-season week, as Thanksgiving Week. Historical records, feud chronicles, and high scores are tracked forever.
-                            </p>
-                            <div style="background: var(--bg-main, rgba(0,0,0,0.03)); border: 1px dashed var(--border-color, #ccc); border-radius: 8px; padding: 1.25rem; font-size: 0.9rem; color: var(--text-muted);">
-                                Rivalry Week has not been activated for this league yet. Commissioners can establish rivalry pairs and feud chronicles in the Admin Dashboard.
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        };
-
-        if (subtabPr) subtabPr.onclick = () => showSubtab('pr');
-        if (subtabRiv) subtabRiv.onclick = () => showSubtab('rivalry');
-
-        showSubtab(this.activeParadigmSubtab);
+        const view = document.getElementById('view-paradigms');
+        if (!view) return;
+        // Explore Paradigms Coming Soon banner is rendered in view-paradigms
     }
 
     renderRivalryWeek() {
@@ -2741,7 +2942,7 @@ const matchupsData = bundleData.matchups || [];
                         <p>Only my wars with him: he is a lion</p>
                         <p>That I am proud to hunt.</p>
                     </blockquote>
-                    <div class="dungeon-quote-credit">, as William Shakespeare, <em>Coriolanus</em></div>
+                    <div class="dungeon-quote-credit">— William Shakespeare, <em>Coriolanus</em></div>
                     <p class="dungeon-subtitle">
                         Every manager is bound to an eternal rival. Contested annually during the week of Thanksgiving, where rivalry records are carved in stone forever.
                     </p>
@@ -2924,6 +3125,86 @@ const matchupsData = bundleData.matchups || [];
         });
     }
 
+    renderAdminOnboardingPopover() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasParam = urlParams.has('just_imported') || urlParams.has('onboarding');
+        const key = `vault_onboarding_${this.leagueSlug}`;
+        const hasStored = localStorage.getItem(key) === 'pending';
+
+        if (!hasParam && !hasStored) return;
+
+        const btnAdmin = document.getElementById('btn-tab-admin');
+        if (!btnAdmin) return;
+
+        btnAdmin.style.display = 'inline-flex';
+
+        if (document.getElementById('admin-onboarding-popover')) return;
+
+        const popover = document.createElement('div');
+        popover.id = 'admin-onboarding-popover';
+        popover.className = 'admin-onboarding-popover';
+        popover.style.cssText = `
+            position: absolute;
+            z-index: 1000;
+            background: #1e293b;
+            color: #ffffff;
+            border: 1px solid #38bdf8;
+            border-radius: 10px;
+            padding: 18px 20px;
+            max-width: 340px;
+            width: 90vw;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+            font-size: 0.88rem;
+            line-height: 1.5;
+            animation: fadeIn 0.25s ease-out;
+        `;
+
+        popover.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: #38bdf8; letter-spacing: 1px;">Admin Setup Guide</span>
+                <button type="button" id="btn-close-onboarding" style="background: none; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+            </div>
+            <div style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 6px;">
+                Welcome to your League Vault!
+            </div>
+            <p style="margin: 0 0 14px 0; color: #cbd5e1; font-size: 0.84rem;">
+                Take a look at your <strong>Admin Dashboard</strong> to copy your private <strong>Member Invite Link &amp; Join Code</strong> and share it with your league mates so they can claim their team profiles.
+            </p>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" id="btn-onboarding-open-admin" class="btn btn-sm btn-primary" style="background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 7px 14px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
+                    Open Admin Dashboard &rarr;
+                </button>
+                <button type="button" id="btn-onboarding-dismiss" style="background: rgba(255, 255, 255, 0.08); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 7px 12px; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
+                    Got it
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(popover);
+
+        const positionPopover = () => {
+            const rect = btnAdmin.getBoundingClientRect();
+            popover.style.top = `${rect.bottom + window.scrollY + 10}px`;
+            const leftPos = Math.max(12, Math.min(window.innerWidth - 352, rect.left + window.scrollX - 100));
+            popover.style.left = `${leftPos}px`;
+        };
+        positionPopover();
+        window.addEventListener('resize', positionPopover);
+
+        const dismiss = () => {
+            localStorage.removeItem(key);
+            popover.remove();
+            window.removeEventListener('resize', positionPopover);
+        };
+
+        popover.querySelector('#btn-close-onboarding')?.addEventListener('click', dismiss);
+        popover.querySelector('#btn-onboarding-dismiss')?.addEventListener('click', dismiss);
+        popover.querySelector('#btn-onboarding-open-admin')?.addEventListener('click', () => {
+            dismiss();
+            this.switchTab('admin');
+        });
+    }
+
     renderAdminDashboard() {
         const container = document.getElementById('view-admin');
         if (!container) return;
@@ -2938,6 +3219,7 @@ const matchupsData = bundleData.matchups || [];
         const isWelcomeHidden = Boolean(this.leagueSettings?.hide_welcome_card);
 
         const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
+        const currentNewsletterTitle = this.leagueSettings.newsletter_title || this.leagueSettings.newsletter_name || "The Weekly Gazette";
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
         const leagueSlug = this.leagueSlug || window.location.pathname.substring(1).replace(/\/$/, "") || "league";
 
@@ -3324,6 +3606,19 @@ const matchupsData = bundleData.matchups || [];
                             <button id="btn-save-tagline" class="btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;"'}>Save Tagline</button>
                         </div>
                         <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
+                    </div>
+
+                    <!-- Custom Newsletter Publication Name -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                        <label for="admin-newsletter-title-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; color: var(--text-secondary);">Newsletter Publication Title:</label>
+                        <p style="margin: 0 0 10px 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45;">
+                            Customize the publication name displayed at the top of your weekly newsletter intelligence dispatches. Defaults to <em>The Weekly Gazette</em>.
+                        </p>
+                        <div class="tagline-input-row">
+                            <input type="text" id="admin-newsletter-title-input" class="admin-input" value="${currentNewsletterTitle}" placeholder="The Weekly Gazette" ${isFounderInspection ? 'disabled style="background: #f8fafc; cursor: not-allowed;"' : ''}>
+                            <button id="btn-save-newsletter-title" class="btn-primary" ${isFounderInspection ? 'disabled title="Disabled in Founder Inspection Mode" style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; opacity: 0.5; cursor: not-allowed;"' : 'style="padding: 10px 18px; font-weight: 700; border-radius: 4px; white-space: nowrap; cursor: pointer;"'}>Save Newsletter Title</button>
+                        </div>
+                        <div id="newsletter-title-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
                 </div>
 
@@ -4157,6 +4452,17 @@ const matchupsData = bundleData.matchups || [];
             });
         }
 
+        // Wire up Save Newsletter Title button
+        const btnSaveNewsletterTitle = container.querySelector('#btn-save-newsletter-title');
+        const newsletterTitleInput = container.querySelector('#admin-newsletter-title-input');
+        if (btnSaveNewsletterTitle && newsletterTitleInput) {
+            btnSaveNewsletterTitle.addEventListener('click', async () => {
+                if (isFounderInspection) return;
+                const newTitle = newsletterTitleInput.value.trim() || 'The Weekly Gazette';
+                await this.saveNewsletterTitle(newTitle);
+            });
+        }
+
         // Wire up Manager Rename buttons
         const renameBtns = container.querySelectorAll('.btn-save-manager-name');
         renameBtns.forEach(btn => {
@@ -4787,6 +5093,44 @@ const matchupsData = bundleData.matchups || [];
         }
     }
 
+    async saveNewsletterTitle(newTitle) {
+        const feedbackEl = document.getElementById('newsletter-title-save-feedback');
+        const btn = document.getElementById('btn-save-newsletter-title');
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+        try {
+            if (!this.leagueSettings) this.leagueSettings = {};
+            this.leagueSettings.newsletter_title = newTitle;
+
+            if (this.newsletterEngine) {
+                this.newsletterEngine.setNewsletterTitle(newTitle);
+            }
+
+            if (this.leagueSlug) {
+                const settingsRef = dbRef(database, `leagues/${this.leagueSlug}/league_settings`);
+                await update(settingsRef, {
+                    newsletter_title: newTitle
+                });
+            }
+
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg success';
+                feedbackEl.innerHTML = `✓ Newsletter title updated successfully to "<em>${newTitle}</em>"!`;
+                setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+            }
+        } catch (e) {
+            console.error('Failed to save newsletter title', e);
+            if (feedbackEl) {
+                feedbackEl.style.display = 'block';
+                feedbackEl.className = 'admin-feedback-msg error';
+                feedbackEl.textContent = 'Error saving newsletter title. Please try again.';
+            }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Newsletter Title'; }
+        }
+    }
+
     async saveLeagueTitle(newTitle) {
         const feedbackEl = document.getElementById('title-save-feedback');
         const btn = document.getElementById('btn-save-league-title');
@@ -4988,6 +5332,7 @@ const matchupsData = bundleData.matchups || [];
             const memberIdx = this.members.findIndex(m => m.id === managerId);
             if (memberIdx !== -1) {
                 this.members[memberIdx].name = cleanName;
+                this.members[memberIdx].alias = cleanName;
                 this.members[memberIdx].canonical_name = cleanName;
                 if (cleanNick !== null) {
                     this.members[memberIdx].nickname = cleanNick;
@@ -4998,6 +5343,7 @@ const matchupsData = bundleData.matchups || [];
             const mgr = this.managers.find(m => m.id === managerId);
             if (mgr) {
                 mgr.name = cleanName;
+                mgr.alias = cleanName;
                 mgr.canonical_name = cleanName;
                 mgr.manager_name = cleanName;
                 if (cleanNick !== null) {

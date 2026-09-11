@@ -14,7 +14,24 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { email, slug, joinCode, origin } = req.body;
+  const { email, slug, joinCode, origin, to, subject, html } = req.body;
+
+  // Custom email dispatch (e.g. power rankings, draft grades, newsletters, sample templates)
+  if ((to || email) && subject && html) {
+    try {
+      const recipient = to || email;
+      const info = await transporter.sendMail({
+        from: `"The Fantasy Vault" <${process.env.EMAIL_USER}>`,
+        to: recipient,
+        subject,
+        html
+      });
+      return res.status(200).json({ success: true, messageId: info.messageId });
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      return res.status(500).json({ error: 'Failed to send email: ' + (error?.message || String(error)) });
+    }
+  }
 
   if (!email || !slug || !joinCode || !origin) {
     return res.status(400).json({ error: 'Missing email, slug, joinCode, or origin parameters' });

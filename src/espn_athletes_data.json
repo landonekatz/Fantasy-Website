@@ -1,0 +1,346 @@
+{
+  "1428": {
+    "name": "Peyton Manning",
+    "pos": "QB"
+  },
+  "2622": {
+    "name": "Steve Smith Sr.",
+    "pos": "WR"
+  },
+  "4461": {
+    "name": "Andre Johnson",
+    "pos": "WR"
+  },
+  "5209": {
+    "name": "Tony Romo",
+    "pos": "QB"
+  },
+  "5941": {
+    "name": "Wes Welker",
+    "pos": "WR"
+  },
+  "8442": {
+    "name": "Roddy White",
+    "pos": "WR"
+  },
+  "8475": {
+    "name": "Vincent Jackson",
+    "pos": "WR"
+  },
+  "9361": {
+    "name": "Shaun Suisham",
+    "pos": "PK"
+  },
+  "9588": {
+    "name": "Reggie Bush",
+    "pos": "RB"
+  },
+  "9597": {
+    "name": "Jay Cutler",
+    "pos": "QB"
+  },
+  "9684": {
+    "name": "Owen Daniels",
+    "pos": "TE"
+  },
+  "9838": {
+    "name": "Marques Colston",
+    "pos": "WR"
+  },
+  "10147": {
+    "name": "Miles Austin",
+    "pos": "WR"
+  },
+  "10195": {
+    "name": "Fred Jackson",
+    "pos": "RB"
+  },
+  "10467": {
+    "name": "Dwayne Bowe",
+    "pos": "WR"
+  },
+  "11276": {
+    "name": "Eddie Royal",
+    "pos": "WR"
+  },
+  "11289": {
+    "name": "Ray Rice",
+    "pos": "RB"
+  },
+  "11295": {
+    "name": "Martellus Bennett",
+    "pos": "TE"
+  },
+  "11467": {
+    "name": "Justin Forsett",
+    "pos": "RB"
+  },
+  "11658": {
+    "name": "Mike Tolbert",
+    "pos": "FB"
+  },
+  "11737": {
+    "name": "Connor Barth",
+    "pos": "PK"
+  },
+  "12497": {
+    "name": "Arian Foster",
+    "pos": "RB"
+  },
+  "12503": {
+    "name": "Rashad Jennings",
+    "pos": "RB"
+  },
+  "12569": {
+    "name": "Percy Harvin",
+    "pos": "WR"
+  },
+  "12576": {
+    "name": "Brandon LaFell",
+    "pos": "WR"
+  },
+  "12586": {
+    "name": "Hakeem Nicks",
+    "pos": "WR"
+  },
+  "12699": {
+    "name": "Zach Miller",
+    "pos": "TE"
+  },
+  "13197": {
+    "name": "Sam Bradford",
+    "pos": "QB"
+  },
+  "13203": {
+    "name": "C.J. Spiller",
+    "pos": "RB"
+  },
+  "13204": {
+    "name": "Ryan Mathews",
+    "pos": "RB"
+  },
+  "13214": {
+    "name": "James Starks",
+    "pos": "RB"
+  },
+  "13536": {
+    "name": "Joique Bell",
+    "pos": "RB"
+  },
+  "13553": {
+    "name": "Victor Cruz",
+    "pos": "WR"
+  },
+  "14001": {
+    "name": "Colin Kaepernick",
+    "pos": "QB"
+  },
+  "14017": {
+    "name": "Shane Vereen",
+    "pos": "RB"
+  },
+  "14032": {
+    "name": "Torrey Smith",
+    "pos": "WR"
+  },
+  "14189": {
+    "name": "Jordan Cameron",
+    "pos": "TE"
+  },
+  "14193": {
+    "name": "Jacquizz Rodgers",
+    "pos": "RB"
+  },
+  "14851": {
+    "name": "Terrelle Pryor Sr.",
+    "pos": "WR"
+  },
+  "14875": {
+    "name": "Robert Griffin III",
+    "pos": "QB"
+  },
+  "14891": {
+    "name": "Bernard Pierce",
+    "pos": "RB"
+  },
+  "14894": {
+    "name": "Robert Turbin",
+    "pos": "RB"
+  },
+  "14900": {
+    "name": "Coby Fleener",
+    "pos": "TE"
+  },
+  "14901": {
+    "name": "Dwayne Allen",
+    "pos": "TE"
+  },
+  "14908": {
+    "name": "Michael Floyd",
+    "pos": "WR"
+  },
+  "14909": {
+    "name": "Kendall Wright",
+    "pos": "WR"
+  },
+  "14911": {
+    "name": "Rueben Randle",
+    "pos": "WR"
+  },
+  "15364": {
+    "name": "Jonas Gray",
+    "pos": "RB"
+  },
+  "15503": {
+    "name": "Deonte Thompson",
+    "pos": "WR"
+  },
+  "15823": {
+    "name": "Montee Ball",
+    "pos": "RB"
+  },
+  "15832": {
+    "name": "Knile Davis",
+    "pos": "RB"
+  },
+  "15855": {
+    "name": "Christine Michael",
+    "pos": "RB"
+  },
+  "15878": {
+    "name": "Terrance Williams",
+    "pos": "WR"
+  },
+  "15885": {
+    "name": "Charles Johnson",
+    "pos": "WR"
+  },
+  "15893": {
+    "name": "Andre Ellington",
+    "pos": "RB"
+  },
+  "15952": {
+    "name": "Mike Gillislee",
+    "pos": "RB"
+  },
+  "16013": {
+    "name": "Joseph Randle",
+    "pos": "RB"
+  },
+  "16172": {
+    "name": "Jaron Brown",
+    "pos": "WR"
+  },
+  "16763": {
+    "name": "Jordan Matthews",
+    "pos": "TE"
+  },
+  "16783": {
+    "name": "Terrance West",
+    "pos": "RB"
+  },
+  "16784": {
+    "name": "Tre Mason",
+    "pos": "RB"
+  },
+  "16794": {
+    "name": "Bishop Sankey",
+    "pos": "RB"
+  },
+  "16889": {
+    "name": "Andre Williams",
+    "pos": "RB"
+  },
+  "17352": {
+    "name": "Silas Redd",
+    "pos": "RB"
+  },
+  "2576237": {
+    "name": "Thomas Rawls",
+    "pos": "RB"
+  },
+  "2576408": {
+    "name": "Akeem Hunt",
+    "pos": "RB"
+  },
+  "2577654": {
+    "name": "DeAndre Washington",
+    "pos": "RB"
+  },
+  "2971433": {
+    "name": "Dorial Green-Beckham",
+    "pos": "WR"
+  },
+  "2971589": {
+    "name": "Paul Perkins",
+    "pos": "RB"
+  },
+  "2977698": {
+    "name": "Glenn Gronkowski",
+    "pos": "FB"
+  },
+  "2978887": {
+    "name": "Roberto Aguayo",
+    "pos": "PK"
+  },
+  "2978929": {
+    "name": "Corey Coleman",
+    "pos": "WR"
+  },
+  "2980105": {
+    "name": "Matt Jones",
+    "pos": "RB"
+  },
+  "2980148": {
+    "name": "C.J. Prosise",
+    "pos": "RB"
+  },
+  "2982761": {
+    "name": "Andy Jones",
+    "pos": "WR"
+  },
+  "2982828": {
+    "name": "Tajae Sharpe",
+    "pos": "WR"
+  },
+  "3042435": {
+    "name": "Kevin White",
+    "pos": "WR"
+  },
+  "4361606": {
+    "name": "Darwin Thompson",
+    "pos": "RB"
+  },
+  "4428557": {
+    "name": "Tyjae Spears",
+    "pos": "RB"
+  },
+  "4429205": {
+    "name": "Jordan Addison",
+    "pos": "WR"
+  },
+  "4431574": {
+    "name": "Eli Stowers",
+    "pos": "TE"
+  },
+  "4682745": {
+    "name": "Jaylen Wright",
+    "pos": "RB"
+  },
+  "4685247": {
+    "name": "Braelon Allen",
+    "pos": "RB"
+  },
+  "4685555": {
+    "name": "Nicholas Singleton",
+    "pos": "RB"
+  },
+  "4697745": {
+    "name": "Tyler Loop",
+    "pos": "PK"
+  },
+  "4832955": {
+    "name": "Emmett Johnson",
+    "pos": "RB"
+  }
+}

@@ -62,17 +62,27 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchFromFirebase(path) {
+const DB_SECRET = process.env.FIREBASE_DATABASE_SECRET || process.env.FIREBASE_DB_SECRET || process.env.FIREBASE_AUTH_TOKEN || '';
+
+function buildFirebaseUrl(path) {
   const [cleanPath, query] = path.split('?');
-  const url = `${FIREBASE_DB_URL}/${cleanPath}.json${query ? '?' + query : ''}`;
+  const params = new URLSearchParams(query || '');
+  if (DB_SECRET && !params.has('auth')) {
+    params.set('auth', DB_SECRET);
+  }
+  const qStr = params.toString() ? '?' + params.toString() : '';
+  return `${FIREBASE_DB_URL}/${cleanPath}.json${qStr}`;
+}
+
+async function fetchFromFirebase(path) {
+  const url = buildFirebaseUrl(path);
   const res = await fetch(url);
   if (!res.ok) return null;
   return res.json();
 }
 
 async function saveToFirebase(path, data) {
-  const [cleanPath, query] = path.split('?');
-  const url = `${FIREBASE_DB_URL}/${cleanPath}.json${query ? '?' + query : ''}`;
+  const url = buildFirebaseUrl(path);
   if (IS_DRY_RUN) {
     log(`  [Dry Run] Would write to ${url}`);
     return true;

@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "leagues": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "users": {
+      ".read": "auth != null && auth.token.email === 'landonekatz@gmail.com'",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'landonekatz@gmail.com')",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'landonekatz@gmail.com')"
+      }
+    }
+  }
+}

@@ -46,8 +46,8 @@ Object.assign(TargetApp.prototype, {
     isValidRecordMatchup(m) {
         if (!m) return false;
         const gt = (m.game_type || '').toLowerCase();
-        if (gt.includes('consolation') || gt.includes('3rd')) return false;
-        if (m.is_consolation) return false;
+        if (gt.includes('consolation') || gt.includes('3rd') || gt.includes('toilet') || gt.includes('sacko')) return false;
+        if (m.is_consolation || m.is_toilet_bowl) return false;
         if (!this.isValidSeasonWeek(m.season, m.week)) return false;
         return true;
     },

@@ -34,6 +34,13 @@ jobs:
         run: npm ci || npm install
 
       - name: Run Multi-League Vault Sync Pipeline
+        env:
+          YAHOO_APP_ID: ${{ secrets.YAHOO_APP_ID }}
+          YAHOO_CLIENT_ID: ${{ secrets.YAHOO_CLIENT_ID }}
+          YAHOO_CLIENT_SECRET: ${{ secrets.YAHOO_CLIENT_SECRET }}
+          YAHOO_REFRESH_TOKEN: ${{ secrets.YAHOO_REFRESH_TOKEN }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_DATABASE_SECRET: ${{ secrets.FIREBASE_DATABASE_SECRET }}
         run: |
           CMD="node scripts/update_vault_leagues.js"
           if [ "${{ inputs.dry_run }}" = "true" ]; then

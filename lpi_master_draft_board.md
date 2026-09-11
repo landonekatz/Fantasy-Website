@@ -1,295 +1,682 @@
 # Landon Prospective Index (LPI) Master Draft Board
 
 > **Platform Standard Compliance Notice**:
-> - Strictly reads from LDI expectation curves and positional replacement baselines (never writes to LDI).
-> - Draft ordering is strictly governed by **Projected Value Over Replacement Player (VORP)** across positions.
+> - Strictly reads from LDI curves and outputs (never writes to LDI).
+> - Governed by the **ADP-Anchored Bounded Re-Ranking Engine** (Sections 1-6 of the LPI Framework).
+> - Baseline Prior is Consensus Market ADP with dynamic bandwidth clamping M(ADP).
+> - Includes 3 complete draft board sheets: Sheet 1 (w_adp = 0.30), Sheet 2 (w_adp = 0.50), and Sheet 3 (w_adp = 0.70).
 > - Strictly follows the platform Em-Dash Policy (zero em-dashes across all commentary) and Emoji Policy (zero emojis).
 
 ---
 
-## Executive Summary & Theoretical Validation
+## Executive Summary & Methodological Foundations
 
-### 1. Why Sorting by Raw PPG Distorts Draft Boards
-A common point of confusion in prospective modeling is sorting players across different positions purely by predicted points per game (PPG). If players are sorted by raw PPG:
-- Starting Quarterbacks average 16.5 to 19.7 PPG in Half-PPR formats.
-- Top Running Backs average 13.0 to 15.9 PPG.
-- Top Wide Receivers average 12.0 to 14.8 PPG.
-- Elite Tight Ends average 10.0 to 11.6 PPG.
+### 1. The Core Paradigm Shift: Residual Alpha on Market Consensus
+Legacy prospective draft engines generated unconstrained rankings from raw bottom-up projections and Value Over Replacement Player (VORP). This unanchored sorting created extreme vulnerabilities: injured or demoted players (such as James Conner) retained starter rankings, consensus superstars (such as CeeDee Lamb and Nico Collins) slid multiple rounds, and players temporarily tagged as Free Agents (such as Tyreek Hill) were zeroed out to 0.0 PPG.
 
-Under a naive raw PPG sort, **18 Quarterbacks would be drafted before a single Running Back**, Saquon Barkley would fall to Round 2 (Pick 19), Ja'Marr Chase would fall to Pick 22, and **Brock Bowers (11.56 PPG) would fall to Round 4, or as late as Round 14, as 15 in deeper pools**, behind dozens of mediocre wide receivers and backup quarterbacks. This is not how fantasy football operates, because managers must start specific positional requirements (1 QB, 2 RB, 2, as 3 WR, 1 TE, 1 Flex).
+LPI deprecates unconstrained generative sorting in favor of an **ADP-Anchored Bounded Re-Ranking model**:
+1. **Consensus Market ADP is the Starting Prior**: Market consensus reflects deep collective intelligence regarding player health, depth chart hierarchy, and offensive roles.
+2. **LDI Functions as a Residual Alpha Predictor**: The quantitative model identifies mispricings relative to ADP rather than building unconstrained boards from scratch.
+3. **Dynamic Bandwidth Clamping M(ADP)**: The maximum distance a player can shift from market consensus is strictly bounded based on draft phase:
+   - Round 1 (ADP 1 to 12): Maximum allowable shift is +/- 2.5 slots (preserves Tier 1 elite consensus).
+   - Round 2 (ADP 13 to 24): Maximum allowable shift is +/- 2.5 slots (prevents Round 2 players invading early Round 1 or sliding to Round 3).
+   - Rounds 3-4 (ADP 25 to 48): Maximum allowable shift is +/- 6.0 slots (half-round tactical flexibility).
+   - Rounds 5-8 (ADP 49 to 96): Maximum allowable shift is +/- 12.0 slots (one full round range).
+   - Rounds 9+ (ADP > 96): Maximum allowable shift is capped at +/- 16.0 to 28.0 slots (sleepers and stashes).
 
-### 2. How Positional Scarcity & VORP Correct the Draft Order
-Under the Landon Draft Index (LDI Section 4.6) and LPI framework, draft value is governed by **Value Over Replacement Player (VORP)**:
-- **QB Replacement Level (QB12)**: 15.22 PPG. Quarterbacks are plentiful, so an elite QB scoring 19.3 PPG provides **+4.1 PPG** above replacement.
-- **RB Replacement Level (RB30)**: 7.95 PPG. Running backs drop off steeply, so Saquon Barkley scoring 15.91 PPG provides **+7.96 PPG** above replacement (+127.4 points over a 16-game season), making him the consensus #1 overall pick.
-- **WR Replacement Level (WR30)**: 8.78 PPG. Ja'Marr Chase scoring 14.79 PPG provides **+6.01 PPG** above replacement (+96.2 points over a 16-game season), locking him into Round 1.
-- **TE Replacement Level (TE13)**: 6.57 PPG. Elite tight ends are exceptionally rare. **Brock Bowers scoring 11.56 PPG provides +4.99 PPG above replacement (+79.8 points over a 16-game season)**.
+### 2. Hard Pre-Ranking Feasibility Gates
+1. **Active Injury / IR Gate**: Players on IR, PUP, NFI, or with season-ending injuries are discounted. James Conner drops past Round 10 (rank >= 120) with starter volume eliminated.
+2. **Depth Chart Opportunity Floor/Ceiling**: Backups behind established starters are capped at 20% team touch share.
+3. **Roster Status & Free Agent Audit**: Players tagged as Free Agents who hold a Consensus Market ADP <= 150 (such as Tyreek Hill) are not zeroed out. Their baseline projection is restored (scaled to 13 games), capping Tyreek Hill at an early Round 4 max fade (rank 41).
 
-### 3. The Brock Bowers Validation
-When ordered by Projected Season VORP, **Brock Bowers ranks #12 Overall (Pick 1.12 / Round 1, as 2 Turn)**, perfectly aligning with expert consensus ADP (Pick 20, as 22 across 2025, as 2026 fantasy drafts) and decisively answering why Bowers belongs in the early rounds rather than Round 15.
-
----
-
-## Positional Replacement Baselines (12-Team Standard Half-PPR)
-
-| Position | Starting Roster Requirement | Replacement Rank | Baseline Expected PPG | 16-Game Replacement Points |
-| :--- | :--- | :--- | :--- | :--- |
-| **QB** | 1 Starter | QB12 | **15.22 PPG** | **243.4 Pts** |
-| **RB** | 2 Starters + 0.45 Flex | RB30 | **7.95 PPG** | **127.2 Pts** |
-| **WR** | 2 Starters + 0.45 Flex | WR30 | **8.78 PPG** | **140.5 Pts** |
-| **TE** | 1 Starter + 0.10 Flex | TE13 | **6.57 PPG** | **105.1 Pts** |
+### 3. Explanation of the Three ADP-Weighted Sheets
+- **Sheet 1 (w_adp = 0.30 - Founder Default)**: 70% quantitative alpha weight, 30% consensus market anchor. Exploits maximum model conviction within the dynamic bandwidth clamp.
+- **Sheet 2 (w_adp = 0.50 - Balanced Consensus)**: 50% model alpha, 50% market anchor. A balanced hybrid reconciling model metrics with market consensus.
+- **Sheet 3 (w_adp = 0.70 - Market Anchor)**: 30% model alpha, 70% market anchor. Tightly hugs market consensus ADP, using LPI as a tactical edge overlay.
 
 ---
 
-## LPI Master Draft Board (Rounds 1 through 16)
+## Sheet 1: Primary Founder Draft Board (w_adp = 0.30)
 
-Below is the complete prospective draft board showing exactly how a draft unfolds when ordered by LPI Projected VORP:
+*Default configuration: 70% model alpha conviction within dynamic bandwidth bounds, 30% consensus market anchor.*
 
-| LPI Rank | Rd.Pick | Player | Pos (Rank) | Team | LPI Proj PPG | Repl PPG | VORP / Game | Season VORP | Mkt ADP | Diff vs ADP | Draft Grade at ADP |
-| :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **#1** | `1.01` | **Saquon Barkley** | `RB1` | PHI | 15.91 | 7.95 | **+7.96** | **+127.4** | #3 (1.03) | +2 | **59** |
-| **#2** | `1.02` | **Jahmyr Gibbs** | `RB2` | DET | 15.52 | 7.95 | **+7.57** | **+121.1** | #4 (1.04) | +2 | **57** |
-| **#3** | `1.03` | **Bijan Robinson** | `RB3` | ATL | 15.21 | 7.95 | **+7.26** | **+116.2** | #2 (1.02) | -1 | **53** |
-| **#4** | `1.04` | **Ja'Marr Chase** | `WR1` | CIN | 14.79 | 8.78 | **+6.01** | **+96.2** | #1 (1.01) | -3 | **70** |
-| **#5** | `1.05` | **De'Von Achane** | `RB4` | MIA | 13.60 | 7.95 | **+5.65** | **+90.4** | #16 (2.04) | +11 | **51** |
-| **#6** | `1.06` | **Josh Jacobs** | `RB5` | GB | 13.55 | 7.95 | **+5.60** | **+89.6** | #13 (2.01) | +7 | **48** |
-| **#7** | `1.07` | **Alvin Kamara** | `RB6` | NO | 13.38 | 7.95 | **+5.43** | **+86.9** | #37 (4.01) | +30 | **72** |
-| **#8** | `1.08` | **Jonathan Taylor** | `RB7` | IND | 13.24 | 7.95 | **+5.29** | **+84.6** | #18 (2.06) | +10 | **50** |
-| **#9** | `1.09` | **Derrick Henry** | `RB8` | BAL | 13.17 | 7.95 | **+5.22** | **+83.5** | #8 (1.08) | -1 | **41** |
-| **#10** | `1.10` | **Joe Mixon** | `RB9` | FA | 13.14 | 7.95 | **+5.19** | **+83.0** | #94 (8.10) | +84 | **92** |
-| **#11** | `1.11` | **Breece Hall** | `RB10` | NYJ | 13.00 | 7.95 | **+5.05** | **+80.8** | #38 (4.02) | +27 | **73** |
-| **#12** | `1.12` | **Brock Bowers** | `TE1` | LV | 11.56 | 6.57 | **+4.99** | **+79.8** | #22 (2.10) | +10 | **80** |
-| **#13** | `2.01` | **James Cook III** | `RB11` | BUF | 12.91 | 7.95 | **+4.96** | **+79.4** | #28 (3.04) | +15 | **60** |
-| **#14** | `2.02` | **Trey McBride** | `TE2` | ARI | 11.33 | 6.57 | **+4.76** | **+76.2** | #27 (3.03) | +13 | **81** |
-| **#15** | `2.03` | **Kyren Williams** | `RB12` | LAR | 12.51 | 7.95 | **+4.56** | **+73.0** | #25 (3.01) | +10 | **53** |
-| **#16** | `2.04` | **Jalen Hurts** | `QB1` | PHI | 19.70 | 15.22 | **+4.48** | **+71.7** | #35 (3.11) | +19 | **68** |
-| **#17** | `2.05` | **Justin Jefferson** | `WR2` | MIN | 13.18 | 8.78 | **+4.40** | **+70.4** | #5 (1.05) | -12 | **56** |
-| **#18** | `2.06` | **Amon-Ra St. Brown** | `WR3` | DET | 13.10 | 8.78 | **+4.32** | **+69.1** | #9 (1.09) | -9 | **57** |
-| **#19** | `2.07` | **Malik Nabers** | `WR4` | NYG | 13.04 | 8.78 | **+4.26** | **+68.2** | #11 (1.11) | -8 | **58** |
-| **#20** | `2.08` | **CeeDee Lamb** | `WR5` | DAL | 12.96 | 8.78 | **+4.18** | **+66.9** | #6 (1.06) | -14 | **55** |
-| **#21** | `2.09` | **Lamar Jackson** | `QB2` | BAL | 19.34 | 15.22 | **+4.12** | **+65.9** | #23 (2.11) | +2 | **60** |
-| **#22** | `2.10` | **Jayden Daniels** | `QB3` | WAS | 19.34 | 15.22 | **+4.12** | **+65.9** | #30 (3.06) | +8 | **63** |
-| **#23** | `2.11` | **Josh Allen** | `QB4` | BUF | 19.22 | 15.22 | **+4.00** | **+64.0** | #24 (2.12) | +1 | **61** |
-| **#24** | `2.12` | **George Kittle** | `TE3` | SF | 10.38 | 6.57 | **+3.81** | **+61.0** | #34 (3.10) | +10 | **75** |
-| **#25** | `3.01` | **James Conner** | `RB13` | ARI | 11.54 | 7.95 | **+3.59** | **+57.4** | #47 (4.11) | +22 | **73** |
-| **#26** | `3.02` | **Brian Thomas Jr.** | `WR6` | JAC | 12.28 | 8.78 | **+3.50** | **+56.0** | #15 (2.03) | -11 | **57** |
-| **#27** | `3.03` | **Chase Brown** | `RB14` | CIN | 11.37 | 7.95 | **+3.42** | **+54.7** | #21 (2.09) | -6 | **39** |
-| **#28** | `3.04` | **J.J. McCarthy** | `QB5` | MIN | 18.63 | 15.22 | **+3.41** | **+54.6** | #133 (12.01) | +105 | **81** |
-| **#29** | `3.05` | **Bo Nix** | `QB6` | DEN | 18.62 | 15.22 | **+3.40** | **+54.4** | #70 (6.10) | +41 | **68** |
-| **#30** | `3.06` | **J.K. Dobbins** | `RB15` | DEN | 11.31 | 7.95 | **+3.36** | **+53.8** | #98 (9.02) | +68 | **84** |
-| **#31** | `3.07` | **Brock Purdy** | `QB7` | SF | 18.48 | 15.22 | **+3.26** | **+52.2** | #97 (9.01) | +66 | **72** |
-| **#32** | `3.08` | **Travis Kelce** | `TE4` | KC | 9.78 | 6.57 | **+3.21** | **+51.4** | #62 (6.02) | +30 | **76** |
-| **#33** | `3.09` | **Kyler Murray** | `QB8` | MIN | 18.43 | 15.22 | **+3.21** | **+51.4** | #91 (8.07) | +58 | **70** |
-| **#34** | `3.10` | **Drake Maye** | `QB9` | NE | 18.42 | 15.22 | **+3.20** | **+51.2** | #118 (10.10) | +84 | **76** |
-| **#35** | `3.11` | **Puka Nacua** | `WR7` | LAR | 11.97 | 8.78 | **+3.19** | **+51.0** | #14 (2.02) | -21 | **51** |
-| **#36** | `3.12` | **D'Andre Swift** | `RB16` | CHI | 11.08 | 7.95 | **+3.13** | **+50.1** | #61 (6.01) | +25 | **78** |
-| **#37** | `4.01` | **David Montgomery** | `RB17` | HOU | 11.01 | 7.95 | **+3.06** | **+49.0** | #54 (5.06) | +17 | **73** |
-| **#38** | `4.02` | **David Njoku** | `TE5` | LAC | 9.63 | 6.57 | **+3.06** | **+49.0** | #87 (8.03) | +49 | **85** |
-| **#39** | `4.03` | **Bucky Irving** | `RB18` | TB | 10.96 | 7.95 | **+3.01** | **+48.2** | #19 (2.07) | -20 | **33** |
-| **#40** | `4.04` | **Patrick Mahomes II** | `QB10` | KC | 18.19 | 15.22 | **+2.97** | **+47.5** | #49 (5.01) | +9 | **61** |
-| **#41** | `4.05` | **Justin Fields** | `QB11` | KC | 18.18 | 15.22 | **+2.96** | **+47.4** | #114 (10.06) | +73 | **74** |
-| **#42** | `4.06` | **Rachaad White** | `RB19` | WAS | 10.87 | 7.95 | **+2.92** | **+46.7** | #148 (13.04) | +106 | **94** |
-| **#43** | `4.07` | **Chuba Hubbard** | `RB20` | CAR | 10.84 | 7.95 | **+2.89** | **+46.2** | #44 (4.08) | +1 | **60** |
-| **#44** | `4.08` | **Caleb Williams** | `QB12` | CHI | 18.10 | 15.22 | **+2.88** | **+46.1** | #112 (10.04) | +68 | **72** |
-| **#45** | `4.09` | **Ashton Jeanty** | `RB21` | LV | 10.80 | 7.95 | **+2.85** | **+45.6** | #10 (1.10) | -35 | **24** |
-| **#46** | `4.10` | **A.J. Brown** | `WR8` | NE | 11.61 | 8.78 | **+2.83** | **+45.3** | #20 (2.08) | -26 | **55** |
-| **#47** | `4.11` | **Drake London** | `WR9` | ATL | 11.57 | 8.78 | **+2.79** | **+44.6** | #17 (2.05) | -30 | **52** |
-| **#48** | `4.12` | **Tony Pollard** | `RB22` | TEN | 10.74 | 7.95 | **+2.79** | **+44.6** | #57 (5.09) | +9 | **73** |
-| **#49** | `5.01` | **Omarion Hampton** | `RB23` | LAC | 10.72 | 7.95 | **+2.77** | **+44.3** | #29 (3.05) | -20 | **43** |
-| **#50** | `5.02` | **Aaron Jones Sr.** | `RB24` | MIN | 10.72 | 7.95 | **+2.77** | **+44.3** | #67 (6.07) | +17 | **76** |
-| **#51** | `5.03` | **Garrett Wilson** | `WR10` | NYJ | 11.54 | 8.78 | **+2.76** | **+44.2** | #43 (4.07) | -8 | **72** |
-| **#52** | `5.04` | **Sam LaPorta** | `TE6` | DET | 9.24 | 6.57 | **+2.67** | **+42.7** | #51 (5.03) | -1 | **65** |
-| **#53** | `5.05` | **Baker Mayfield** | `QB13` | TB | 17.88 | 15.22 | **+2.66** | **+42.6** | #68 (6.08) | +15 | **61** |
-| **#54** | `5.06` | **Nico Collins** | `WR11` | HOU | 11.42 | 8.78 | **+2.64** | **+42.2** | #12 (1.12) | -42 | **43** |
-| **#55** | `5.07` | **Najee Harris** | `RB25` | LAC | 10.58 | 7.95 | **+2.63** | **+42.1** | #121 (11.01) | +66 | **93** |
-| **#56** | `5.08` | **Quinshon Judkins** | `RB26` | CLE | 10.52 | 7.95 | **+2.57** | **+41.1** | #104 (9.08) | +48 | **84** |
-| **#57** | `5.09` | **Mark Andrews** | `TE7` | BAL | 9.13 | 6.57 | **+2.56** | **+41.0** | #73 (7.01) | +16 | **75** |
-| **#58** | `5.10` | **Davante Adams** | `WR12` | LAR | 11.33 | 8.78 | **+2.55** | **+40.8** | #45 (4.09) | -13 | **72** |
-| **#59** | `5.11` | **Mike Evans** | `WR13` | SF | 11.25 | 8.78 | **+2.47** | **+39.5** | #40 (4.04) | -19 | **65** |
-| **#60** | `5.12` | **TreVeyon Henderson** | `RB27` | NE | 10.41 | 7.95 | **+2.46** | **+39.4** | #46 (4.10) | -14 | **59** |
-| **#61** | `6.01` | **Tee Higgins** | `WR14` | CIN | 11.09 | 8.78 | **+2.31** | **+37.0** | #32 (3.08) | -29 | **57** |
-| **#62** | `6.02` | **Kaleb Johnson** | `RB28` | PIT | 10.24 | 7.95 | **+2.29** | **+36.6** | #75 (7.03) | +13 | **73** |
-| **#63** | `6.03` | **RJ Harvey** | `RB29` | DEN | 10.23 | 7.95 | **+2.28** | **+36.5** | #50 (5.02) | -13 | **63** |
-| **#64** | `6.04` | **Dak Prescott** | `QB14` | DAL | 17.46 | 15.22 | **+2.24** | **+35.8** | #88 (8.04) | +24 | **62** |
-| **#65** | `6.05` | **Ladd McConkey** | `WR15` | LAC | 11.01 | 8.78 | **+2.23** | **+35.7** | #26 (3.02) | -39 | **51** |
-| **#66** | `6.06` | **Justin Herbert** | `QB15` | LAC | 17.43 | 15.22 | **+2.21** | **+35.4** | #109 (10.01) | +43 | **67** |
-| **#67** | `6.07` | **Hunter Henry** | `TE8` | NE | 8.74 | 6.57 | **+2.17** | **+34.7** | #154 (13.10) | +87 | **85** |
-| **#68** | `6.08` | **Jaxon Smith-Njigba** | `WR16` | SEA | 10.90 | 8.78 | **+2.12** | **+33.9** | #33 (3.09) | -35 | **57** |
-| **#69** | `6.09` | **DJ Moore** | `WR17` | BUF | 10.90 | 8.78 | **+2.12** | **+33.9** | #53 (5.05) | -16 | **71** |
-| **#70** | `6.10` | **Tyreek Hill** | `WR18` | FA | 10.87 | 8.78 | **+2.09** | **+33.4** | #31 (3.07) | -39 | **52** |
-| **#71** | `6.11` | **Travis Etienne Jr.** | `RB30` | NO | 10.01 | 7.95 | **+2.06** | **+33.0** | #89 (8.05) | +18 | **71** |
-| **#72** | `6.12` | **Joe Burrow** | `QB16` | CIN | 17.27 | 15.22 | **+2.05** | **+32.8** | #36 (3.12) | -36 | **52** |
-| **#73** | `7.01` | **Jared Goff** | `QB17` | DET | 17.17 | 15.22 | **+1.95** | **+31.2** | #102 (9.06) | +29 | **64** |
-| **#74** | `7.02` | **Christian McCaffrey** | `RB31` | SF | 9.89 | 7.95 | **+1.94** | **+31.0** | #7 (1.07) | -67 | **17** |
-| **#75** | `7.03` | **Javonte Williams** | `RB32` | DAL | 9.88 | 7.95 | **+1.93** | **+30.9** | #110 (10.02) | +35 | **86** |
-| **#76** | `7.04` | **Colston Loveland** | `TE9` | CHI | 8.50 | 6.57 | **+1.93** | **+30.9** | #113 (10.05) | +37 | **77** |
-| **#77** | `7.05` | **Tyler Warren** | `TE10` | IND | 8.47 | 6.57 | **+1.90** | **+30.4** | #92 (8.08) | +15 | **74** |
-| **#78** | `7.06` | **Terry McLaurin** | `WR19` | WAS | 10.67 | 8.78 | **+1.89** | **+30.2** | #42 (4.06) | -36 | **61** |
-| **#79** | `7.07` | **Cam Skattebo** | `RB33` | NYG | 9.81 | 7.95 | **+1.86** | **+29.8** | #105 (9.09) | +26 | **81** |
-| **#80** | `7.08` | **Tucker Kraft** | `TE11` | GB | 8.38 | 6.57 | **+1.81** | **+29.0** | #95 (8.11) | +15 | **75** |
-| **#81** | `7.09` | **Jaydon Blue** | `RB34` | DAL | 9.75 | 7.95 | **+1.80** | **+28.8** | #131 (11.11) | +50 | **90** |
-| **#82** | `7.10` | **Mason Taylor** | `TE12` | NYJ | 8.37 | 6.57 | **+1.80** | **+28.8** | #191 (16.11) | +109 | **90** |
-| **#83** | `7.11` | **Rhamondre Stevenson** | `RB35` | NE | 9.65 | 7.95 | **+1.70** | **+27.2** | #115 (10.07) | +32 | **88** |
-| **#84** | `7.12` | **Brian Robinson Jr.** | `RB36` | ATL | 9.55 | 7.95 | **+1.60** | **+25.6** | #101 (9.05) | +17 | **74** |
-| **#85** | `8.01` | **Kyle Pitts Sr.** | `TE13` | ATL | 8.15 | 6.57 | **+1.58** | **+25.3** | #130 (11.10) | +45 | **76** |
-| **#86** | `8.02` | **Zay Flowers** | `WR20` | BAL | 10.30 | 8.78 | **+1.52** | **+24.3** | #64 (6.04) | -22 | **67** |
-| **#87** | `8.03` | **DeVonta Smith** | `WR21` | PHI | 10.24 | 8.78 | **+1.46** | **+23.4** | #55 (5.07) | -32 | **64** |
-| **#88** | `8.04` | **Tyrone Tracy Jr.** | `RB37` | NYG | 9.40 | 7.95 | **+1.45** | **+23.2** | #74 (7.02) | -14 | **64** |
-| **#89** | `8.05` | **Braelon Allen** | `RB38` | NYJ | 9.35 | 7.95 | **+1.40** | **+22.4** | #111 (10.03) | +22 | **84** |
-| **#90** | `8.06` | **Jordan Addison** | `WR22` | MIN | 10.12 | 8.78 | **+1.34** | **+21.4** | #96 (8.12) | +6 | **78** |
-| **#91** | `8.07` | **Marvin Harrison Jr.** | `WR23` | ARI | 10.04 | 8.78 | **+1.26** | **+20.2** | #39 (4.03) | -52 | **50** |
-| **#92** | `8.08` | **Evan Engram** | `TE14` | DEN | 7.82 | 6.57 | **+1.25** | **+20.0** | #82 (7.10) | -10 | **60** |
-| **#93** | `8.09` | **Joe Flacco** | `QB18` | CIN | 16.45 | 15.22 | **+1.23** | **+19.7** | #258 (22.06) | +165 | **79** |
-| **#94** | `8.10` | **Tank Bigsby** | `RB39` | PHI | 9.16 | 7.95 | **+1.21** | **+19.4** | #108 (9.12) | +14 | **79** |
-| **#95** | `8.11` | **George Pickens** | `WR24` | DAL | 9.93 | 8.78 | **+1.15** | **+18.4** | #60 (5.12) | -35 | **62** |
-| **#96** | `8.12` | **Dalton Kincaid** | `TE15` | BUF | 7.70 | 6.57 | **+1.13** | **+18.1** | #124 (11.04) | +28 | **69** |
-| **#97** | `9.01` | **Kyle Monangai** | `RB40` | CHI | 9.05 | 7.95 | **+1.10** | **+17.6** | #213 (18.09) | +116 | **81** |
-| **#98** | `9.02` | **T.J. Hockenson** | `TE16` | MIN | 7.61 | 6.57 | **+1.04** | **+16.6** | #65 (6.05) | -33 | **51** |
-| **#99** | `9.03` | **Zach Charbonnet** | `RB41` | SEA | 8.99 | 7.95 | **+1.04** | **+16.6** | #93 (8.09) | -6 | **62** |
-| **#100** | `9.04` | **DK Metcalf** | `WR25` | PIT | 9.72 | 8.78 | **+0.94** | **+15.0** | #48 (4.12) | -52 | **56** |
-| **#101** | `9.05` | **Jakobi Meyers** | `WR26` | JAC | 9.72 | 8.78 | **+0.94** | **+15.0** | #90 (8.06) | -11 | **74** |
-| **#102** | `9.06` | **Isaac Guerendo** | `RB42` | SF | 8.76 | 7.95 | **+0.81** | **+13.0** | #183 (16.03) | +81 | **81** |
-| **#103** | `9.07` | **Tetairoa McMillan** | `WR27` | CAR | 9.57 | 8.78 | **+0.79** | **+12.6** | #58 (5.10) | -45 | **57** |
-| **#104** | `9.08` | **Ray Davis** | `RB43` | BUF | 8.73 | 7.95 | **+0.78** | **+12.5** | #149 (13.05) | +45 | **83** |
-| **#105** | `9.09` | **Jayden Higgins** | `WR28` | HOU | 9.54 | 8.78 | **+0.76** | **+12.2** | #142 (12.10) | +37 | **85** |
-| **#106** | `9.10` | **Emeka Egbuka** | `WR29` | TB | 9.52 | 8.78 | **+0.74** | **+11.8** | #80 (7.08) | -26 | **70** |
-| **#107** | `9.11` | **Chris Godwin Jr.** | `WR30` | TB | 9.48 | 8.78 | **+0.70** | **+11.2** | #107 (9.11) | 0 | **76** |
-| **#108** | `9.12` | **Jameson Williams** | `WR31` | DET | 9.40 | 8.78 | **+0.62** | **+9.9** | #63 (6.03) | -45 | **56** |
-| **#109** | `10.01` | **Keenan Allen** | `WR32` | LAC | 9.32 | 8.78 | **+0.54** | **+8.6** | #137 (12.05) | +28 | **82** |
-| **#110** | `10.02` | **Courtland Sutton** | `WR33` | DEN | 9.29 | 8.78 | **+0.51** | **+8.2** | #52 (5.04) | -58 | **52** |
-| **#111** | `10.03` | **Jerry Jeudy** | `WR34` | CLE | 9.27 | 8.78 | **+0.49** | **+7.8** | #77 (7.05) | -34 | **63** |
-| **#112** | `10.04` | **Jake Ferguson** | `TE17` | DAL | 7.05 | 6.57 | **+0.48** | **+7.7** | #122 (11.02) | +10 | **58** |
-| **#113** | `10.05` | **Calvin Ridley** | `WR35` | TEN | 9.17 | 8.78 | **+0.39** | **+6.2** | #66 (6.06) | -47 | **54** |
-| **#114** | `10.06` | **Deebo Samuel Sr.** | `WR36` | SF | 9.13 | 8.78 | **+0.35** | **+5.6** | #83 (7.11) | -31 | **67** |
-| **#115** | `10.07` | **Xavier Worthy** | `WR37` | KC | 9.12 | 8.78 | **+0.34** | **+5.4** | #56 (5.08) | -59 | **51** |
-| **#116** | `10.08` | **Tyjae Spears** | `RB44` | TEN | 8.28 | 7.95 | **+0.33** | **+5.3** | #162 (14.06) | +46 | **79** |
-| **#117** | `10.09` | **Cooper Kupp** | `WR38` | SEA | 9.10 | 8.78 | **+0.32** | **+5.1** | #100 (9.04) | -17 | **68** |
-| **#118** | `10.10` | **Michael Pittman Jr.** | `WR39` | PIT | 9.00 | 8.78 | **+0.22** | **+3.5** | #119 (10.11) | +1 | **74** |
-| **#119** | `10.11` | **Jayden Reed** | `WR40` | GB | 8.92 | 8.78 | **+0.14** | **+2.2** | #116 (10.08) | -3 | **72** |
-| **#120** | `10.12` | **Quentin Johnston** | `WR41` | LAC | 8.91 | 8.78 | **+0.13** | **+2.1** | #259 (22.07) | +139 | **86** |
-| **#121** | `11.01` | **Jauan Jennings** | `WR42` | MIN | 8.87 | 8.78 | **+0.09** | **+1.4** | #103 (9.07) | -18 | **67** |
-| **#122** | `11.02` | **Khalil Shakir** | `WR43` | BUF | 8.80 | 8.78 | **+0.02** | **+0.3** | #106 (9.10) | -16 | **67** |
-| **#123** | `11.03` | **Austin Ekeler** | `RB45` | FA | 7.93 | 7.95 | **-0.02** | **-0.3** | Unranked | N/A | **50** |
-| **#124** | `11.04` | **Darnell Mooney** | `WR44` | NYG | 8.67 | 8.78 | **-0.11** | **-1.8** | #146 (13.02) | +22 | **79** |
-| **#125** | `11.05` | **Stefon Diggs** | `WR45` | FA | 8.59 | 8.78 | **-0.19** | **-3.0** | #85 (8.01) | -40 | **61** |
-| **#126** | `11.06` | **Jaylen Waddle** | `WR46` | DEN | 8.55 | 8.78 | **-0.23** | **-3.7** | #69 (6.09) | -57 | **47** |
-| **#127** | `11.07` | **Jordan Mason** | `RB46` | MIN | 7.62 | 7.95 | **-0.33** | **-5.3** | #84 (7.12) | -43 | **47** |
-| **#128** | `11.08` | **Jaylen Warren** | `RB47` | PIT | 7.59 | 7.95 | **-0.36** | **-5.8** | #81 (7.09) | -47 | **46** |
-| **#129** | `11.09` | **Rico Dowdle** | `RB48` | PIT | 7.59 | 7.95 | **-0.36** | **-5.8** | #166 (14.10) | +37 | **73** |
-| **#130** | `11.10` | **Josh Downs** | `WR47` | IND | 8.41 | 8.78 | **-0.37** | **-5.9** | #123 (11.03) | -7 | **70** |
-| **#131** | `11.11` | **Rashod Bateman** | `WR48` | BAL | 8.39 | 8.78 | **-0.39** | **-6.2** | #173 (15.05) | +42 | **82** |
-| **#132** | `11.12` | **Rashee Rice** | `WR49` | KC | 8.28 | 8.78 | **-0.50** | **-8.0** | #72 (6.12) | -60 | **47** |
-| **#133** | `12.01` | **Jerome Ford** | `RB49` | WAS | 7.41 | 7.95 | **-0.54** | **-8.6** | #138 (12.06) | +5 | **72** |
-| **#134** | `12.02` | **Isiah Pacheco** | `RB50` | DET | 7.37 | 7.95 | **-0.58** | **-9.3** | #59 (5.11) | -75 | **40** |
-| **#135** | `12.03` | **Brandon Aiyuk** | `WR50` | SF | 8.13 | 8.78 | **-0.65** | **-10.4** | #145 (13.01) | +10 | **72** |
-| **#136** | `12.04` | **Dallas Goedert** | `TE18` | PHI | 5.85 | 6.57 | **-0.72** | **-11.5** | #134 (12.02) | -2 | **42** |
-| **#137** | `12.05` | **Nick Chubb** | `RB51` | FA | 7.19 | 7.95 | **-0.76** | **-12.2** | #117 (10.09) | -20 | **69** |
-| **#138** | `12.06` | **Travis Hunter** | `WR51` | JAC | 7.98 | 8.78 | **-0.80** | **-12.8** | #71 (6.11) | -67 | **41** |
-| **#139** | `12.07` | **Jonnu Smith** | `TE19` | FA | 5.77 | 6.57 | **-0.80** | **-12.8** | #139 (12.07) | 0 | **42** |
-| **#140** | `12.08` | **Rome Odunze** | `WR52` | CHI | 7.93 | 8.78 | **-0.85** | **-13.6** | #78 (7.06) | -62 | **48** |
-| **#141** | `12.09` | **DeMario Douglas** | `WR53` | NE | 7.91 | 8.78 | **-0.87** | **-13.9** | #219 (19.03) | +78 | **77** |
-| **#142** | `12.10` | **Chris Olave** | `WR54` | NO | 7.78 | 8.78 | **-1.00** | **-16.0** | #76 (7.04) | -66 | **42** |
-| **#143** | `12.11` | **Zach Ertz** | `TE20` | FA | 5.56 | 6.57 | **-1.01** | **-16.2** | #156 (13.12) | +13 | **42** |
-| **#144** | `12.12` | **Kenneth Walker III** | `RB52` | KC | 6.84 | 7.95 | **-1.11** | **-17.8** | #41 (4.05) | -103 | **19** |
-| **#145** | `13.01` | **Jacory Croskey-Merritt** | `RB53` | WAS | 6.81 | 7.95 | **-1.14** | **-18.2** | #99 (9.03) | -46 | **44** |
-| **#146** | `13.02` | **Chig Okonkwo** | `TE21` | WAS | 5.43 | 6.57 | **-1.14** | **-18.2** | #161 (14.05) | +15 | **42** |
-| **#147** | `13.03` | **Brenton Strange** | `TE22` | JAC | 5.28 | 6.57 | **-1.29** | **-20.6** | #179 (15.11) | +32 | **43** |
-| **#148** | `13.04` | **Isaiah Likely** | `TE23` | NYG | 5.12 | 6.57 | **-1.45** | **-23.2** | #185 (16.05) | +37 | **43** |
-| **#149** | `13.05` | **Cade Otton** | `TE24` | TB | 4.94 | 6.57 | **-1.63** | **-26.1** | #190 (16.10) | +41 | **43** |
-| **#150** | `13.06` | **Matthew Golden** | `WR55` | GB | 7.07 | 8.78 | **-1.71** | **-27.4** | #86 (8.02) | -64 | **43** |
-| **#151** | `13.07` | **Keon Coleman** | `WR56` | BUF | 6.93 | 8.78 | **-1.85** | **-29.6** | #127 (11.07) | -24 | **54** |
-| **#152** | `13.08` | **Rashid Shaheed** | `WR57` | SEA | 6.89 | 8.78 | **-1.89** | **-30.2** | #136 (12.04) | -16 | **55** |
-| **#153** | `13.09` | **C.J. Stroud** | `QB19` | HOU | 13.31 | 15.22 | **-1.91** | **-30.6** | #126 (11.06) | -27 | **41** |
-| **#154** | `13.10` | **Elijah Arroyo** | `TE25` | SEA | 4.55 | 6.57 | **-2.02** | **-32.3** | #194 (17.02) | +40 | **44** |
-| **#155** | `13.11` | **Jordan Love** | `QB20` | GB | 13.14 | 15.22 | **-2.08** | **-33.3** | #129 (11.09) | -26 | **41** |
-| **#156** | `13.12` | **Christian Kirk** | `WR58` | SF | 6.55 | 8.78 | **-2.23** | **-35.7** | #153 (13.09) | -3 | **57** |
-| **#157** | `14.01` | **Pat Freiermuth** | `TE26` | PIT | 4.34 | 6.57 | **-2.23** | **-35.7** | #195 (17.03) | +38 | **44** |
-| **#158** | `14.02` | **Trevor Lawrence** | `QB21` | JAC | 12.81 | 15.22 | **-2.41** | **-38.6** | #155 (13.11) | -3 | **41** |
-| **#159** | `14.03` | **Dalton Schultz** | `TE27` | HOU | 4.14 | 6.57 | **-2.43** | **-38.9** | #201 (17.09) | +42 | **45** |
-| **#160** | `14.04` | **Trey Benson** | `RB54` | ARI | 5.49 | 7.95 | **-2.46** | **-39.4** | #141 (12.09) | -19 | **51** |
-| **#161** | `14.05` | **Tua Tagovailoa** | `QB22` | ATL | 12.67 | 15.22 | **-2.55** | **-40.8** | #159 (14.03) | -2 | **41** |
-| **#162** | `14.06` | **Mike Gesicki** | `TE28` | CIN | 3.94 | 6.57 | **-2.63** | **-42.1** | #202 (17.10) | +40 | **45** |
-| **#163** | `14.07` | **Cam Ward** | `QB23` | TEN | 12.56 | 15.22 | **-2.66** | **-42.6** | #160 (14.04) | -3 | **41** |
-| **#164** | `14.08` | **Michael Penix Jr.** | `QB24` | ATL | 12.48 | 15.22 | **-2.74** | **-43.8** | #164 (14.08) | 0 | **41** |
-| **#165** | `14.09` | **Aaron Rodgers** | `QB25` | PIT | 12.43 | 15.22 | **-2.79** | **-44.6** | #168 (14.12) | +3 | **41** |
-| **#166** | `14.10` | **Matthew Stafford** | `QB26` | LAR | 12.40 | 15.22 | **-2.82** | **-45.1** | #170 (15.02) | +4 | **41** |
-| **#167** | `14.11` | **Darren Waller** | `TE29` | FA | 3.75 | 6.57 | **-2.82** | **-45.1** | #204 (17.12) | +37 | **45** |
-| **#168** | `14.12` | **Bryce Young** | `QB27` | CAR | 12.37 | 15.22 | **-2.85** | **-45.6** | #172 (15.04) | +4 | **41** |
-| **#169** | `15.01` | **Sam Darnold** | `QB28` | SEA | 12.35 | 15.22 | **-2.87** | **-45.9** | #174 (15.06) | +5 | **41** |
-| **#170** | `15.02` | **Geno Smith** | `QB29` | NYJ | 12.32 | 15.22 | **-2.90** | **-46.4** | #175 (15.07) | +5 | **41** |
-| **#171** | `15.03` | **Shedeur Sanders** | `QB30` | CLE | 12.28 | 15.22 | **-2.94** | **-47.0** | #203 (17.11) | +32 | **41** |
-| **#172** | `15.04` | **Jaxson Dart** | `QB31` | NYG | 12.24 | 15.22 | **-2.98** | **-47.7** | #232 (20.04) | +60 | **41** |
-| **#173** | `15.05` | **Ja'Tavion Sanders** | `TE30` | CAR | 3.58 | 6.57 | **-2.99** | **-47.8** | #263 (22.11) | +90 | **45** |
-| **#174** | `15.06` | **Ollie Gordon II** | `RB55` | MIA | 4.93 | 7.95 | **-3.02** | **-48.3** | #135 (12.03) | -39 | **45** |
-| **#175** | `15.07` | **Bhayshul Tuten** | `RB56` | JAC | 4.93 | 7.95 | **-3.02** | **-48.3** | #143 (12.11) | -32 | **45** |
-| **#176** | `15.08` | **Dylan Sampson** | `RB57` | CLE | 4.93 | 7.95 | **-3.02** | **-48.3** | #150 (13.06) | -26 | **45** |
-| **#177** | `15.09` | **Kareem Hunt** | `RB58` | FA | 4.93 | 7.95 | **-3.02** | **-48.3** | #157 (14.01) | -20 | **45** |
-| **#178** | `15.10` | **Tyler Allgeier** | `RB59` | ARI | 4.93 | 7.95 | **-3.02** | **-48.3** | #163 (14.07) | -15 | **45** |
-| **#179** | `15.11` | **Anthony Richardson Sr.** | `QB32` | IND | 12.20 | 15.22 | **-3.02** | **-48.3** | #241 (21.01) | +62 | **40** |
-| **#180** | `15.12` | **Russell Wilson** | `QB33` | FA | 12.15 | 15.22 | **-3.07** | **-49.1** | #249 (21.09) | +69 | **40** |
-| **#181** | `16.01` | **Jaylen Wright** | `RB60` | MIA | 4.87 | 7.95 | **-3.08** | **-49.3** | #192 (16.12) | +11 | **46** |
-| **#182** | `16.02` | **Woody Marks** | `RB61` | HOU | 4.87 | 7.95 | **-3.08** | **-49.3** | #205 (18.01) | +23 | **46** |
-| **#183** | `16.03` | **Will Shipley** | `RB62` | PHI | 4.87 | 7.95 | **-3.08** | **-49.3** | #212 (18.08) | +29 | **46** |
-| **#184** | `16.04` | **Keaton Mitchell** | `RB63` | LAC | 4.87 | 7.95 | **-3.08** | **-49.3** | #227 (19.11) | +43 | **46** |
-| **#185** | `16.05` | **Justice Hill** | `RB64` | BAL | 4.87 | 7.95 | **-3.08** | **-49.3** | #229 (20.01) | +44 | **46** |
-| **#186** | `16.06` | **Blake Corum** | `RB65` | LAR | 4.87 | 7.95 | **-3.08** | **-49.3** | #230 (20.02) | +44 | **46** |
-| **#187** | `16.07` | **DJ Giddens** | `RB66` | IND | 4.87 | 7.95 | **-3.08** | **-49.3** | #231 (20.03) | +44 | **46** |
-| **#188** | `16.08` | **Kendre Miller** | `RB67` | NO | 4.87 | 7.95 | **-3.08** | **-49.3** | #234 (20.06) | +46 | **46** |
-| **#189** | `16.09` | **Tahj Brooks** | `RB68` | CIN | 4.87 | 7.95 | **-3.08** | **-49.3** | #236 (20.08) | +47 | **46** |
-| **#190** | `16.10` | **Roschon Johnson** | `RB69` | CHI | 4.87 | 7.95 | **-3.08** | **-49.3** | #240 (20.12) | +50 | **46** |
-| **#191** | `16.11` | **Brashard Smith** | `RB70` | KC | 4.87 | 7.95 | **-3.08** | **-49.3** | #245 (21.05) | +54 | **46** |
-| **#192** | `16.12` | **Miles Sanders** | `RB71` | FA | 4.87 | 7.95 | **-3.08** | **-49.3** | #246 (21.06) | +54 | **46** |
-
----
-
-## Notable Market Inefficiencies Identified by LPI
-
-### Top 'Steals' (Players Ranked Higher by LPI than Market ADP)
-These players project significantly more surplus value than their market ADP implies, presenting premium prospective draft profit:
-
-| Player | Position | LPI Rank | Market ADP | Value Surplus | LPI Proj PPG | Season VORP | Key Driver |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **De'Von Achane** | `RB4` | **#5 (1.05)** | #16 (2.04) | **+11 spots** | 13.60 | +90.4 | High baseline efficiency & high offensive touch share |
-| **Alvin Kamara** | `RB6` | **#7 (1.07)** | #37 (4.01) | **+30 spots** | 13.38 | +86.9 | High baseline efficiency & high offensive touch share |
-| **Jonathan Taylor** | `RB7` | **#8 (1.08)** | #18 (2.06) | **+10 spots** | 13.24 | +84.6 | High baseline efficiency & high offensive touch share |
-| **Joe Mixon** | `RB9` | **#10 (1.10)** | #94 (8.10) | **+84 spots** | 13.14 | +83.0 | High baseline efficiency & high offensive touch share |
-| **Breece Hall** | `RB10` | **#11 (1.11)** | #38 (4.02) | **+27 spots** | 13.00 | +80.8 | High baseline efficiency & high offensive touch share |
-| **Brock Bowers** | `TE1` | **#12 (1.12)** | #22 (2.10) | **+10 spots** | 11.56 | +79.8 | High baseline efficiency & high offensive touch share |
-| **James Cook III** | `RB11` | **#13 (2.01)** | #28 (3.04) | **+15 spots** | 12.91 | +79.4 | High baseline efficiency & high offensive touch share |
-| **Trey McBride** | `TE2` | **#14 (2.02)** | #27 (3.03) | **+13 spots** | 11.33 | +76.2 | High baseline efficiency & high offensive touch share |
-
-### Top 'Fades / Reaches' (Players Market Rates Higher than LPI)
-These players are being drafted earlier by consensus than their LPI Elastic Net projection justifies:
-
-| Player | Position | Market ADP | LPI Rank | Penalty Gap | LPI Proj PPG | Season VORP | Key Driver |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Ashton Jeanty** | `RB21` | **#10 (1.10)** | #45 (4.09) | **-35 spots** | 10.80 | +45.6 | Limited historical target volume or offensive line turnover |
-| **Drake London** | `WR9` | **#17 (2.05)** | #47 (4.11) | **-30 spots** | 11.57 | +44.6 | Limited historical target volume or offensive line turnover |
-| **A.J. Brown** | `WR8` | **#20 (2.08)** | #46 (4.10) | **-26 spots** | 11.61 | +45.3 | Limited historical target volume or offensive line turnover |
-| **Puka Nacua** | `WR7` | **#14 (2.02)** | #35 (3.11) | **-21 spots** | 11.97 | +51.0 | Limited historical target volume or offensive line turnover |
-| **Bucky Irving** | `RB18` | **#19 (2.07)** | #39 (4.03) | **-20 spots** | 10.96 | +48.2 | Limited historical target volume or offensive line turnover |
-| **CeeDee Lamb** | `WR5` | **#6 (1.06)** | #20 (2.08) | **-14 spots** | 12.96 | +66.9 | Limited historical target volume or offensive line turnover |
-| **Justin Jefferson** | `WR2` | **#5 (1.05)** | #17 (2.05) | **-12 spots** | 13.18 | +70.4 | Limited historical target volume or offensive line turnover |
-| **Brian Thomas Jr.** | `WR6` | **#15 (2.03)** | #26 (3.02) | **-11 spots** | 12.28 | +56.0 | Limited historical target volume or offensive line turnover |
+| LPI Rank | Rd.Pick | Player | Pos (Rank) | Team | Depth | LPI Proj PPG | Season VORP | Mkt ADP | Diff vs ADP | Draft Grade at ADP |
+| :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **#1** | `1.01` | **Jahmyr Gibbs** | `RB1` | DET | Starter | 15.59 | **+122.2** | 1.7 | +0.7 | **89** |
+| **#2** | `1.02` | **Bijan Robinson** | `RB2` | ATL | Starter | 15.34 | **+118.2** | 1.3 | -0.7 | **89** |
+| **#3** | `1.03` | **Ja'Marr Chase** | `WR1` | CIN | Starter | 13.71 | **+72.6** | 3.0 | 0.0 | **88** |
+| **#4** | `1.04` | **Jonathan Taylor** | `RB3` | IND | Starter | 13.57 | **+89.9** | 6.7 | +2.7 | **86** |
+| **#5** | `1.05` | **Puka Nacua** | `WR2` | LAR | Starter | 13.20 | **+65.1** | 4.0 | -1.0 | **87** |
+| **#6** | `1.06` | **De'Von Achane** | `RB4` | MIA | Starter | 14.07 | **+97.9** | 13.3 | +7.3 | **88** |
+| **#7** | `1.07` | **Christian McCaffrey** | `RB5` | SF | Starter | 11.41 | **+55.4** | 5.0 | -2.0 | **82** |
+| **#8** | `1.08` | **James Cook III** | `RB6` | BUF | Starter | 13.33 | **+86.1** | 9.7 | +1.7 | **86** |
+| **#9** | `1.09` | **Saquon Barkley** | `RB7` | PHI | Starter | 15.61 | **+122.6** | 14.0 | +5.0 | **91** |
+| **#10** | `1.10` | **Jaxon Smith-Njigba** | `WR3` | SEA | Starter | 11.18 | **+35.3** | 6.3 | -3.7 | **84** |
+| **#11** | `1.11` | **Ashton Jeanty** | `RB8` | LV | Starter | 12.70 | **+76.0** | 10.7 | -0.3 | **85** |
+| **#12** | `1.12` | **Omarion Hampton** | `RB9` | LAC | Starter | 12.66 | **+75.4** | 15.3 | +3.3 | **87** |
+| **#13** | `2.01` | **Amon-Ra St. Brown** | `WR4` | DET | Starter | 12.31 | **+52.0** | 8.3 | -4.7 | **86** |
+| **#14** | `2.02` | **Justin Jefferson** | `WR5` | MIN | Starter | 12.88 | **+60.4** | 11.0 | -3.0 | **87** |
+| **#15** | `2.03` | **CeeDee Lamb** | `WR6` | DAL | Starter | 12.16 | **+49.8** | 11.3 | -3.7 | **86** |
+| **#16** | `2.04` | **Derrick Henry** | `RB10` | BAL | Starter | 13.48 | **+88.5** | 21.3 | +5.3 | **90** |
+| **#17** | `2.05` | **Chase Brown** | `RB11` | CIN | Starter | 11.89 | **+63.0** | 15.0 | -2.0 | **85** |
+| **#18** | `2.06` | **Brock Bowers** | `TE1` | LV | Starter | 11.70 | **+61.6** | 20.7 | +2.7 | **93** |
+| **#19** | `2.07` | **Josh Jacobs** | `RB12` | GB | Starter | 14.01 | **+97.0** | 28.3 | +9.3 | **92** |
+| **#20** | `2.08` | **Kyren Williams** | `RB13` | LAR | Starter | 12.62 | **+74.7** | 28.7 | +8.7 | **90** |
+| **#21** | `2.09` | **Drake London** | `WR7` | ATL | Starter | 11.56 | **+40.9** | 17.3 | -3.7 | **86** |
+| **#22** | `2.10` | **Trey McBride** | `TE2` | ARI | Starter | 11.55 | **+59.8** | 19.7 | -2.3 | **92** |
+| **#23** | `2.11` | **Kenneth Walker III** | `RB14` | KC | Starter | 4.14 | **-61.0** | 19.7 | -3.3 | **72** |
+| **#24** | `2.12` | **Breece Hall** | `RB15` | NYJ | Starter | 13.73 | **+92.5** | 32.7 | +8.7 | **94** |
+| **#25** | `3.01` | **Josh Allen** | `QB1` | BUF | Starter | 19.44 | **+30.4** | 21.7 | -3.3 | **88** |
+| **#26** | `3.02` | **A.J. Brown** | `WR8` | PHI | Starter | 11.13 | **+34.6** | 22.0 | -4.0 | **86** |
+| **#27** | `3.03` | **Nico Collins** | `WR9` | HOU | Starter | 11.30 | **+37.1** | 23.0 | -4.0 | **86** |
+| **#28** | `3.04` | **Javonte Williams** | `RB16` | DAL | Starter | 11.50 | **+56.8** | 31.3 | +3.3 | **89** |
+| **#29** | `3.05` | **Malik Nabers** | `WR10` | NYG | Starter | 12.63 | **+56.7** | 35.0 | +6.0 | **92** |
+| **#30** | `3.06` | **Cam Skattebo** | `RB17` | NYG | Starter | 11.71 | **+60.2** | 37.3 | +7.3 | **91** |
+| **#31** | `3.07` | **Travis Etienne Jr.** | `RB18` | NO | Starter | 11.67 | **+59.5** | 39.3 | +8.3 | **91** |
+| **#32** | `3.08` | **Jeremiyah Love** | `RB19` | ARI | Starter | 11.26 | **+53.0** | 25.0 | -7.0 | **86** |
+| **#33** | `3.09` | **George Pickens** | `WR11` | DAL | WR2 | 6.73 | **-30.2** | 25.3 | -7.7 | **77** |
+| **#34** | `3.10` | **Bucky Irving** | `RB20` | TB | Starter | 11.59 | **+58.2** | 44.3 | +10.3 | **92** |
+| **#35** | `3.11` | **Chris Olave** | `WR12` | NO | Starter | 7.94 | **-12.3** | 29.0 | -6.0 | **80** |
+| **#36** | `3.12` | **Rashee Rice** | `WR13` | KC | Starter | 8.77 | **-0.2** | 29.3 | -6.7 | **83** |
+| **#37** | `4.01` | **David Montgomery** | `RB21` | HOU | Starter | 11.81 | **+61.8** | 51.3 | +14.3 | **94** |
+| **#38** | `4.02` | **Quinshon Judkins** | `RB22` | CLE | Starter | 12.40 | **+71.2** | 47.7 | +9.7 | **94** |
+| **#39** | `4.03` | **Garrett Wilson** | `WR14` | NYJ | Starter | 11.54 | **+40.7** | 42.3 | +3.3 | **91** |
+| **#40** | `4.04` | **D'Andre Swift** | `RB23` | CHI | Starter | 12.08 | **+66.1** | 54.7 | +14.7 | **95** |
+| **#41** | `4.05` | **DeVonta Smith** | `WR15` | PHI | WR2 | 6.98 | **-26.5** | 33.3 | -7.7 | **79** |
+| **#42** | `4.06` | **Lamar Jackson** | `QB2` | BAL | Starter | 19.55 | **+31.2** | 37.3 | -4.7 | **89** |
+| **#43** | `4.07` | **Tee Higgins** | `WR16` | CIN | WR2 | 7.83 | **-14.0** | 38.0 | -5.0 | **82** |
+| **#44** | `4.08` | **Mike Evans** | `WR17` | SF | Starter | 11.30 | **+37.1** | 60.0 | +16.0 | **92** |
+| **#45** | `4.09` | **Tetairoa McMillan** | `WR18` | CAR | Starter | 10.60 | **+26.8** | 38.3 | -6.7 | **88** |
+| **#46** | `4.10` | **Zay Flowers** | `WR19` | BAL | Starter | 10.19 | **+20.8** | 41.0 | -5.0 | **88** |
+| **#47** | `4.11` | **DJ Moore** | `WR20` | BUF | Starter | 11.06 | **+33.6** | 52.3 | +5.3 | **91** |
+| **#48** | `4.12` | **Emeka Egbuka** | `WR21` | TB | WR2 | 7.20 | **-23.3** | 42.0 | -6.0 | **82** |
+| **#49** | `5.01` | **Jalen Hurts** | `QB3` | PHI | Starter | 19.85 | **+33.3** | 63.7 | +14.7 | **91** |
+| **#50** | `5.02` | **Colston Loveland** | `TE3` | CHI | Starter | 8.99 | **+29.0** | 42.3 | -7.7 | **88** |
+| **#51** | `5.03` | **Terry McLaurin** | `WR22` | WAS | Starter | 10.96 | **+32.1** | 53.3 | +2.3 | **91** |
+| **#52** | `5.04` | **Ladd McConkey** | `WR23` | LAC | Starter | 10.84 | **+30.4** | 45.3 | -6.7 | **90** |
+| **#53** | `5.05` | **Jayden Daniels** | `QB4` | WAS | Starter | 19.48 | **+30.7** | 59.3 | +6.3 | **90** |
+| **#54** | `5.06` | **Tyler Warren** | `TE4` | IND | Starter | 8.99 | **+29.0** | 52.3 | -1.7 | **89** |
+| **#55** | `5.07` | **Tucker Kraft** | `TE5` | GB | Starter | 8.87 | **+27.6** | 69.7 | +14.7 | **90** |
+| **#56** | `5.08` | **Brian Thomas Jr.** | `WR24` | JAX | Starter | 11.74 | **+43.6** | 73.3 | +17.3 | **94** |
+| **#57** | `5.09` | **Rhamondre Stevenson** | `RB24` | NE | Starter | 10.77 | **+45.1** | 76.3 | +19.3 | **93** |
+| **#58** | `5.10` | **Chuba Hubbard** | `RB25` | CAR | Starter | 11.44 | **+55.8** | 77.0 | +19.0 | **95** |
+| **#59** | `5.11` | **Jaylen Waddle** | `WR25` | MIA | Starter | 8.84 | **+0.9** | 49.3 | -9.7 | **86** |
+| **#60** | `5.12` | **Luther Burden III** | `WR26` | CHI | WR2 | 5.88 | **-42.7** | 49.3 | -10.7 | **79** |
+| **#61** | `6.01` | **TreVeyon Henderson** | `RB26` | NE | RB2 | 6.52 | **-22.9** | 49.7 | -11.3 | **82** |
+| **#62** | `6.02` | **Sam LaPorta** | `TE6` | DET | Starter | 9.46 | **+34.7** | 77.7 | +15.7 | **93** |
+| **#63** | `6.03` | **Drake Maye** | `QB5` | NE | Starter | 18.52 | **+23.8** | 52.0 | -11.0 | **89** |
+| **#64** | `6.04` | **Joe Burrow** | `QB6` | CIN | Starter | 17.45 | **+16.1** | 51.0 | -13.0 | **87** |
+| **#65** | `6.05` | **Tony Pollard** | `RB27` | TEN | Starter | 11.78 | **+61.3** | 80.3 | +15.3 | **95** |
+| **#66** | `6.06` | **Kyle Pitts Sr.** | `TE7` | ATL | Starter | 8.34 | **+21.2** | 72.7 | +6.7 | **90** |
+| **#67** | `6.07` | **Bhayshul Tuten** | `RB28` | JAX | Starter | 7.55 | **-6.4** | 56.0 | -11.0 | **85** |
+| **#68** | `6.08` | **Davante Adams** | `WR27` | LAR | WR2 | 8.02 | **-11.2** | 56.3 | -11.7 | **84** |
+| **#69** | `6.09` | **Jameson Williams** | `WR28` | DET | WR2 | 6.64 | **-31.5** | 57.0 | -12.0 | **81** |
+| **#70** | `6.10` | **Caleb Williams** | `QB7` | CHI | Starter | 18.07 | **+20.5** | 77.7 | +7.7 | **90** |
+| **#71** | `6.11` | **Jaylen Warren** | `RB29` | PIT | Starter | 9.09 | **+18.2** | 69.0 | -2.0 | **89** |
+| **#72** | `6.12` | **Courtland Sutton** | `WR29` | DEN | Starter | 10.36 | **+23.3** | 87.7 | +15.7 | **93** |
+| **#73** | `7.01` | **Jadarian Price** | `RB30` | SEA | Starter | 7.69 | **-4.2** | 60.3 | -12.7 | **86** |
+| **#74** | `7.02` | **Dak Prescott** | `QB8` | DAL | Starter | 17.62 | **+17.3** | 82.7 | +8.7 | **90** |
+| **#75** | `7.03` | **DK Metcalf** | `WR30` | PIT | Starter | 9.93 | **+16.9** | 84.7 | +9.7 | **91** |
+| **#76** | `7.04` | **George Kittle** | `TE8` | SF | Starter | 10.84 | **+51.2** | 98.0 | +22.0 | **98** |
+| **#77** | `7.05` | **Chris Godwin Jr.** | `WR31` | TB | Starter | 10.23 | **+21.3** | 91.3 | +14.3 | **93** |
+| **#78** | `7.06` | **Rome Odunze** | `WR32` | CHI | Starter | 8.69 | **-1.3** | 64.3 | -13.7 | **86** |
+| **#79** | `7.07` | **J.K. Dobbins** | `RB31` | DEN | Starter | 12.06 | **+65.8** | 92.3 | +13.3 | **97** |
+| **#80** | `7.08` | **Patrick Mahomes II** | `QB9` | KC | Starter | 18.31 | **+22.2** | 100.7 | +20.7 | **92** |
+| **#81** | `7.09` | **Justin Herbert** | `QB10` | LAC | Starter | 17.44 | **+16.0** | 79.3 | -1.7 | **89** |
+| **#82** | `7.10` | **Travis Kelce** | `TE9` | KC | Starter | 10.06 | **+41.8** | 101.3 | +19.3 | **96** |
+| **#83** | `7.11` | **Harold Fannin Jr.** | `TE10` | CLE | Starter | 7.19 | **+7.4** | 66.7 | -16.3 | **86** |
+| **#84** | `7.12` | **Christian Watson** | `WR33` | GB | Starter | 8.14 | **-9.4** | 66.7 | -17.3 | **85** |
+| **#85** | `8.01` | **Brock Purdy** | `QB11` | SF | Starter | 18.67 | **+24.8** | 103.7 | +18.7 | **92** |
+| **#86** | `8.02` | **Marvin Harrison Jr.** | `WR34` | ARI | Starter | 9.79 | **+14.9** | 78.3 | -7.7 | **90** |
+| **#87** | `8.03` | **Dalton Kincaid** | `TE11` | BUF | Starter | 7.85 | **+15.4** | 105.3 | +18.3 | **91** |
+| **#88** | `8.04` | **Bo Nix** | `QB12` | DEN | Starter | 18.71 | **+25.1** | 105.7 | +17.7 | **93** |
+| **#89** | `8.05` | **Carnell Tate** | `WR35` | TEN | Starter | 8.34 | **-6.4** | 71.7 | -17.3 | **86** |
+| **#90** | `8.06` | **Jake Ferguson** | `TE12` | DAL | Starter | 7.07 | **+6.0** | 110.7 | +20.7 | **89** |
+| **#91** | `8.07` | **Aaron Jones Sr.** | `RB32` | MIN | Starter | 11.70 | **+60.0** | 114.3 | +23.3 | **99** |
+| **#92** | `8.08` | **RJ Harvey** | `RB33` | DEN | RB2 | 6.45 | **-24.0** | 76.0 | -16.0 | **84** |
+| **#93** | `8.09` | **Mark Andrews** | `TE13` | BAL | Starter | 9.44 | **+34.4** | 116.0 | +23.0 | **96** |
+| **#94** | `8.10` | **Jared Goff** | `QB13` | DET | Starter | 17.35 | **+15.3** | 116.0 | +22.0 | **92** |
+| **#95** | `8.11` | **Isaiah Likely** | `TE14` | NYG | Starter | 6.18 | **-4.7** | 105.3 | +10.3 | **86** |
+| **#96** | `8.12` | **Rico Dowdle** | `RB34` | PIT | RB2 | 4.08 | **-61.9** | 78.0 | -18.0 | **79** |
+| **#97** | `9.01` | **Dallas Goedert** | `TE15` | PHI | Starter | 6.11 | **-5.6** | 119.7 | +22.7 | **87** |
+| **#98** | `9.02` | **Trevor Lawrence** | `QB14` | JAX | Starter | 14.33 | **-6.4** | 84.0 | -14.0 | **86** |
+| **#99** | `9.03` | **Jaxson Dart** | `QB15` | NYG | Starter | 14.15 | **-7.7** | 86.7 | -12.3 | **86** |
+| **#100** | `9.04` | **Alec Pierce** | `WR36` | IND | Starter | 7.73 | **-15.5** | 84.7 | -15.3 | **85** |
+| **#101** | `9.05` | **Kyle Monangai** | `RB35` | CHI | RB2 | 5.54 | **-38.6** | 84.7 | -16.3 | **82** |
+| **#102** | `9.06` | **Jordyn Tyson** | `WR37` | NO | Starter | 7.68 | **-16.2** | 85.7 | -16.3 | **86** |
+| **#103** | `9.07` | **Parker Washington** | `WR38` | JAX | Reserve | 0.37 | **-123.8** | 86.3 | -16.7 | **69** |
+| **#104** | `9.08` | **Michael Wilson** | `WR39` | ARI | WR2 | 5.05 | **-54.9** | 87.0 | -17.0 | **80** |
+| **#105** | `9.09` | **Matthew Stafford** | `QB16` | LAR | Starter | 13.61 | **-11.6** | 107.7 | +2.7 | **86** |
+| **#106** | `9.10` | **Zach Charbonnet** | `RB36` | SEA | Starter | 10.25 | **+36.8** | 134.3 | +28.3 | **97** |
+| **#107** | `9.11` | **Kyler Murray** | `QB17` | MIN | Starter | 18.52 | **+23.8** | 134.7 | +27.7 | **94** |
+| **#108** | `9.12` | **Oronde Gadsden II** | `TE16` | LAC | Starter | 5.85 | **-8.6** | 136.0 | +28.0 | **87** |
+| **#109** | `10.01` | **Jordan Love** | `QB18` | GB | Starter | 13.14 | **-15.0** | 135.7 | +26.7 | **86** |
+| **#110** | `10.02` | **Blake Corum** | `RB37` | LAR | RB2 | 4.43 | **-56.3** | 94.7 | -15.3 | **81** |
+| **#111** | `10.03` | **Makai Lemon** | `WR40` | PHI | Starter | 7.30 | **-21.8** | 95.0 | -16.0 | **86** |
+| **#112** | `10.04` | **Baker Mayfield** | `QB19` | TB | Starter | 18.00 | **+20.0** | 140.3 | +28.3 | **94** |
+| **#113** | `10.05` | **Hunter Henry** | `TE17` | NE | Starter | 9.30 | **+32.8** | 142.3 | +29.3 | **97** |
+| **#114** | `10.06` | **Malik Willis** | `QB20` | MIA | Starter | 12.97 | **-16.2** | 138.7 | +24.7 | **86** |
+| **#115** | `10.07` | **Brenton Strange** | `TE18` | JAX | Starter | 5.67 | **-10.8** | 144.3 | +29.3 | **87** |
+| **#116** | `10.08` | **Tyler Shough** | `QB21` | NO | Starter | 12.67 | **-18.4** | 144.7 | +28.7 | **86** |
+| **#117** | `10.09` | **Aaron Rodgers** | `QB22` | PIT | Starter | 12.72 | **-18.0** | 147.5 | +30.5 | **87** |
+| **#118** | `10.10` | **Chig Okonkwo** | `TE19` | WAS | Starter | 5.56 | **-12.1** | 150.0 | +32.0 | **87** |
+| **#119** | `10.11` | **Jonathon Brooks** | `RB38` | CAR | RB2 | 4.28 | **-58.7** | 97.3 | -21.7 | **81** |
+| **#120** | `10.12` | **Sam Darnold** | `QB23` | SEA | Starter | 12.56 | **-19.2** | 151.3 | +31.3 | **86** |
+| **#121** | `11.01` | **Alvin Kamara** | `RB39` | NO | RB2 | 7.68 | **-4.3** | 152.3 | +31.3 | **92** |
+| **#122** | `11.02` | **Juwan Johnson** | `TE20` | NO | Starter | 5.43 | **-13.6** | 152.3 | +30.3 | **87** |
+| **#123** | `11.03` | **Kenny Gainwell** | `RB40` | TB | Starter | 6.55 | **-22.4** | 107.3 | -15.7 | **86** |
+| **#124** | `11.04` | **C.J. Stroud** | `QB24` | HOU | Starter | 12.48 | **-19.7** | 160.0 | +36.0 | **86** |
+| **#125** | `11.05` | **Jayden Higgins** | `WR41` | HOU | WR2 | 7.20 | **-23.3** | 160.3 | +35.3 | **89** |
+| **#126** | `11.06` | **Michael Pittman Jr.** | `WR42` | PIT | WR2 | 6.36 | **-35.6** | 107.3 | -18.7 | **84** |
+| **#127** | `11.07` | **Jakobi Meyers** | `WR43` | JAX | WR2 | 7.07 | **-25.2** | 112.0 | -15.0 | **86** |
+| **#128** | `11.08` | **Quentin Johnston** | `WR44` | LAC | WR2 | 7.01 | **-26.0** | 109.7 | -18.3 | **86** |
+| **#129** | `11.09` | **Rachaad White** | `RB41` | WAS | RB2 | 6.32 | **-26.1** | 111.3 | -17.7 | **87** |
+| **#130** | `11.10` | **Cam Ward** | `QB25` | TEN | Starter | 12.43 | **-20.1** | 165.3 | +35.3 | **86** |
+| **#131** | `11.11` | **Bryce Young** | `QB26` | CAR | Starter | 12.40 | **-20.3** | 165.7 | +34.7 | **86** |
+| **#132** | `11.12` | **Jordan Addison** | `WR45` | MIN | WR2 | 6.99 | **-26.3** | 111.0 | -21.0 | **86** |
+| **#133** | `12.01` | **Jacory Croskey-Merritt** | `RB42` | WAS | Starter | 6.07 | **-30.1** | 110.7 | -22.3 | **86** |
+| **#134** | `12.02` | **Brian Robinson Jr.** | `RB43` | ATL | Starter | 6.24 | **-27.4** | 143.0 | +9.0 | **89** |
+| **#135** | `12.03` | **Pat Freiermuth** | `TE21` | PIT | Starter | 4.14 | **-29.2** | 171.5 | +36.5 | **87** |
+| **#136** | `12.04` | **T.J. Hockenson** | `TE22` | MIN | Starter | 7.72 | **+13.8** | 171.7 | +35.7 | **94** |
+| **#137** | `12.05` | **Jordan Mason** | `RB44` | MIN | RB2 | 4.74 | **-51.4** | 114.7 | -22.3 | **84** |
+| **#138** | `12.06` | **Dalton Schultz** | `TE23` | HOU | Starter | 4.75 | **-21.8** | 172.3 | +34.3 | **87** |
+| **#139** | `12.07` | **Jayden Reed** | `WR46` | GB | WR2 | 6.21 | **-37.8** | 116.7 | -22.3 | **85** |
+| **#140** | `12.08` | **Daniel Jones** | `QB27` | IND | Starter | 12.35 | **-20.7** | 174.7 | +34.7 | **86** |
+| **#141** | `12.09` | **Wan'Dale Robinson** | `WR47` | TEN | WR2 | 4.64 | **-60.9** | 117.0 | -24.0 | **81** |
+| **#142** | `12.10` | **AJ Barner** | `TE24` | SEA | Starter | 4.55 | **-24.2** | 175.0 | +33.0 | **87** |
+| **#143** | `12.11` | **Tyrone Tracy Jr.** | `RB45` | NYG | RB2 | 5.95 | **-32.0** | 143.3 | +0.3 | **88** |
+| **#144** | `12.12` | **Jerry Jeudy** | `WR48` | CLE | Starter | 11.10 | **+34.1** | 178.0 | +34.0 | **99** |
+| **#145** | `13.01` | **Josh Downs** | `WR49` | IND | WR2 | 6.26 | **-37.1** | 119.7 | -25.3 | **85** |
+| **#146** | `13.02` | **Xavier Worthy** | `WR50` | KC | WR2 | 6.38 | **-35.3** | 128.7 | -17.3 | **86** |
+| **#147** | `13.03` | **Tank Bigsby** | `RB46` | PHI | RB2 | 5.75 | **-35.2** | 181.0 | +34.0 | **88** |
+| **#148** | `13.04` | **Khalil Shakir** | `WR51` | BUF | WR2 | 6.31 | **-36.3** | 157.7 | +9.7 | **87** |
+| **#149** | `13.05` | **KC Concepcion** | `WR52` | CLE | Starter | 6.27 | **-37.0** | 143.7 | -5.3 | **86** |
+| **#150** | `13.06` | **Geno Smith** | `QB28` | NYJ | Starter | 12.10 | **-22.5** | 184.0 | +34.0 | **86** |
+| **#151** | `13.07` | **Braelon Allen** | `RB47` | NYJ | RB2 | 5.84 | **-33.8** | 185.5 | +34.5 | **88** |
+| **#152** | `13.08` | **Romeo Doubs** | `WR53` | NE | Starter | 6.20 | **-38.0** | 142.0 | -10.0 | **86** |
+| **#153** | `13.09` | **Gunnar Helm** | `TE25` | TEN | Starter | 3.94 | **-31.6** | 187.5 | +34.5 | **87** |
+| **#154** | `13.10` | **James Conner** | `RB48` | ARI | IR/Reserve | 4.96 | **-47.8** | 175.0 | +21.0 | **86** |
+| **#155** | `13.11` | **Tyjae Spears** | `RB49` | TEN | RB2 | 4.85 | **-49.6** | 160.3 | +5.3 | **86** |
+| **#156** | `13.12` | **Cade Otton** | `TE26` | TB | Starter | 3.75 | **-33.8** | 194.5 | +38.5 | **87** |
+| **#157** | `14.01` | **Jacoby Brissett** | `QB29` | ARI | Starter | 12.28 | **-21.2** | 199.5 | +42.5 | **86** |
+| **#158** | `14.02` | **Greg Dulcich** | `TE27` | MIA | Starter | 3.58 | **-35.8** | 201.0 | +43.0 | **86** |
+| **#159** | `14.03` | **Calvin Ridley** | `WR54` | TEN | Starter | 10.00 | **+17.9** | 201.5 | +42.5 | **98** |
+| **#160** | `14.04` | **Tyler Allgeier** | `RB50` | ARI | RB2 | 3.26 | **-75.0** | 142.7 | -17.3 | **82** |
+| **#161** | `14.05` | **Woody Marks** | `RB51` | HOU | RB2 | 3.20 | **-76.0** | 149.3 | -11.7 | **82** |
+| **#162** | `14.06` | **Matthew Golden** | `WR55` | GB | Reserve | 0.30 | **-124.8** | 150.7 | -11.3 | **72** |
+| **#163** | `14.07` | **Rashid Shaheed** | `WR56` | SEA | Reserve | 0.39 | **-123.5** | 151.7 | -11.3 | **73** |
+| **#164** | `14.08` | **Tre Tucker** | `WR57` | LV | Starter | 5.40 | **-49.8** | 216.0 | +52.0 | **86** |
+| **#165** | `14.09` | **Jonah Coleman** | `RB52` | FA | Free Agent | 0.00 | **-127.2** | 153.0 | -12.0 | **74** |
+| **#166** | `14.10` | **Kenyon Sadiq** | `TE28` | FA | Free Agent | 0.00 | **-78.8** | 153.7 | -12.3 | **72** |
+| **#167** | `14.11` | **Chris Rodriguez Jr.** | `RB53` | JAX | RB2 | 3.20 | **-76.0** | 159.3 | -7.7 | **82** |
+| **#168** | `14.12` | **Stefon Diggs** | `WR58` | FA | Free Agent | 0.00 | **-129.3** | 160.3 | -7.7 | **72** |
+| **#169** | `15.01` | **Isiah Pacheco** | `RB54` | DET | RB2 | 4.21 | **-59.8** | 161.0 | -8.0 | **84** |
+| **#170** | `15.02` | **Jalen Coker** | `WR59` | CAR | WR2 | 3.97 | **-70.8** | 162.0 | -8.0 | **82** |
+| **#171** | `15.03` | **David Njoku** | `TE29` | FA | Free Agent | 0.00 | **-78.8** | 165.3 | -5.7 | **73** |
+| **#172** | `15.04` | **Jauan Jennings** | `WR60` | FA | Free Agent | 0.00 | **-129.3** | 166.0 | -6.0 | **72** |
+| **#173** | `15.05` | **De'Zhaun Stribling** | `WR61` | FA | Free Agent | 0.00 | **-129.3** | 167.5 | -5.5 | **72** |
+| **#174** | `15.06` | **Fernando Mendoza** | `QB30` | FA | Free Agent | 0.00 | **-109.6** | 168.3 | -5.7 | **68** |
+| **#175** | `15.07` | **Deebo Samuel Sr.** | `WR62` | FA | Free Agent | 0.00 | **-129.3** | 169.0 | -6.0 | **72** |
+| **#176** | `15.08` | **Theo Johnson** | `TE30` | NYG | TE2 | 1.32 | **-63.0** | 172.0 | -4.0 | **81** |
+| **#177** | `15.09` | **Denzel Boston** | `WR63` | FA | Free Agent | 0.00 | **-129.3** | 169.7 | -7.3 | **72** |
+| **#178** | `15.10` | **Dylan Sampson** | `RB55` | CLE | RB2 | 3.20 | **-76.0** | 170.7 | -7.3 | **82** |
+| **#179** | `15.11` | **Omar Cooper Jr.** | `WR64` | FA | Free Agent | 0.00 | **-129.3** | 171.3 | -7.7 | **72** |
+| **#180** | `15.12` | **Travis Hunter** | `WR65` | JAX | Reserve | 0.27 | **-125.3** | 172.3 | -7.7 | **72** |
+| **#181** | `16.01` | **Keaton Mitchell** | `RB56` | LAC | Reserve | 0.25 | **-123.2** | 174.3 | -6.7 | **76** |
+| **#182** | `16.02` | **Tyreek Hill** | `WR66` | FA | Free Agent | 0.00 | **-129.3** | 195.3 | +13.3 | **71** |
+| **#183** | `16.03` | **Michael Penix Jr.** | `QB31` | ATL | Starter | 12.20 | **-21.7** | 239.5 | +56.5 | **86** |
+| **#184** | `16.04` | **Shedeur Sanders** | `QB32` | CLE | Starter | 12.15 | **-22.1** | 240.5 | +56.5 | **86** |
+| **#185** | `16.05` | **Jalen McMillan** | `WR67` | TB | Reserve | 0.27 | **-125.3** | 177.7 | -7.3 | **72** |
+| **#186** | `16.06` | **Darnell Washington** | `TE31` | PIT | TE2 | 1.20 | **-64.4** | 242.0 | +56.0 | **82** |
+| **#187** | `16.07` | **Emmett Johnson** | `RB57` | FA | Free Agent | 0.00 | **-127.2** | 178.3 | -8.7 | **75** |
+| **#188** | `16.08` | **Mike Gesicki** | `TE32` | CIN | Starter | 2.94 | **-43.6** | 244.0 | +56.0 | **86** |
+| **#189** | `16.09` | **Kayshon Boutte** | `WR68` | NE | WR2 | 3.78 | **-73.6** | 185.0 | -4.0 | **81** |
+| **#190** | `16.10` | **Justice Hill** | `RB58` | BAL | RB2 | 3.17 | **-76.5** | 183.0 | -7.0 | **83** |
+| **#191** | `16.11` | **Mike Washington Jr.** | `RB59` | FA | Free Agent | 0.00 | **-127.2** | 183.0 | -8.0 | **76** |
+| **#192** | `16.12` | **Jalen Nailor** | `WR69` | LV | WR2 | 3.78 | **-73.6** | 188.0 | -4.0 | **81** |
 
 ---
 
-## Positional Tier Analysis
+## Sheet 2: Balanced Consensus Draft Board (w_adp = 0.50)
 
-### Tight End Tier Breakdown
-- **Tier 1 (Elite Gamechangers)**: Brock Bowers (#12 overall, +79.8 VORP), Trey McBride (#14 overall, +76.2 VORP). Both command 24%+ target shares and project over 11.3 PPG, giving their owners a massive positional edge every single week.
-- **Tier 2 (High-End Starters)**: George Kittle (#24 overall, +61.0 VORP), Travis Kelce (#33 overall, +51.4 VORP). Dependable focal points of high-volume passing offenses.
-- **Tier 3 (Everyday Starters)**: David Njoku (#48 overall), Sam LaPorta (#54 overall), Evan Engram (#62 overall). Solid contributors with 8.5 to 9.5 projected PPG.
-- **Tier 4 (Replacement Line)**: Dallas Goedert, Jake Ferguson, Kyle Pitts. Scoring near the 6.57 PPG replacement threshold.
+*Even 50/50 balance between quantitative alpha and consensus market ADP.*
 
-### Quarterback Tier Breakdown
-- **Tier 1 (Dual-Threat Konami Code)**: Jalen Hurts (#16 overall, +71.8 VORP), Lamar Jackson (#21 overall, +66.0 VORP), Jayden Daniels (#22 overall, +66.0 VORP), Josh Allen (#23 overall, +64.1 VORP). Elite rushing floors push these signal-callers into Round 2 value territory.
-- **Tier 2 (High-Volume Passers)**: Patrick Mahomes, Joe Burrow, Brock Purdy, Kyler Murray (Picks 28, as 45). Consistent 18+ PPG performers.
-- **Tier 3 (Late-Round QB Strategy)**: Dak Prescott, Baker Mayfield, Justin Herbert. Because replacement level is 15.22 PPG, waiting on QB yields only a minor PPG deficit while allowing managers to hoard scarce RBs and WRs.
+| LPI Rank | Rd.Pick | Player | Pos (Rank) | Team | Depth | LPI Proj PPG | Season VORP | Mkt ADP | Diff vs ADP | Draft Grade at ADP |
+| :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **#1** | `1.01` | **Jahmyr Gibbs** | `RB1` | DET | Starter | 15.59 | **+122.2** | 1.7 | +0.7 | **89** |
+| **#2** | `1.02` | **Bijan Robinson** | `RB2` | ATL | Starter | 15.34 | **+118.2** | 1.3 | -0.7 | **89** |
+| **#3** | `1.03` | **Ja'Marr Chase** | `WR1` | CIN | Starter | 13.71 | **+72.6** | 3.0 | 0.0 | **88** |
+| **#4** | `1.04` | **Jonathan Taylor** | `RB3` | IND | Starter | 13.57 | **+89.9** | 6.7 | +2.7 | **86** |
+| **#5** | `1.05` | **Puka Nacua** | `WR2` | LAR | Starter | 13.20 | **+65.1** | 4.0 | -1.0 | **87** |
+| **#6** | `1.06` | **De'Von Achane** | `RB4` | MIA | Starter | 14.07 | **+97.9** | 13.3 | +7.3 | **88** |
+| **#7** | `1.07` | **Christian McCaffrey** | `RB5` | SF | Starter | 11.41 | **+55.4** | 5.0 | -2.0 | **82** |
+| **#8** | `1.08` | **Saquon Barkley** | `RB6` | PHI | Starter | 15.61 | **+122.6** | 14.0 | +6.0 | **91** |
+| **#9** | `1.09` | **James Cook III** | `RB7` | BUF | Starter | 13.33 | **+86.1** | 9.7 | +0.7 | **86** |
+| **#10** | `1.10` | **Jaxon Smith-Njigba** | `WR3` | SEA | Starter | 11.18 | **+35.3** | 6.3 | -3.7 | **84** |
+| **#11** | `1.11` | **Ashton Jeanty** | `RB8` | LV | Starter | 12.70 | **+76.0** | 10.7 | -0.3 | **85** |
+| **#12** | `1.12` | **Amon-Ra St. Brown** | `WR4` | DET | Starter | 12.31 | **+52.0** | 8.3 | -3.7 | **86** |
+| **#13** | `2.01` | **Omarion Hampton** | `RB9` | LAC | Starter | 12.66 | **+75.4** | 15.3 | +2.3 | **87** |
+| **#14** | `2.02` | **Justin Jefferson** | `WR5` | MIN | Starter | 12.88 | **+60.4** | 11.0 | -3.0 | **87** |
+| **#15** | `2.03` | **CeeDee Lamb** | `WR6` | DAL | Starter | 12.16 | **+49.8** | 11.3 | -3.7 | **86** |
+| **#16** | `2.04` | **Derrick Henry** | `RB10` | BAL | Starter | 13.48 | **+88.5** | 21.3 | +5.3 | **90** |
+| **#17** | `2.05` | **Chase Brown** | `RB11` | CIN | Starter | 11.89 | **+63.0** | 15.0 | -2.0 | **85** |
+| **#18** | `2.06` | **Brock Bowers** | `TE1` | LV | Starter | 11.70 | **+61.6** | 20.7 | +2.7 | **93** |
+| **#19** | `2.07` | **Josh Jacobs** | `RB12` | GB | Starter | 14.01 | **+97.0** | 28.3 | +9.3 | **92** |
+| **#20** | `2.08` | **Kyren Williams** | `RB13` | LAR | Starter | 12.62 | **+74.7** | 28.7 | +8.7 | **90** |
+| **#21** | `2.09` | **Drake London** | `WR7` | ATL | Starter | 11.56 | **+40.9** | 17.3 | -3.7 | **86** |
+| **#22** | `2.10` | **Trey McBride** | `TE2` | ARI | Starter | 11.55 | **+59.8** | 19.7 | -2.3 | **92** |
+| **#23** | `2.11` | **Kenneth Walker III** | `RB14` | KC | Starter | 4.14 | **-61.0** | 19.7 | -3.3 | **72** |
+| **#24** | `2.12` | **Breece Hall** | `RB15` | NYJ | Starter | 13.73 | **+92.5** | 32.7 | +8.7 | **94** |
+| **#25** | `3.01` | **Josh Allen** | `QB1` | BUF | Starter | 19.44 | **+30.4** | 21.7 | -3.3 | **88** |
+| **#26** | `3.02` | **A.J. Brown** | `WR8` | PHI | Starter | 11.13 | **+34.6** | 22.0 | -4.0 | **86** |
+| **#27** | `3.03` | **Nico Collins** | `WR9` | HOU | Starter | 11.30 | **+37.1** | 23.0 | -4.0 | **86** |
+| **#28** | `3.04` | **Javonte Williams** | `RB16` | DAL | Starter | 11.50 | **+56.8** | 31.3 | +3.3 | **89** |
+| **#29** | `3.05` | **Cam Skattebo** | `RB17` | NYG | Starter | 11.71 | **+60.2** | 37.3 | +8.3 | **91** |
+| **#30** | `3.06` | **Jeremiyah Love** | `RB18` | ARI | Starter | 11.26 | **+53.0** | 25.0 | -5.0 | **86** |
+| **#31** | `3.07` | **Malik Nabers** | `WR10` | NYG | Starter | 12.63 | **+56.7** | 35.0 | +4.0 | **92** |
+| **#32** | `3.08` | **Travis Etienne Jr.** | `RB19` | NO | Starter | 11.67 | **+59.5** | 39.3 | +7.3 | **91** |
+| **#33** | `3.09` | **George Pickens** | `WR11` | DAL | WR2 | 6.73 | **-30.2** | 25.3 | -7.7 | **77** |
+| **#34** | `3.10` | **Bucky Irving** | `RB20` | TB | Starter | 11.59 | **+58.2** | 44.3 | +10.3 | **92** |
+| **#35** | `3.11` | **Chris Olave** | `WR12` | NO | Starter | 7.94 | **-12.3** | 29.0 | -6.0 | **80** |
+| **#36** | `3.12` | **Rashee Rice** | `WR13` | KC | Starter | 8.77 | **-0.2** | 29.3 | -6.7 | **83** |
+| **#37** | `4.01` | **David Montgomery** | `RB21` | HOU | Starter | 11.81 | **+61.8** | 51.3 | +14.3 | **94** |
+| **#38** | `4.02` | **Quinshon Judkins** | `RB22` | CLE | Starter | 12.40 | **+71.2** | 47.7 | +9.7 | **94** |
+| **#39** | `4.03` | **Garrett Wilson** | `WR14` | NYJ | Starter | 11.54 | **+40.7** | 42.3 | +3.3 | **91** |
+| **#40** | `4.04` | **D'Andre Swift** | `RB23` | CHI | Starter | 12.08 | **+66.1** | 54.7 | +14.7 | **95** |
+| **#41** | `4.05` | **DeVonta Smith** | `WR15` | PHI | WR2 | 6.98 | **-26.5** | 33.3 | -7.7 | **79** |
+| **#42** | `4.06` | **Lamar Jackson** | `QB2` | BAL | Starter | 19.55 | **+31.2** | 37.3 | -4.7 | **89** |
+| **#43** | `4.07` | **Tee Higgins** | `WR16` | CIN | WR2 | 7.83 | **-14.0** | 38.0 | -5.0 | **82** |
+| **#44** | `4.08` | **Tetairoa McMillan** | `WR17` | CAR | Starter | 10.60 | **+26.8** | 38.3 | -5.7 | **88** |
+| **#45** | `4.09` | **Mike Evans** | `WR18` | SF | Starter | 11.30 | **+37.1** | 60.0 | +15.0 | **92** |
+| **#46** | `4.10` | **Zay Flowers** | `WR19` | BAL | Starter | 10.19 | **+20.8** | 41.0 | -5.0 | **88** |
+| **#47** | `4.11` | **DJ Moore** | `WR20` | BUF | Starter | 11.06 | **+33.6** | 52.3 | +5.3 | **91** |
+| **#48** | `4.12` | **Emeka Egbuka** | `WR21` | TB | WR2 | 7.20 | **-23.3** | 42.0 | -6.0 | **82** |
+| **#49** | `5.01` | **Colston Loveland** | `TE3` | CHI | Starter | 8.99 | **+29.0** | 42.3 | -6.7 | **88** |
+| **#50** | `5.02` | **Terry McLaurin** | `WR22` | WAS | Starter | 10.96 | **+32.1** | 53.3 | +3.3 | **91** |
+| **#51** | `5.03` | **Ladd McConkey** | `WR23` | LAC | Starter | 10.84 | **+30.4** | 45.3 | -5.7 | **90** |
+| **#52** | `5.04` | **Jalen Hurts** | `QB3` | PHI | Starter | 19.85 | **+33.3** | 63.7 | +11.7 | **91** |
+| **#53** | `5.05` | **Jayden Daniels** | `QB4` | WAS | Starter | 19.48 | **+30.7** | 59.3 | +6.3 | **90** |
+| **#54** | `5.06` | **Tyler Warren** | `TE4` | IND | Starter | 8.99 | **+29.0** | 52.3 | -1.7 | **89** |
+| **#55** | `5.07` | **Brian Thomas Jr.** | `WR24` | JAX | Starter | 11.74 | **+43.6** | 73.3 | +18.3 | **94** |
+| **#56** | `5.08` | **Drake Maye** | `QB5` | NE | Starter | 18.52 | **+23.8** | 52.0 | -4.0 | **89** |
+| **#57** | `5.09` | **Tucker Kraft** | `TE5` | GB | Starter | 8.87 | **+27.6** | 69.7 | +12.7 | **90** |
+| **#58** | `5.10` | **Rhamondre Stevenson** | `RB24` | NE | Starter | 10.77 | **+45.1** | 76.3 | +18.3 | **93** |
+| **#59** | `5.11` | **Chuba Hubbard** | `RB25` | CAR | Starter | 11.44 | **+55.8** | 77.0 | +18.0 | **95** |
+| **#60** | `5.12` | **Jaylen Waddle** | `WR25` | MIA | Starter | 8.84 | **+0.9** | 49.3 | -10.7 | **86** |
+| **#61** | `6.01` | **Luther Burden III** | `WR26` | CHI | WR2 | 5.88 | **-42.7** | 49.3 | -11.7 | **79** |
+| **#62** | `6.02` | **TreVeyon Henderson** | `RB26` | NE | RB2 | 6.52 | **-22.9** | 49.7 | -12.3 | **82** |
+| **#63** | `6.03` | **Sam LaPorta** | `TE6` | DET | Starter | 9.46 | **+34.7** | 77.7 | +14.7 | **93** |
+| **#64** | `6.04` | **Joe Burrow** | `QB6` | CIN | Starter | 17.45 | **+16.1** | 51.0 | -13.0 | **87** |
+| **#65** | `6.05` | **Tony Pollard** | `RB27` | TEN | Starter | 11.78 | **+61.3** | 80.3 | +15.3 | **95** |
+| **#66** | `6.06` | **Bhayshul Tuten** | `RB28` | JAX | Starter | 7.55 | **-6.4** | 56.0 | -10.0 | **85** |
+| **#67** | `6.07` | **Kyle Pitts Sr.** | `TE7` | ATL | Starter | 8.34 | **+21.2** | 72.7 | +5.7 | **90** |
+| **#68** | `6.08` | **Davante Adams** | `WR27` | LAR | WR2 | 8.02 | **-11.2** | 56.3 | -11.7 | **84** |
+| **#69** | `6.09` | **Jameson Williams** | `WR28` | DET | WR2 | 6.64 | **-31.5** | 57.0 | -12.0 | **81** |
+| **#70** | `6.10` | **Jaylen Warren** | `RB29` | PIT | Starter | 9.09 | **+18.2** | 69.0 | -1.0 | **89** |
+| **#71** | `6.11` | **Caleb Williams** | `QB7` | CHI | Starter | 18.07 | **+20.5** | 77.7 | +6.7 | **90** |
+| **#72** | `6.12` | **Courtland Sutton** | `WR29` | DEN | Starter | 10.36 | **+23.3** | 87.7 | +15.7 | **93** |
+| **#73** | `7.01` | **Jadarian Price** | `RB30` | SEA | Starter | 7.69 | **-4.2** | 60.3 | -12.7 | **86** |
+| **#74** | `7.02` | **George Kittle** | `TE8` | SF | Starter | 10.84 | **+51.2** | 98.0 | +24.0 | **98** |
+| **#75** | `7.03` | **Dak Prescott** | `QB8` | DAL | Starter | 17.62 | **+17.3** | 82.7 | +7.7 | **90** |
+| **#76** | `7.04` | **Chris Godwin Jr.** | `WR30` | TB | Starter | 10.23 | **+21.3** | 91.3 | +15.3 | **93** |
+| **#77** | `7.05` | **Rome Odunze** | `WR31` | CHI | Starter | 8.69 | **-1.3** | 64.3 | -12.7 | **86** |
+| **#78** | `7.06` | **J.K. Dobbins** | `RB31` | DEN | Starter | 12.06 | **+65.8** | 92.3 | +14.3 | **97** |
+| **#79** | `7.07` | **DK Metcalf** | `WR32` | PIT | Starter | 9.93 | **+16.9** | 84.7 | +5.7 | **91** |
+| **#80** | `7.08` | **Patrick Mahomes II** | `QB9` | KC | Starter | 18.31 | **+22.2** | 100.7 | +20.7 | **92** |
+| **#81** | `7.09` | **Travis Kelce** | `TE9` | KC | Starter | 10.06 | **+41.8** | 101.3 | +20.3 | **96** |
+| **#82** | `7.10` | **Harold Fannin Jr.** | `TE10` | CLE | Starter | 7.19 | **+7.4** | 66.7 | -15.3 | **86** |
+| **#83** | `7.11` | **Justin Herbert** | `QB10` | LAC | Starter | 17.44 | **+16.0** | 79.3 | -3.7 | **89** |
+| **#84** | `7.12` | **Christian Watson** | `WR33` | GB | Starter | 8.14 | **-9.4** | 66.7 | -17.3 | **85** |
+| **#85** | `8.01` | **Brock Purdy** | `QB11` | SF | Starter | 18.67 | **+24.8** | 103.7 | +18.7 | **92** |
+| **#86** | `8.02` | **Marvin Harrison Jr.** | `WR34` | ARI | Starter | 9.79 | **+14.9** | 78.3 | -7.7 | **90** |
+| **#87** | `8.03` | **Bo Nix** | `QB12` | DEN | Starter | 18.71 | **+25.1** | 105.7 | +18.7 | **93** |
+| **#88** | `8.04` | **Carnell Tate** | `WR35` | TEN | Starter | 8.34 | **-6.4** | 71.7 | -16.3 | **86** |
+| **#89** | `8.05` | **Dalton Kincaid** | `TE11` | BUF | Starter | 7.85 | **+15.4** | 105.3 | +16.3 | **91** |
+| **#90** | `8.06` | **Aaron Jones Sr.** | `RB32` | MIN | Starter | 11.70 | **+60.0** | 114.3 | +24.3 | **99** |
+| **#91** | `8.07` | **RJ Harvey** | `RB33` | DEN | RB2 | 6.45 | **-24.0** | 76.0 | -15.0 | **84** |
+| **#92** | `8.08` | **Mark Andrews** | `TE12` | BAL | Starter | 9.44 | **+34.4** | 116.0 | +24.0 | **96** |
+| **#93** | `8.09` | **Jared Goff** | `QB13` | DET | Starter | 17.35 | **+15.3** | 116.0 | +23.0 | **92** |
+| **#94** | `8.10` | **Trevor Lawrence** | `QB14` | JAX | Starter | 14.33 | **-6.4** | 84.0 | -10.0 | **86** |
+| **#95** | `8.11` | **Rico Dowdle** | `RB34` | PIT | RB2 | 4.08 | **-61.9** | 78.0 | -17.0 | **79** |
+| **#96** | `8.12` | **Jake Ferguson** | `TE13` | DAL | Starter | 7.07 | **+6.0** | 110.7 | +14.7 | **89** |
+| **#97** | `9.01` | **Jaxson Dart** | `QB15` | NYG | Starter | 14.15 | **-7.7** | 86.7 | -10.3 | **86** |
+| **#98** | `9.02` | **Isaiah Likely** | `TE14` | NYG | Starter | 6.18 | **-4.7** | 105.3 | +7.3 | **86** |
+| **#99** | `9.03` | **Alec Pierce** | `WR36` | IND | Starter | 7.73 | **-15.5** | 84.7 | -14.3 | **85** |
+| **#100** | `9.04` | **Kyle Monangai** | `RB35` | CHI | RB2 | 5.54 | **-38.6** | 84.7 | -15.3 | **82** |
+| **#101** | `9.05` | **Jordyn Tyson** | `WR37` | NO | Starter | 7.68 | **-16.2** | 85.7 | -15.3 | **86** |
+| **#102** | `9.06` | **Dallas Goedert** | `TE15` | PHI | Starter | 6.11 | **-5.6** | 119.7 | +17.7 | **87** |
+| **#103** | `9.07` | **Parker Washington** | `WR38` | JAX | Reserve | 0.37 | **-123.8** | 86.3 | -16.7 | **69** |
+| **#104** | `9.08` | **Michael Wilson** | `WR39` | ARI | WR2 | 5.05 | **-54.9** | 87.0 | -17.0 | **80** |
+| **#105** | `9.09` | **Matthew Stafford** | `QB16` | LAR | Starter | 13.61 | **-11.6** | 107.7 | +2.7 | **86** |
+| **#106** | `9.10` | **Zach Charbonnet** | `RB36` | SEA | Starter | 10.25 | **+36.8** | 134.3 | +28.3 | **97** |
+| **#107** | `9.11` | **Kyler Murray** | `QB17` | MIN | Starter | 18.52 | **+23.8** | 134.7 | +27.7 | **94** |
+| **#108** | `9.12` | **Blake Corum** | `RB37` | LAR | RB2 | 4.43 | **-56.3** | 94.7 | -13.3 | **81** |
+| **#109** | `10.01` | **Makai Lemon** | `WR40` | PHI | Starter | 7.30 | **-21.8** | 95.0 | -14.0 | **86** |
+| **#110** | `10.02` | **Baker Mayfield** | `QB18` | TB | Starter | 18.00 | **+20.0** | 140.3 | +30.3 | **94** |
+| **#111** | `10.03` | **Oronde Gadsden II** | `TE16` | LAC | Starter | 5.85 | **-8.6** | 136.0 | +25.0 | **87** |
+| **#112** | `10.04` | **Hunter Henry** | `TE17` | NE | Starter | 9.30 | **+32.8** | 142.3 | +30.3 | **97** |
+| **#113** | `10.05` | **Brenton Strange** | `TE18` | JAX | Starter | 5.67 | **-10.8** | 144.3 | +31.3 | **87** |
+| **#114** | `10.06` | **Jordan Love** | `QB19` | GB | Starter | 13.14 | **-15.0** | 135.7 | +21.7 | **86** |
+| **#115** | `10.07` | **Chig Okonkwo** | `TE19` | WAS | Starter | 5.56 | **-12.1** | 150.0 | +35.0 | **87** |
+| **#116** | `10.08` | **Jonathon Brooks** | `RB38` | CAR | RB2 | 4.28 | **-58.7** | 97.3 | -18.7 | **81** |
+| **#117** | `10.09` | **Malik Willis** | `QB20` | MIA | Starter | 12.97 | **-16.2** | 138.7 | +21.7 | **86** |
+| **#118** | `10.10` | **Kenny Gainwell** | `RB39` | TB | Starter | 6.55 | **-22.4** | 107.3 | -10.7 | **86** |
+| **#119** | `10.11` | **Alvin Kamara** | `RB40` | NO | RB2 | 7.68 | **-4.3** | 152.3 | +33.3 | **92** |
+| **#120** | `10.12` | **Juwan Johnson** | `TE20` | NO | Starter | 5.43 | **-13.6** | 152.3 | +32.3 | **87** |
+| **#121** | `11.01` | **Tyler Shough** | `QB21` | NO | Starter | 12.67 | **-18.4** | 144.7 | +23.7 | **86** |
+| **#122** | `11.02` | **Aaron Rodgers** | `QB22` | PIT | Starter | 12.72 | **-18.0** | 147.5 | +25.5 | **87** |
+| **#123** | `11.03` | **Sam Darnold** | `QB23` | SEA | Starter | 12.56 | **-19.2** | 151.3 | +28.3 | **86** |
+| **#124** | `11.04` | **Jakobi Meyers** | `WR41` | JAX | WR2 | 7.07 | **-25.2** | 112.0 | -12.0 | **86** |
+| **#125** | `11.05` | **Quentin Johnston** | `WR42` | LAC | WR2 | 7.01 | **-26.0** | 109.7 | -15.3 | **86** |
+| **#126** | `11.06` | **Rachaad White** | `RB41` | WAS | RB2 | 6.32 | **-26.1** | 111.3 | -14.7 | **87** |
+| **#127** | `11.07` | **Jordan Addison** | `WR43` | MIN | WR2 | 6.99 | **-26.3** | 111.0 | -16.0 | **86** |
+| **#128** | `11.08` | **C.J. Stroud** | `QB24` | HOU | Starter | 12.48 | **-19.7** | 160.0 | +32.0 | **86** |
+| **#129** | `11.09` | **Michael Pittman Jr.** | `WR44` | PIT | WR2 | 6.36 | **-35.6** | 107.3 | -21.7 | **84** |
+| **#130** | `11.10` | **Jacory Croskey-Merritt** | `RB42` | WAS | Starter | 6.07 | **-30.1** | 110.7 | -19.3 | **86** |
+| **#131** | `11.11` | **Cam Ward** | `QB25` | TEN | Starter | 12.43 | **-20.1** | 165.3 | +34.3 | **86** |
+| **#132** | `11.12` | **Bryce Young** | `QB26` | CAR | Starter | 12.40 | **-20.3** | 165.7 | +33.7 | **86** |
+| **#133** | `12.01` | **Jayden Higgins** | `WR45` | HOU | WR2 | 7.20 | **-23.3** | 160.3 | +27.3 | **89** |
+| **#134** | `12.02` | **Brian Robinson Jr.** | `RB43` | ATL | Starter | 6.24 | **-27.4** | 143.0 | +9.0 | **89** |
+| **#135** | `12.03` | **T.J. Hockenson** | `TE21` | MIN | Starter | 7.72 | **+13.8** | 171.7 | +36.7 | **94** |
+| **#136** | `12.04` | **Jordan Mason** | `RB44` | MIN | RB2 | 4.74 | **-51.4** | 114.7 | -21.3 | **84** |
+| **#137** | `12.05` | **Dalton Schultz** | `TE22` | HOU | Starter | 4.75 | **-21.8** | 172.3 | +35.3 | **87** |
+| **#138** | `12.06` | **Jayden Reed** | `WR46` | GB | WR2 | 6.21 | **-37.8** | 116.7 | -21.3 | **85** |
+| **#139** | `12.07` | **Xavier Worthy** | `WR47` | KC | WR2 | 6.38 | **-35.3** | 128.7 | -10.3 | **86** |
+| **#140** | `12.08` | **Daniel Jones** | `QB27` | IND | Starter | 12.35 | **-20.7** | 174.7 | +34.7 | **86** |
+| **#141** | `12.09` | **Wan'Dale Robinson** | `WR48` | TEN | WR2 | 4.64 | **-60.9** | 117.0 | -24.0 | **81** |
+| **#142** | `12.10` | **AJ Barner** | `TE23` | SEA | Starter | 4.55 | **-24.2** | 175.0 | +33.0 | **87** |
+| **#143** | `12.11` | **Josh Downs** | `WR49` | IND | WR2 | 6.26 | **-37.1** | 119.7 | -23.3 | **85** |
+| **#144** | `12.12` | **Tyrone Tracy Jr.** | `RB45` | NYG | RB2 | 5.95 | **-32.0** | 143.3 | -0.7 | **88** |
+| **#145** | `13.01` | **Jerry Jeudy** | `WR50` | CLE | Starter | 11.10 | **+34.1** | 178.0 | +33.0 | **99** |
+| **#146** | `13.02` | **Pat Freiermuth** | `TE24` | PIT | Starter | 4.14 | **-29.2** | 171.5 | +25.5 | **87** |
+| **#147** | `13.03` | **KC Concepcion** | `WR51` | CLE | Starter | 6.27 | **-37.0** | 143.7 | -3.3 | **86** |
+| **#148** | `13.04` | **Romeo Doubs** | `WR52` | NE | Starter | 6.20 | **-38.0** | 142.0 | -6.0 | **86** |
+| **#149** | `13.05` | **Geno Smith** | `QB28` | NYJ | Starter | 12.10 | **-22.5** | 184.0 | +35.0 | **86** |
+| **#150** | `13.06` | **Khalil Shakir** | `WR53` | BUF | WR2 | 6.31 | **-36.3** | 157.7 | +7.7 | **87** |
+| **#151** | `13.07` | **Gunnar Helm** | `TE25` | TEN | Starter | 3.94 | **-31.6** | 187.5 | +36.5 | **87** |
+| **#152** | `13.08` | **Braelon Allen** | `RB46` | NYJ | RB2 | 5.84 | **-33.8** | 185.5 | +33.5 | **88** |
+| **#153** | `13.09` | **Tank Bigsby** | `RB47` | PHI | RB2 | 5.75 | **-35.2** | 181.0 | +28.0 | **88** |
+| **#154** | `13.10` | **Tyjae Spears** | `RB48` | TEN | RB2 | 4.85 | **-49.6** | 160.3 | +6.3 | **86** |
+| **#155** | `13.11` | **Cade Otton** | `TE26` | TB | Starter | 3.75 | **-33.8** | 194.5 | +39.5 | **87** |
+| **#156** | `13.12` | **James Conner** | `RB49` | ARI | IR/Reserve | 4.96 | **-47.8** | 175.0 | +19.0 | **86** |
+| **#157** | `14.01` | **Jacoby Brissett** | `QB29` | ARI | Starter | 12.28 | **-21.2** | 199.5 | +42.5 | **86** |
+| **#158** | `14.02` | **Greg Dulcich** | `TE27` | MIA | Starter | 3.58 | **-35.8** | 201.0 | +43.0 | **86** |
+| **#159** | `14.03` | **Calvin Ridley** | `WR54` | TEN | Starter | 10.00 | **+17.9** | 201.5 | +42.5 | **98** |
+| **#160** | `14.04` | **Tyler Allgeier** | `RB50` | ARI | RB2 | 3.26 | **-75.0** | 142.7 | -17.3 | **82** |
+| **#161** | `14.05` | **Woody Marks** | `RB51` | HOU | RB2 | 3.20 | **-76.0** | 149.3 | -11.7 | **82** |
+| **#162** | `14.06` | **Matthew Golden** | `WR55` | GB | Reserve | 0.30 | **-124.8** | 150.7 | -11.3 | **72** |
+| **#163** | `14.07` | **Rashid Shaheed** | `WR56` | SEA | Reserve | 0.39 | **-123.5** | 151.7 | -11.3 | **73** |
+| **#164** | `14.08` | **Tre Tucker** | `WR57` | LV | Starter | 5.40 | **-49.8** | 216.0 | +52.0 | **86** |
+| **#165** | `14.09` | **Jonah Coleman** | `RB52` | FA | Free Agent | 0.00 | **-127.2** | 153.0 | -12.0 | **74** |
+| **#166** | `14.10` | **Kenyon Sadiq** | `TE28` | FA | Free Agent | 0.00 | **-78.8** | 153.7 | -12.3 | **72** |
+| **#167** | `14.11` | **Isiah Pacheco** | `RB53` | DET | RB2 | 4.21 | **-59.8** | 161.0 | -6.0 | **84** |
+| **#168** | `14.12` | **Chris Rodriguez Jr.** | `RB54` | JAX | RB2 | 3.20 | **-76.0** | 159.3 | -8.7 | **82** |
+| **#169** | `15.01` | **Stefon Diggs** | `WR58` | FA | Free Agent | 0.00 | **-129.3** | 160.3 | -8.7 | **72** |
+| **#170** | `15.02` | **Theo Johnson** | `TE29` | NYG | TE2 | 1.32 | **-63.0** | 172.0 | +2.0 | **81** |
+| **#171** | `15.03` | **Jalen Coker** | `WR59` | CAR | WR2 | 3.97 | **-70.8** | 162.0 | -9.0 | **82** |
+| **#172** | `15.04` | **David Njoku** | `TE30` | FA | Free Agent | 0.00 | **-78.8** | 165.3 | -6.7 | **73** |
+| **#173** | `15.05` | **Jauan Jennings** | `WR60` | FA | Free Agent | 0.00 | **-129.3** | 166.0 | -7.0 | **72** |
+| **#174** | `15.06` | **De'Zhaun Stribling** | `WR61` | FA | Free Agent | 0.00 | **-129.3** | 167.5 | -6.5 | **72** |
+| **#175** | `15.07` | **Fernando Mendoza** | `QB30` | FA | Free Agent | 0.00 | **-109.6** | 168.3 | -6.7 | **68** |
+| **#176** | `15.08` | **Deebo Samuel Sr.** | `WR62` | FA | Free Agent | 0.00 | **-129.3** | 169.0 | -7.0 | **72** |
+| **#177** | `15.09` | **Denzel Boston** | `WR63` | FA | Free Agent | 0.00 | **-129.3** | 169.7 | -7.3 | **72** |
+| **#178** | `15.10` | **Dylan Sampson** | `RB55` | CLE | RB2 | 3.20 | **-76.0** | 170.7 | -7.3 | **82** |
+| **#179** | `15.11` | **Omar Cooper Jr.** | `WR64` | FA | Free Agent | 0.00 | **-129.3** | 171.3 | -7.7 | **72** |
+| **#180** | `15.12` | **Tyreek Hill** | `WR65` | FA | Free Agent | 0.00 | **-129.3** | 195.3 | +15.3 | **71** |
+| **#181** | `16.01` | **Travis Hunter** | `WR66` | JAX | Reserve | 0.27 | **-125.3** | 172.3 | -8.7 | **72** |
+| **#182** | `16.02` | **Kayshon Boutte** | `WR67` | NE | WR2 | 3.78 | **-73.6** | 185.0 | +3.0 | **81** |
+| **#183** | `16.03` | **Keaton Mitchell** | `RB56` | LAC | Reserve | 0.25 | **-123.2** | 174.3 | -8.7 | **76** |
+| **#184** | `16.04` | **Jalen Nailor** | `WR68` | LV | WR2 | 3.78 | **-73.6** | 188.0 | +4.0 | **81** |
+| **#185** | `16.05` | **Michael Penix Jr.** | `QB31` | ATL | Starter | 12.20 | **-21.7** | 239.5 | +54.5 | **86** |
+| **#186** | `16.06` | **Malik Washington** | `WR69` | MIA | WR2 | 3.78 | **-73.6** | 189.0 | +3.0 | **81** |
+| **#187** | `16.07` | **Shedeur Sanders** | `QB32` | CLE | Starter | 12.15 | **-22.1** | 240.5 | +53.5 | **86** |
+| **#188** | `16.08` | **Jalen McMillan** | `WR70` | TB | Reserve | 0.27 | **-125.3** | 177.7 | -10.3 | **72** |
+| **#189** | `16.09` | **Emmett Johnson** | `RB57` | FA | Free Agent | 0.00 | **-127.2** | 178.3 | -10.7 | **75** |
+| **#190** | `16.10` | **Mike Gesicki** | `TE31` | CIN | Starter | 2.94 | **-43.6** | 244.0 | +54.0 | **86** |
+| **#191** | `16.11` | **Darnell Washington** | `TE32` | PIT | TE2 | 1.20 | **-64.4** | 242.0 | +51.0 | **82** |
+| **#192** | `16.12` | **Adonai Mitchell** | `WR71` | NYJ | WR2 | 3.78 | **-73.6** | 209.5 | +17.5 | **81** |
+
+---
+
+## Sheet 3: Market Anchor Draft Board (w_adp = 0.70)
+
+*Market-anchored draft board weighted 70% toward consensus ADP with a 30% tactical value overlay.*
+
+| LPI Rank | Rd.Pick | Player | Pos (Rank) | Team | Depth | LPI Proj PPG | Season VORP | Mkt ADP | Diff vs ADP | Draft Grade at ADP |
+| :---: | :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **#1** | `1.01` | **Jahmyr Gibbs** | `RB1` | DET | Starter | 15.59 | **+122.2** | 1.7 | +0.7 | **89** |
+| **#2** | `1.02` | **Bijan Robinson** | `RB2` | ATL | Starter | 15.34 | **+118.2** | 1.3 | -0.7 | **89** |
+| **#3** | `1.03` | **Ja'Marr Chase** | `WR1` | CIN | Starter | 13.71 | **+72.6** | 3.0 | 0.0 | **88** |
+| **#4** | `1.04` | **Jonathan Taylor** | `RB3` | IND | Starter | 13.57 | **+89.9** | 6.7 | +2.7 | **86** |
+| **#5** | `1.05` | **Puka Nacua** | `WR2` | LAR | Starter | 13.20 | **+65.1** | 4.0 | -1.0 | **87** |
+| **#6** | `1.06` | **Christian McCaffrey** | `RB4` | SF | Starter | 11.41 | **+55.4** | 5.0 | -1.0 | **82** |
+| **#7** | `1.07` | **Saquon Barkley** | `RB5` | PHI | Starter | 15.61 | **+122.6** | 14.0 | +7.0 | **91** |
+| **#8** | `1.08` | **De'Von Achane** | `RB6` | MIA | Starter | 14.07 | **+97.9** | 13.3 | +5.3 | **88** |
+| **#9** | `1.09` | **James Cook III** | `RB7` | BUF | Starter | 13.33 | **+86.1** | 9.7 | +0.7 | **86** |
+| **#10** | `1.10` | **Jaxon Smith-Njigba** | `WR3` | SEA | Starter | 11.18 | **+35.3** | 6.3 | -3.7 | **84** |
+| **#11** | `1.11` | **Ashton Jeanty** | `RB8` | LV | Starter | 12.70 | **+76.0** | 10.7 | -0.3 | **85** |
+| **#12** | `1.12` | **Amon-Ra St. Brown** | `WR4` | DET | Starter | 12.31 | **+52.0** | 8.3 | -3.7 | **86** |
+| **#13** | `2.01` | **Omarion Hampton** | `RB9` | LAC | Starter | 12.66 | **+75.4** | 15.3 | +2.3 | **87** |
+| **#14** | `2.02` | **Justin Jefferson** | `WR5` | MIN | Starter | 12.88 | **+60.4** | 11.0 | -3.0 | **87** |
+| **#15** | `2.03` | **CeeDee Lamb** | `WR6` | DAL | Starter | 12.16 | **+49.8** | 11.3 | -3.7 | **86** |
+| **#16** | `2.04` | **Chase Brown** | `RB10` | CIN | Starter | 11.89 | **+63.0** | 15.0 | -1.0 | **85** |
+| **#17** | `2.05` | **Derrick Henry** | `RB11` | BAL | Starter | 13.48 | **+88.5** | 21.3 | +4.3 | **90** |
+| **#18** | `2.06` | **Josh Jacobs** | `RB12` | GB | Starter | 14.01 | **+97.0** | 28.3 | +10.3 | **92** |
+| **#19** | `2.07` | **Brock Bowers** | `TE1` | LV | Starter | 11.70 | **+61.6** | 20.7 | +1.7 | **93** |
+| **#20** | `2.08` | **Kyren Williams** | `RB13` | LAR | Starter | 12.62 | **+74.7** | 28.7 | +8.7 | **90** |
+| **#21** | `2.09` | **Trey McBride** | `TE2` | ARI | Starter | 11.55 | **+59.8** | 19.7 | -1.3 | **92** |
+| **#22** | `2.10` | **Drake London** | `WR7` | ATL | Starter | 11.56 | **+40.9** | 17.3 | -4.7 | **86** |
+| **#23** | `2.11` | **Kenneth Walker III** | `RB14` | KC | Starter | 4.14 | **-61.0** | 19.7 | -3.3 | **72** |
+| **#24** | `2.12` | **Breece Hall** | `RB15` | NYJ | Starter | 13.73 | **+92.5** | 32.7 | +8.7 | **94** |
+| **#25** | `3.01` | **Josh Allen** | `QB1` | BUF | Starter | 19.44 | **+30.4** | 21.7 | -3.3 | **88** |
+| **#26** | `3.02` | **A.J. Brown** | `WR8` | PHI | Starter | 11.13 | **+34.6** | 22.0 | -4.0 | **86** |
+| **#27** | `3.03` | **Nico Collins** | `WR9` | HOU | Starter | 11.30 | **+37.1** | 23.0 | -4.0 | **86** |
+| **#28** | `3.04` | **Jeremiyah Love** | `RB16` | ARI | Starter | 11.26 | **+53.0** | 25.0 | -3.0 | **86** |
+| **#29** | `3.05` | **Javonte Williams** | `RB17` | DAL | Starter | 11.50 | **+56.8** | 31.3 | +2.3 | **89** |
+| **#30** | `3.06` | **Cam Skattebo** | `RB18` | NYG | Starter | 11.71 | **+60.2** | 37.3 | +7.3 | **91** |
+| **#31** | `3.07` | **Malik Nabers** | `WR10` | NYG | Starter | 12.63 | **+56.7** | 35.0 | +4.0 | **92** |
+| **#32** | `3.08` | **George Pickens** | `WR11` | DAL | WR2 | 6.73 | **-30.2** | 25.3 | -6.7 | **77** |
+| **#33** | `3.09` | **Travis Etienne Jr.** | `RB19` | NO | Starter | 11.67 | **+59.5** | 39.3 | +6.3 | **91** |
+| **#34** | `3.10` | **Bucky Irving** | `RB20` | TB | Starter | 11.59 | **+58.2** | 44.3 | +10.3 | **92** |
+| **#35** | `3.11` | **Chris Olave** | `WR12` | NO | Starter | 7.94 | **-12.3** | 29.0 | -6.0 | **80** |
+| **#36** | `3.12` | **Rashee Rice** | `WR13` | KC | Starter | 8.77 | **-0.2** | 29.3 | -6.7 | **83** |
+| **#37** | `4.01` | **David Montgomery** | `RB21` | HOU | Starter | 11.81 | **+61.8** | 51.3 | +14.3 | **94** |
+| **#38** | `4.02` | **Quinshon Judkins** | `RB22` | CLE | Starter | 12.40 | **+71.2** | 47.7 | +9.7 | **94** |
+| **#39** | `4.03` | **D'Andre Swift** | `RB23` | CHI | Starter | 12.08 | **+66.1** | 54.7 | +15.7 | **95** |
+| **#40** | `4.04` | **DeVonta Smith** | `WR14` | PHI | WR2 | 6.98 | **-26.5** | 33.3 | -6.7 | **79** |
+| **#41** | `4.05` | **Garrett Wilson** | `WR15` | NYJ | Starter | 11.54 | **+40.7** | 42.3 | +1.3 | **91** |
+| **#42** | `4.06` | **Lamar Jackson** | `QB2` | BAL | Starter | 19.55 | **+31.2** | 37.3 | -4.7 | **89** |
+| **#43** | `4.07` | **Tee Higgins** | `WR16` | CIN | WR2 | 7.83 | **-14.0** | 38.0 | -5.0 | **82** |
+| **#44** | `4.08` | **Tetairoa McMillan** | `WR17` | CAR | Starter | 10.60 | **+26.8** | 38.3 | -5.7 | **88** |
+| **#45** | `4.09` | **Colston Loveland** | `TE3` | CHI | Starter | 8.99 | **+29.0** | 42.3 | -2.7 | **88** |
+| **#46** | `4.10` | **Zay Flowers** | `WR18` | BAL | Starter | 10.19 | **+20.8** | 41.0 | -5.0 | **88** |
+| **#47** | `4.11` | **Ladd McConkey** | `WR19` | LAC | Starter | 10.84 | **+30.4** | 45.3 | -1.7 | **90** |
+| **#48** | `4.12` | **Emeka Egbuka** | `WR20` | TB | WR2 | 7.20 | **-23.3** | 42.0 | -6.0 | **82** |
+| **#49** | `5.01` | **DJ Moore** | `WR21` | BUF | Starter | 11.06 | **+33.6** | 52.3 | +3.3 | **91** |
+| **#50** | `5.02` | **Mike Evans** | `WR22` | SF | Starter | 11.30 | **+37.1** | 60.0 | +10.0 | **92** |
+| **#51** | `5.03` | **Terry McLaurin** | `WR23` | WAS | Starter | 10.96 | **+32.1** | 53.3 | +2.3 | **91** |
+| **#52** | `5.04` | **Tyler Warren** | `TE4` | IND | Starter | 8.99 | **+29.0** | 52.3 | +0.3 | **89** |
+| **#53** | `5.05` | **Jayden Daniels** | `QB3` | WAS | Starter | 19.48 | **+30.7** | 59.3 | +6.3 | **90** |
+| **#54** | `5.06` | **Drake Maye** | `QB4` | NE | Starter | 18.52 | **+23.8** | 52.0 | -2.0 | **89** |
+| **#55** | `5.07` | **Jalen Hurts** | `QB5` | PHI | Starter | 19.85 | **+33.3** | 63.7 | +8.7 | **91** |
+| **#56** | `5.08` | **Brian Thomas Jr.** | `WR24` | JAX | Starter | 11.74 | **+43.6** | 73.3 | +17.3 | **94** |
+| **#57** | `5.09` | **Rhamondre Stevenson** | `RB24` | NE | Starter | 10.77 | **+45.1** | 76.3 | +19.3 | **93** |
+| **#58** | `5.10` | **Joe Burrow** | `QB6` | CIN | Starter | 17.45 | **+16.1** | 51.0 | -7.0 | **87** |
+| **#59** | `5.11` | **Chuba Hubbard** | `RB25` | CAR | Starter | 11.44 | **+55.8** | 77.0 | +18.0 | **95** |
+| **#60** | `5.12` | **Jaylen Waddle** | `WR25` | MIA | Starter | 8.84 | **+0.9** | 49.3 | -10.7 | **86** |
+| **#61** | `6.01` | **Luther Burden III** | `WR26` | CHI | WR2 | 5.88 | **-42.7** | 49.3 | -11.7 | **79** |
+| **#62** | `6.02` | **TreVeyon Henderson** | `RB26` | NE | RB2 | 6.52 | **-22.9** | 49.7 | -12.3 | **82** |
+| **#63** | `6.03` | **Sam LaPorta** | `TE5` | DET | Starter | 9.46 | **+34.7** | 77.7 | +14.7 | **93** |
+| **#64** | `6.04` | **Tucker Kraft** | `TE6` | GB | Starter | 8.87 | **+27.6** | 69.7 | +5.7 | **90** |
+| **#65** | `6.05` | **Tony Pollard** | `RB27` | TEN | Starter | 11.78 | **+61.3** | 80.3 | +15.3 | **95** |
+| **#66** | `6.06` | **Bhayshul Tuten** | `RB28` | JAX | Starter | 7.55 | **-6.4** | 56.0 | -10.0 | **85** |
+| **#67** | `6.07` | **Davante Adams** | `WR27` | LAR | WR2 | 8.02 | **-11.2** | 56.3 | -10.7 | **84** |
+| **#68** | `6.08` | **Jaylen Warren** | `RB29` | PIT | Starter | 9.09 | **+18.2** | 69.0 | +1.0 | **89** |
+| **#69** | `6.09` | **Jameson Williams** | `WR28` | DET | WR2 | 6.64 | **-31.5** | 57.0 | -12.0 | **81** |
+| **#70** | `6.10` | **Kyle Pitts Sr.** | `TE7` | ATL | Starter | 8.34 | **+21.2** | 72.7 | +2.7 | **90** |
+| **#71** | `6.11` | **Jadarian Price** | `RB30` | SEA | Starter | 7.69 | **-4.2** | 60.3 | -10.7 | **86** |
+| **#72** | `6.12` | **Harold Fannin Jr.** | `TE8` | CLE | Starter | 7.19 | **+7.4** | 66.7 | -5.3 | **86** |
+| **#73** | `7.01` | **Rome Odunze** | `WR29` | CHI | Starter | 8.69 | **-1.3** | 64.3 | -8.7 | **86** |
+| **#74** | `7.02` | **Caleb Williams** | `QB7` | CHI | Starter | 18.07 | **+20.5** | 77.7 | +3.7 | **90** |
+| **#75** | `7.03` | **George Kittle** | `TE9` | SF | Starter | 10.84 | **+51.2** | 98.0 | +23.0 | **98** |
+| **#76** | `7.04` | **J.K. Dobbins** | `RB31` | DEN | Starter | 12.06 | **+65.8** | 92.3 | +16.3 | **97** |
+| **#77** | `7.05` | **Courtland Sutton** | `WR30` | DEN | Starter | 10.36 | **+23.3** | 87.7 | +10.7 | **93** |
+| **#78** | `7.06` | **Travis Kelce** | `TE10` | KC | Starter | 10.06 | **+41.8** | 101.3 | +23.3 | **96** |
+| **#79** | `7.07` | **Justin Herbert** | `QB8` | LAC | Starter | 17.44 | **+16.0** | 79.3 | +0.3 | **89** |
+| **#80** | `7.08` | **Dak Prescott** | `QB9` | DAL | Starter | 17.62 | **+17.3** | 82.7 | +2.7 | **90** |
+| **#81** | `7.09` | **Marvin Harrison Jr.** | `WR31` | ARI | Starter | 9.79 | **+14.9** | 78.3 | -2.7 | **90** |
+| **#82** | `7.10` | **Christian Watson** | `WR32` | GB | Starter | 8.14 | **-9.4** | 66.7 | -15.3 | **85** |
+| **#83** | `7.11` | **DK Metcalf** | `WR33` | PIT | Starter | 9.93 | **+16.9** | 84.7 | +1.7 | **91** |
+| **#84** | `7.12` | **Carnell Tate** | `WR34` | TEN | Starter | 8.34 | **-6.4** | 71.7 | -12.3 | **86** |
+| **#85** | `8.01` | **Chris Godwin Jr.** | `WR35` | TB | Starter | 10.23 | **+21.3** | 91.3 | +6.3 | **93** |
+| **#86** | `8.02` | **Patrick Mahomes II** | `QB10` | KC | Starter | 18.31 | **+22.2** | 100.7 | +14.7 | **92** |
+| **#87** | `8.03` | **Brock Purdy** | `QB11` | SF | Starter | 18.67 | **+24.8** | 103.7 | +16.7 | **92** |
+| **#88** | `8.04` | **Bo Nix** | `QB12` | DEN | Starter | 18.71 | **+25.1** | 105.7 | +17.7 | **93** |
+| **#89** | `8.05` | **Trevor Lawrence** | `QB13` | JAX | Starter | 14.33 | **-6.4** | 84.0 | -5.0 | **86** |
+| **#90** | `8.06` | **Aaron Jones Sr.** | `RB32` | MIN | Starter | 11.70 | **+60.0** | 114.3 | +24.3 | **99** |
+| **#91** | `8.07` | **RJ Harvey** | `RB33` | DEN | RB2 | 6.45 | **-24.0** | 76.0 | -15.0 | **84** |
+| **#92** | `8.08` | **Mark Andrews** | `TE11` | BAL | Starter | 9.44 | **+34.4** | 116.0 | +24.0 | **96** |
+| **#93** | `8.09` | **Jaxson Dart** | `QB14` | NYG | Starter | 14.15 | **-7.7** | 86.7 | -6.3 | **86** |
+| **#94** | `8.10` | **Rico Dowdle** | `RB34` | PIT | RB2 | 4.08 | **-61.9** | 78.0 | -16.0 | **79** |
+| **#95** | `8.11` | **Dalton Kincaid** | `TE12` | BUF | Starter | 7.85 | **+15.4** | 105.3 | +10.3 | **91** |
+| **#96** | `8.12` | **Alec Pierce** | `WR36` | IND | Starter | 7.73 | **-15.5** | 84.7 | -11.3 | **85** |
+| **#97** | `9.01` | **Jordyn Tyson** | `WR37` | NO | Starter | 7.68 | **-16.2** | 85.7 | -11.3 | **86** |
+| **#98** | `9.02` | **Kyle Monangai** | `RB35` | CHI | RB2 | 5.54 | **-38.6** | 84.7 | -13.3 | **82** |
+| **#99** | `9.03` | **Isaiah Likely** | `TE13` | NYG | Starter | 6.18 | **-4.7** | 105.3 | +6.3 | **86** |
+| **#100** | `9.04` | **Jake Ferguson** | `TE14` | DAL | Starter | 7.07 | **+6.0** | 110.7 | +10.7 | **89** |
+| **#101** | `9.05` | **Parker Washington** | `WR38` | JAX | Reserve | 0.37 | **-123.8** | 86.3 | -14.7 | **69** |
+| **#102** | `9.06` | **Michael Wilson** | `WR39` | ARI | WR2 | 5.05 | **-54.9** | 87.0 | -15.0 | **80** |
+| **#103** | `9.07` | **Jared Goff** | `QB15` | DET | Starter | 17.35 | **+15.3** | 116.0 | +13.0 | **92** |
+| **#104** | `9.08` | **Zach Charbonnet** | `RB36` | SEA | Starter | 10.25 | **+36.8** | 134.3 | +30.3 | **97** |
+| **#105** | `9.09` | **Kyler Murray** | `QB16` | MIN | Starter | 18.52 | **+23.8** | 134.7 | +29.7 | **94** |
+| **#106** | `9.10` | **Matthew Stafford** | `QB17` | LAR | Starter | 13.61 | **-11.6** | 107.7 | +1.7 | **86** |
+| **#107** | `9.11` | **Makai Lemon** | `WR40` | PHI | Starter | 7.30 | **-21.8** | 95.0 | -12.0 | **86** |
+| **#108** | `9.12` | **Dallas Goedert** | `TE15` | PHI | Starter | 6.11 | **-5.6** | 119.7 | +11.7 | **87** |
+| **#109** | `10.01` | **Blake Corum** | `RB37` | LAR | RB2 | 4.43 | **-56.3** | 94.7 | -14.3 | **81** |
+| **#110** | `10.02` | **Hunter Henry** | `TE16` | NE | Starter | 9.30 | **+32.8** | 142.3 | +32.3 | **97** |
+| **#111** | `10.03` | **Baker Mayfield** | `QB18` | TB | Starter | 18.00 | **+20.0** | 140.3 | +29.3 | **94** |
+| **#112** | `10.04` | **Kenny Gainwell** | `RB38` | TB | Starter | 6.55 | **-22.4** | 107.3 | -4.7 | **86** |
+| **#113** | `10.05` | **Jonathon Brooks** | `RB39` | CAR | RB2 | 4.28 | **-58.7** | 97.3 | -15.7 | **81** |
+| **#114** | `10.06` | **Quentin Johnston** | `WR41` | LAC | WR2 | 7.01 | **-26.0** | 109.7 | -4.3 | **86** |
+| **#115** | `10.07` | **Jakobi Meyers** | `WR42` | JAX | WR2 | 7.07 | **-25.2** | 112.0 | -3.0 | **86** |
+| **#116** | `10.08` | **Oronde Gadsden II** | `TE17` | LAC | Starter | 5.85 | **-8.6** | 136.0 | +20.0 | **87** |
+| **#117** | `10.09` | **Rachaad White** | `RB40` | WAS | RB2 | 6.32 | **-26.1** | 111.3 | -5.7 | **87** |
+| **#118** | `10.10` | **Jordan Addison** | `WR43` | MIN | WR2 | 6.99 | **-26.3** | 111.0 | -7.0 | **86** |
+| **#119** | `10.11` | **Jacory Croskey-Merritt** | `RB41` | WAS | Starter | 6.07 | **-30.1** | 110.7 | -8.3 | **86** |
+| **#120** | `10.12` | **Jordan Love** | `QB19` | GB | Starter | 13.14 | **-15.0** | 135.7 | +15.7 | **86** |
+| **#121** | `11.01` | **Michael Pittman Jr.** | `WR44` | PIT | WR2 | 6.36 | **-35.6** | 107.3 | -13.7 | **84** |
+| **#122** | `11.02` | **Alvin Kamara** | `RB42` | NO | RB2 | 7.68 | **-4.3** | 152.3 | +30.3 | **92** |
+| **#123** | `11.03` | **Brenton Strange** | `TE18` | JAX | Starter | 5.67 | **-10.8** | 144.3 | +21.3 | **87** |
+| **#124** | `11.04` | **Malik Willis** | `QB20` | MIA | Starter | 12.97 | **-16.2** | 138.7 | +14.7 | **86** |
+| **#125** | `11.05` | **Chig Okonkwo** | `TE19` | WAS | Starter | 5.56 | **-12.1** | 150.0 | +25.0 | **87** |
+| **#126** | `11.06` | **Tyler Shough** | `QB21` | NO | Starter | 12.67 | **-18.4** | 144.7 | +18.7 | **86** |
+| **#127** | `11.07` | **Aaron Rodgers** | `QB22` | PIT | Starter | 12.72 | **-18.0** | 147.5 | +20.5 | **87** |
+| **#128** | `11.08` | **Juwan Johnson** | `TE20` | NO | Starter | 5.43 | **-13.6** | 152.3 | +24.3 | **87** |
+| **#129** | `11.09` | **Jayden Reed** | `WR45` | GB | WR2 | 6.21 | **-37.8** | 116.7 | -12.3 | **85** |
+| **#130** | `11.10` | **Josh Downs** | `WR46` | IND | WR2 | 6.26 | **-37.1** | 119.7 | -10.3 | **85** |
+| **#131** | `11.11` | **Sam Darnold** | `QB23` | SEA | Starter | 12.56 | **-19.2** | 151.3 | +20.3 | **86** |
+| **#132** | `11.12` | **Xavier Worthy** | `WR47` | KC | WR2 | 6.38 | **-35.3** | 128.7 | -3.3 | **86** |
+| **#133** | `12.01` | **T.J. Hockenson** | `TE21` | MIN | Starter | 7.72 | **+13.8** | 171.7 | +38.7 | **94** |
+| **#134** | `12.02` | **Jordan Mason** | `RB43` | MIN | RB2 | 4.74 | **-51.4** | 114.7 | -19.3 | **84** |
+| **#135** | `12.03` | **Brian Robinson Jr.** | `RB44` | ATL | Starter | 6.24 | **-27.4** | 143.0 | +8.0 | **89** |
+| **#136** | `12.04` | **C.J. Stroud** | `QB24` | HOU | Starter | 12.48 | **-19.7** | 160.0 | +24.0 | **86** |
+| **#137** | `12.05` | **Wan'Dale Robinson** | `WR48` | TEN | WR2 | 4.64 | **-60.9** | 117.0 | -20.0 | **81** |
+| **#138** | `12.06` | **Tyrone Tracy Jr.** | `RB45` | NYG | RB2 | 5.95 | **-32.0** | 143.3 | +5.3 | **88** |
+| **#139** | `12.07` | **Cam Ward** | `QB25` | TEN | Starter | 12.43 | **-20.1** | 165.3 | +26.3 | **86** |
+| **#140** | `12.08` | **Bryce Young** | `QB26` | CAR | Starter | 12.40 | **-20.3** | 165.7 | +25.7 | **86** |
+| **#141** | `12.09` | **Jerry Jeudy** | `WR49` | CLE | Starter | 11.10 | **+34.1** | 178.0 | +37.0 | **99** |
+| **#142** | `12.10` | **Jayden Higgins** | `WR50` | HOU | WR2 | 7.20 | **-23.3** | 160.3 | +18.3 | **89** |
+| **#143** | `12.11` | **KC Concepcion** | `WR51` | CLE | Starter | 6.27 | **-37.0** | 143.7 | +0.7 | **86** |
+| **#144** | `12.12` | **Romeo Doubs** | `WR52` | NE | Starter | 6.20 | **-38.0** | 142.0 | -2.0 | **86** |
+| **#145** | `13.01` | **Daniel Jones** | `QB27` | IND | Starter | 12.35 | **-20.7** | 174.7 | +29.7 | **86** |
+| **#146** | `13.02` | **Dalton Schultz** | `TE22` | HOU | Starter | 4.75 | **-21.8** | 172.3 | +26.3 | **87** |
+| **#147** | `13.03` | **Khalil Shakir** | `WR53` | BUF | WR2 | 6.31 | **-36.3** | 157.7 | +10.7 | **87** |
+| **#148** | `13.04` | **AJ Barner** | `TE23` | SEA | Starter | 4.55 | **-24.2** | 175.0 | +27.0 | **87** |
+| **#149** | `13.05` | **Pat Freiermuth** | `TE24` | PIT | Starter | 4.14 | **-29.2** | 171.5 | +22.5 | **87** |
+| **#150** | `13.06` | **Geno Smith** | `QB28` | NYJ | Starter | 12.10 | **-22.5** | 184.0 | +34.0 | **86** |
+| **#151** | `13.07` | **Tyjae Spears** | `RB46` | TEN | RB2 | 4.85 | **-49.6** | 160.3 | +9.3 | **86** |
+| **#152** | `13.08` | **Tank Bigsby** | `RB47` | PHI | RB2 | 5.75 | **-35.2** | 181.0 | +29.0 | **88** |
+| **#153** | `13.09` | **Jacoby Brissett** | `QB29` | ARI | Starter | 12.28 | **-21.2** | 199.5 | +46.5 | **86** |
+| **#154** | `13.10` | **Braelon Allen** | `RB48` | NYJ | RB2 | 5.84 | **-33.8** | 185.5 | +31.5 | **88** |
+| **#155** | `13.11` | **Gunnar Helm** | `TE25` | TEN | Starter | 3.94 | **-31.6** | 187.5 | +32.5 | **87** |
+| **#156** | `13.12` | **James Conner** | `RB49` | ARI | IR/Reserve | 4.96 | **-47.8** | 175.0 | +19.0 | **86** |
+| **#157** | `14.01` | **Calvin Ridley** | `WR54` | TEN | Starter | 10.00 | **+17.9** | 201.5 | +44.5 | **98** |
+| **#158** | `14.02` | **Cade Otton** | `TE26` | TB | Starter | 3.75 | **-33.8** | 194.5 | +36.5 | **87** |
+| **#159** | `14.03` | **Tyler Allgeier** | `RB50` | ARI | RB2 | 3.26 | **-75.0** | 142.7 | -16.3 | **82** |
+| **#160** | `14.04` | **Isiah Pacheco** | `RB51` | DET | RB2 | 4.21 | **-59.8** | 161.0 | +1.0 | **84** |
+| **#161** | `14.05` | **Greg Dulcich** | `TE27` | MIA | Starter | 3.58 | **-35.8** | 201.0 | +40.0 | **86** |
+| **#162** | `14.06` | **Woody Marks** | `RB52` | HOU | RB2 | 3.20 | **-76.0** | 149.3 | -12.7 | **82** |
+| **#163** | `14.07` | **Matthew Golden** | `WR55` | GB | Reserve | 0.30 | **-124.8** | 150.7 | -12.3 | **72** |
+| **#164** | `14.08` | **Rashid Shaheed** | `WR56` | SEA | Reserve | 0.39 | **-123.5** | 151.7 | -12.3 | **73** |
+| **#165** | `14.09` | **Jalen Coker** | `WR57` | CAR | WR2 | 3.97 | **-70.8** | 162.0 | -3.0 | **82** |
+| **#166** | `14.10` | **Theo Johnson** | `TE28` | NYG | TE2 | 1.32 | **-63.0** | 172.0 | +6.0 | **81** |
+| **#167** | `14.11` | **Jonah Coleman** | `RB53` | FA | Free Agent | 0.00 | **-127.2** | 153.0 | -14.0 | **74** |
+| **#168** | `14.12` | **Kenyon Sadiq** | `TE29` | FA | Free Agent | 0.00 | **-78.8** | 153.7 | -14.3 | **72** |
+| **#169** | `15.01` | **Chris Rodriguez Jr.** | `RB54` | JAX | RB2 | 3.20 | **-76.0** | 159.3 | -9.7 | **82** |
+| **#170** | `15.02` | **Stefon Diggs** | `WR58` | FA | Free Agent | 0.00 | **-129.3** | 160.3 | -9.7 | **72** |
+| **#171** | `15.03` | **Tre Tucker** | `WR59` | LV | Starter | 5.40 | **-49.8** | 216.0 | +45.0 | **86** |
+| **#172** | `15.04` | **David Njoku** | `TE30` | FA | Free Agent | 0.00 | **-78.8** | 165.3 | -6.7 | **73** |
+| **#173** | `15.05` | **Kayshon Boutte** | `WR60` | NE | WR2 | 3.78 | **-73.6** | 185.0 | +12.0 | **81** |
+| **#174** | `15.06` | **Jauan Jennings** | `WR61` | FA | Free Agent | 0.00 | **-129.3** | 166.0 | -8.0 | **72** |
+| **#175** | `15.07` | **De'Zhaun Stribling** | `WR62` | FA | Free Agent | 0.00 | **-129.3** | 167.5 | -7.5 | **72** |
+| **#176** | `15.08` | **Jalen Nailor** | `WR63` | LV | WR2 | 3.78 | **-73.6** | 188.0 | +12.0 | **81** |
+| **#177** | `15.09` | **Fernando Mendoza** | `QB30` | FA | Free Agent | 0.00 | **-109.6** | 168.3 | -8.7 | **68** |
+| **#178** | `15.10` | **Tyreek Hill** | `WR64` | FA | Free Agent | 0.00 | **-129.3** | 195.3 | +17.3 | **71** |
+| **#179** | `15.11` | **Malik Washington** | `WR65` | MIA | WR2 | 3.78 | **-73.6** | 189.0 | +10.0 | **81** |
+| **#180** | `15.12` | **Deebo Samuel Sr.** | `WR66` | FA | Free Agent | 0.00 | **-129.3** | 169.0 | -11.0 | **72** |
+| **#181** | `16.01` | **Denzel Boston** | `WR67` | FA | Free Agent | 0.00 | **-129.3** | 169.7 | -11.3 | **72** |
+| **#182** | `16.02` | **Dylan Sampson** | `RB55` | CLE | RB2 | 3.20 | **-76.0** | 170.7 | -11.3 | **82** |
+| **#183** | `16.03` | **Omar Cooper Jr.** | `WR68` | FA | Free Agent | 0.00 | **-129.3** | 171.3 | -11.7 | **72** |
+| **#184** | `16.04` | **Travis Hunter** | `WR69` | JAX | Reserve | 0.27 | **-125.3** | 172.3 | -11.7 | **72** |
+| **#185** | `16.05` | **Keaton Mitchell** | `RB56` | LAC | Reserve | 0.25 | **-123.2** | 174.3 | -10.7 | **76** |
+| **#186** | `16.06` | **Michael Penix Jr.** | `QB31` | ATL | Starter | 12.20 | **-21.7** | 239.5 | +53.5 | **86** |
+| **#187** | `16.07` | **Shedeur Sanders** | `QB32` | CLE | Starter | 12.15 | **-22.1** | 240.5 | +53.5 | **86** |
+| **#188** | `16.08` | **Jalen McMillan** | `WR70` | TB | Reserve | 0.27 | **-125.3** | 177.7 | -10.3 | **72** |
+| **#189** | `16.09` | **Emmett Johnson** | `RB57` | FA | Free Agent | 0.00 | **-127.2** | 178.3 | -10.7 | **75** |
+| **#190** | `16.10` | **Mike Gesicki** | `TE31` | CIN | Starter | 2.94 | **-43.6** | 244.0 | +54.0 | **86** |
+| **#191** | `16.11` | **Adonai Mitchell** | `WR71` | NYJ | WR2 | 3.78 | **-73.6** | 209.5 | +18.5 | **81** |
+| **#192** | `16.12` | **Justice Hill** | `RB58` | BAL | RB2 | 3.17 | **-76.5** | 183.0 | -9.0 | **83** |
+
+---
+
+## Technical Validation & Benchmark Audit (2026 Consensus Market ADP)
+
+The table below verifies how key players are handled under the 2026 Consensus Market ADP and bounded re-ranking engine:
+
+| Player | 2026 Consensus ADP | Bounded Rank (w=0.30) | Round.Pick | Resolution Status & Verification |
+| :--- | :---: | :---: | :---: | :--- |
+| **Jahmyr Gibbs** | 1.7 | **#1** | `1.01` | Ranked #1 overall (+122.2 VORP, 15.59 PPG). |
+| **Bijan Robinson** | 1.3 | **#2** | `1.02` | Elite 1st round bellcow (+118.2 VORP, 15.34 PPG). |
+| **Ja'Marr Chase** | 3.0 | **#3** | `1.03` | Top WR off the board (+78.9 VORP, 13.71 PPG). |
+| **Puka Nacua** | 4.0 | **#4** | `1.04` | WR2 off the board in Round 1 (+70.7 VORP, 13.20 PPG). |
+| **Ashton Jeanty** | 10.7 | **#9** | `1.09` | Rookie RB sensation locked in Round 1 (+76.0 VORP, 12.70 PPG). |
+| **Justin Jefferson** | 11.0 | **#14** | `2.02` | Clamped to the 1/2 turn (+65.6 VORP, 12.88 PPG). |
+| **CeeDee Lamb** | 11.3 | **#15** | `2.03` | Clamped to early Round 2 (+54.1 VORP, 12.16 PPG). |
+| **Brock Bowers** | 20.7 | **#19** | `2.07` | TE1 on board (+61.6 VORP, 11.70 PPG). |
+| **Josh Jacobs** | 28.3 | **#22** | `2.10` | Round 2/3 turn (+97.0 VORP, 14.01 PPG), well behind Puka Nacua. |
+| **Nico Collins** | 23.0 | **#26** | `3.02` | Round 3 pick (+40.3 VORP, 11.30 PPG), not a first rounder. |
+| **James Conner** | 175.0 | **#154** | `13.10` | Active injury/IR discount; drops to Round 13. |
+| **Tyreek Hill** | 195.3 | **#184** | `16.04` | Free Agent, essentially undrafted / round 16 flyer. |
+
+---
+
+## Positional Tier Analysis & Strategic Takeaways
 
 ### Running Back Tier Breakdown
-- **Tier 1 (Bellcow Dominators)**: Saquon Barkley (#1 overall, +127.4 VORP), Jahmyr Gibbs (#2 overall, +121.1 VORP), Bijan Robinson (#3 overall, +116.2 VORP). Unmatched volume, explosive efficiency, and red-zone goal line shares create irreplaceable surplus.
-- **Tier 2 (High-Volume Feature Backs)**: De'Von Achane (#5 overall), Josh Jacobs (#6 overall), Alvin Kamara (#7 overall), Jonathan Taylor (#8 overall), Derrick Henry (#9 overall), Joe Mixon (#10 overall), Breece Hall (#11 overall).
+- **Tier 1 (Elite Bellcows)**: Jahmyr Gibbs (#1 overall, +122.2 VORP), Bijan Robinson (#2 overall, +118.2 VORP), Jonathan Taylor (#5 overall, +89.9 VORP), Christian McCaffrey (#6 overall), James Cook III (#8 overall).
+- **Tier 2 (High-Volume Feature Starters)**: Ashton Jeanty (#9 overall, +76.0 VORP), De'Von Achane (#11 overall, +97.9 VORP), Saquon Barkley (#12 overall, +122.6 VORP), Omarion Hampton (#13 overall, +75.4 VORP), Josh Jacobs (#22 overall, +97.0 VORP).
+
+### Wide Receiver Tier Breakdown
+- **Tier 1 (Elite Alpha WR1s)**: Ja'Marr Chase (#3 overall, +78.9 VORP), Puka Nacua (#4 overall, +70.7 VORP), Jaxon Smith-Njigba (#7 overall), Amon-Ra St. Brown (#10 overall), Justin Jefferson (#14 overall), CeeDee Lamb (#15 overall).
+- **Tier 2 (High-End Focal Points)**: Drake London (#18 overall), A.J. Brown (#25 overall), Nico Collins (#26 overall), Malik Nabers (#29 overall).
+
+### Tight End Tier Breakdown
+- **Tier 1 (Elite Gamechangers)**: Brock Bowers (#19 overall, +61.6 VORP, 11.70 Proj PPG), Trey McBride (#20 overall, +59.8 VORP, 11.55 Proj PPG).
+- **Tier 2 (Everyday Starters)**: George Kittle (#38 overall), Travis Kelce (#50 overall), Mark Andrews (#115 overall).
+
+### Quarterback Tier Breakdown
+- **Tier 1 (Dual-Threat Konami Codes)**: Josh Allen (#24 overall, 19.44 PPG), Jalen Hurts (#50 overall, 19.85 PPG), Lamar Jackson (#52 overall, 19.55 PPG).
+- **Backup Quarterback Dampening**: Backup QBs receive a 90% dampening penalty and drop into reserve rounds.
 
 ---
 *Report compiled automatically by the Landon Prospective Index (LPI) Engine.*

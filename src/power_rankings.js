@@ -5,6 +5,7 @@
 
 import { database } from './firebase.js';
 import { ref as dbRef, set, get, onValue } from 'firebase/database';
+import { getPowerRankingsTemplateB } from './email_templates.js';
 
 function formatTimestamp(ts) {
     if (!ts) return '';
@@ -90,11 +91,34 @@ export class PowerRankingsEngine {
         return found ? found.id : mgrId;
     }
 
+    isManagerRetired(mgrId) {
+        if (!mgrId) return false;
+        const canonicalId = this.canonicalizeManagerId(mgrId);
+        const managers = this.getManagersList();
+        const found = managers.find(m => {
+            const mId = String(m.id || '').toLowerCase().trim();
+            const mName = String(m.canonical_name || m.name || '').toLowerCase().trim();
+            const cleanId = String(mgrId).toLowerCase().trim();
+            return mId === canonicalId || mId === cleanId || mName === canonicalId || mName === cleanId;
+        });
+        if (!found) return false;
+        if (found.is_retired === true || found.retired === true || found.isActive === false) return true;
+        const statusStr = String(found.status || '').toLowerCase().trim();
+        if (statusStr === 'retired' || statusStr === 'inactive') return true;
+        return false;
+    }
+
     normalizeEdition(edition) {
         if (!edition) return null;
         const normalized = { ...edition };
         if (Array.isArray(normalized.rankings)) {
-            normalized.rankings = normalized.rankings.map((r, idx) => {
+            // Strictly exclude retired managers from power rankings
+            const activeRankings = normalized.rankings.filter(r => {
+                const mId = typeof r === 'string' ? r : r.manager_id;
+                return !this.isManagerRetired(mId);
+            });
+
+            normalized.rankings = activeRankings.map((r, idx) => {
                 if (typeof r === 'string') {
                     return {
                         rank: idx + 1,
@@ -105,7 +129,7 @@ export class PowerRankingsEngine {
                 }
                 return {
                     ...r,
-                    rank: r.rank || (idx + 1),
+                    rank: idx + 1,
                     manager_id: this.canonicalizeManagerId(r.manager_id),
                     prev_rank: r.prev_rank !== undefined && r.prev_rank !== null && r.prev_rank !== '' ? Number(r.prev_rank) : null,
                     blurb: r.blurb || ''
@@ -171,6 +195,10 @@ export class PowerRankingsEngine {
             return window.FANTASY_DATA.members;
         }
         return [];
+    }
+
+    getActiveManagersList() {
+        return this.getManagersList().filter(m => !this.isManagerRetired(m.id));
     }
 
     getManagerDetails(mgrId) {
@@ -340,7 +368,11 @@ export class PowerRankingsEngine {
         const isEdited = activeRanking.updated_at && activeRanking.created_at && (activeRanking.updated_at - activeRanking.created_at > 60000);
         const hasEditAccess = this.canEdit();
 
-        const rankingsList = Array.isArray(activeRanking.rankings) ? activeRanking.rankings : [];
+        const rawRankingsList = Array.isArray(activeRanking.rankings) ? activeRanking.rankings : [];
+        const rankingsList = rawRankingsList.filter(item => !this.isManagerRetired(item.manager_id)).map((item, idx) => ({
+            ...item,
+            rank: idx + 1
+        }));
 
         container.innerHTML = `
             <div class="power-rankings-card-header">
@@ -555,16 +587,18 @@ export class PowerRankingsEngine {
         const initialTeams = [];
 
         if (currentRanking && Array.isArray(currentRanking.rankings) && currentRanking.rankings.length > 0) {
-            currentRanking.rankings.forEach((item, idx) => {
-                initialTeams.push({
-                    rank: idx + 1,
-                    manager_id: item.manager_id,
-                    prev_rank: item.rank || (idx + 1),
-                    blurb: ''
+            currentRanking.rankings
+                .filter(item => !this.isManagerRetired(item.manager_id))
+                .forEach((item, idx) => {
+                    initialTeams.push({
+                        rank: idx + 1,
+                        manager_id: item.manager_id,
+                        prev_rank: item.rank || (idx + 1),
+                        blurb: ''
+                    });
                 });
-            });
         } else {
-            const managers = this.getManagersList();
+            const managers = this.getActiveManagersList();
             managers.forEach((m, idx) => {
                 initialTeams.push({
                     rank: idx + 1,
@@ -598,8 +632,8 @@ export class PowerRankingsEngine {
         const currentYear = new Date().getFullYear();
         const defaultTitlePlaceholder = `e.g. Week 1 ${currentYear} Power Rankings`;
 
-        // Ensure all managers exist in list and calculate automated prev_rank from previous edition
-        const managers = this.getManagersList();
+        // Ensure all active managers exist in list and calculate automated prev_rank from previous edition
+        const managers = this.getActiveManagersList();
         const prevRanking = this.data?.current_ranking;
         let teamItems = [];
 
@@ -613,6 +647,9 @@ export class PowerRankingsEngine {
             } else {
                 baseOrder = managers;
             }
+
+            // Exclude retired managers
+            baseOrder = baseOrder.filter(item => !this.isManagerRetired(item.manager_id || item.id));
 
             teamItems = baseOrder.map((item, idx) => {
                 const mgrId = item.manager_id || item.id;
@@ -632,11 +669,12 @@ export class PowerRankingsEngine {
                 };
             });
         } else {
-            // Editing existing ranking edition: preserve recorded prev_rank
+            // Editing existing ranking edition: preserve recorded prev_rank, filtering out retired
             const existing = Array.isArray(initialData.rankings) ? initialData.rankings : [];
-            if (existing.length > 0) {
-                teamItems = existing.map((item, idx) => ({
-                    rank: item.rank || (idx + 1),
+            const activeExisting = existing.filter(item => !this.isManagerRetired(item.manager_id));
+            if (activeExisting.length > 0) {
+                teamItems = activeExisting.map((item, idx) => ({
+                    rank: idx + 1,
                     manager_id: item.manager_id,
                     prev_rank: item.prev_rank !== undefined && item.prev_rank !== null && item.prev_rank !== '' ? Number(item.prev_rank) : null,
                     blurb: item.blurb || ''
@@ -651,7 +689,7 @@ export class PowerRankingsEngine {
             }
         }
 
-        // Ensure any missing manager is included
+        // Ensure any missing active manager is included
         const existingIds = new Set(teamItems.map(t => t.manager_id));
         managers.forEach(m => {
             if (!existingIds.has(m.id)) {
@@ -1420,6 +1458,12 @@ export class PowerRankingsEngine {
                     current_ranking: this.data.current_ranking,
                     archived_rankings: this.data.archived_rankings || []
                 });
+
+                // Automated email dispatch to everyone in this league whenever a new edition is posted
+                this.dispatchLeaguePowerRankingsNotification(this.data.current_ranking).catch(err => {
+                    console.error('[PowerRankings] Automated email notification error:', err);
+                });
+
                 return true;
             } catch (e) {
                 console.error('Error publishing new power rankings to Firebase:', e);
@@ -1427,6 +1471,89 @@ export class PowerRankingsEngine {
             }
         }
         return true;
+    }
+
+    async dispatchLeaguePowerRankingsNotification(currentRanking) {
+        if (!currentRanking || !Array.isArray(currentRanking.rankings)) return;
+        
+        try {
+            console.log(`[PowerRankings] Dispatching notifications for ${this.leagueSlug}...`);
+            let claims = this.app?.claims || null;
+            if (!claims && database) {
+                const claimsSnap = await get(dbRef(database, `leagues/${this.leagueSlug}/claims`));
+                claims = claimsSnap.val() || {};
+            }
+
+            if (!claims || Object.keys(claims).length === 0) {
+                console.log('[PowerRankings] No claimed members found for email notification.');
+                return;
+            }
+
+            const leagueName = this.app?.leagueSettings?.name || (this.leagueSlug === 'dmsfantasy' ? 'The Dumbarton Fantasy Football League' : this.leagueSlug);
+            const leagueUrl = `https://thefantasyvault.com/${this.leagueSlug}`;
+
+            let biggestRiser = { name: 'None', move: '0 spots', delta: -999 };
+            let biggestFaller = { name: 'None', move: '0 spots', delta: -999 };
+
+            currentRanking.rankings.forEach(r => {
+                if (r.prev_rank !== null && r.prev_rank !== undefined) {
+                    const diff = r.prev_rank - r.rank;
+                    const mgrInfo = this.getManagerInfo(r.manager_id);
+                    const mgrName = mgrInfo.displayName || mgrInfo.name;
+                    if (diff > biggestRiser.delta) {
+                        biggestRiser = { name: mgrName, move: `+${diff} spots`, delta: diff };
+                    }
+                    if (-diff > biggestFaller.delta) {
+                        biggestFaller = { name: mgrName, move: `-${-diff} spots`, delta: -diff };
+                    }
+                }
+            });
+
+            let weekNum = 1;
+            const weekMatch = (currentRanking.title || '').match(/Week\s*(\d+)/i);
+            if (weekMatch) {
+                weekNum = parseInt(weekMatch[1], 10);
+            }
+
+            for (const [mId, claim] of Object.entries(claims)) {
+                const userEmail = claim?.email;
+                if (!userEmail || !userEmail.includes('@')) continue;
+
+                const canonicalId = this.canonicalizeManagerId(mId);
+                const rankObj = currentRanking.rankings.find(r => this.canonicalizeManagerId(r.manager_id) === canonicalId) || { rank: 1, prev_rank: 1 };
+                const mgrInfo = this.getManagerInfo(canonicalId);
+                const mgrName = mgrInfo.displayName || mgrInfo.name || 'Manager';
+                const teamName = rankObj.team_name || mgrInfo.teamName || `${mgrName}'s Team`;
+
+                const cleanTeam = String(teamName).replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').replace(/—/g, ', as ').trim();
+                const cleanMgr = String(mgrName).replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').replace(/—/g, ', as ').trim();
+
+                const html = getPowerRankingsTemplateB({
+                    leagueName,
+                    managerName: cleanMgr,
+                    teamName: cleanTeam,
+                    weekNum,
+                    rank: rankObj.rank || 1,
+                    prevRank: rankObj.prev_rank,
+                    leagueUrl,
+                    riser: biggestRiser.delta > 0 ? { name: biggestRiser.name, move: biggestRiser.move } : { name: cleanMgr, move: 'Steady' },
+                    faller: biggestFaller.delta > 0 ? { name: biggestFaller.name, move: biggestFaller.move } : { name: cleanMgr, move: 'Steady' }
+                });
+
+                fetch('/api/email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: userEmail,
+                        email: userEmail,
+                        subject: `${leagueName}: Week ${weekNum} Power Rankings - Official Standings Released`,
+                        html
+                    })
+                }).catch(err => console.error('[PowerRankings] Email send error:', err));
+            }
+        } catch (e) {
+            console.error('[PowerRankings] Failed to process league power rankings notifications:', e);
+        }
     }
 
     getAdminClaimedManagerId() {
@@ -1515,7 +1642,7 @@ export class PowerRankingsEngine {
         if (!target) return;
 
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
-        const managers = this.getManagersList();
+        const managers = this.getActiveManagersList();
         const claims = this.app?.claims || {};
         const allowedEditors = Array.isArray(this.data.allowed_editors) ? this.data.allowed_editors : [];
         const adminEmail = (this.app?.leagueSettings?.admin_email || session?.email || 'Admin').toLowerCase();

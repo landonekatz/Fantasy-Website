@@ -12,7 +12,29 @@
  * 3. Populates top-level email and name fields under /users/{uid} in RTDB.
  */
 
+import fs from 'fs';
+import path from 'path';
+
+// Load .env.local if present
+try {
+  const envPath = path.resolve(process.cwd(), '.env.local');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx !== -1) {
+        const k = trimmed.substring(0, eqIdx).trim();
+        const v = trimmed.substring(eqIdx + 1).trim();
+        if (!process.env[k]) process.env[k] = v;
+      }
+    });
+  }
+} catch (e) {}
+
 const FIREBASE_DB_URL = 'https://fantasy-vault-4f8da-default-rtdb.firebaseio.com';
+const DB_SECRET = process.env.FIREBASE_DATABASE_SECRET || process.env.FIREBASE_DB_SECRET || process.env.FIREBASE_AUTH_TOKEN || '';
 
 // Canonical display names for DMS Fantasy managers
 const DMS_CANONICAL_NAMES = {
@@ -48,15 +70,23 @@ function formatCapitalizedName(name, email) {
   return 'User';
 }
 
-async function fetchJson(path, query = '') {
-  const q = query ? `?${query}` : '';
-  const res = await fetch(`${FIREBASE_DB_URL}/${path}.json${q}`);
-  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+function buildUrl(subPath, query = '') {
+  const params = new URLSearchParams(query || '');
+  if (DB_SECRET && !params.has('auth')) {
+    params.set('auth', DB_SECRET);
+  }
+  const qStr = params.toString() ? `?${params.toString()}` : '';
+  return `${FIREBASE_DB_URL}/${subPath}.json${qStr}`;
+}
+
+async function fetchJson(subPath, query = '') {
+  const res = await fetch(buildUrl(subPath, query));
+  if (!res.ok) throw new Error(`GET ${subPath} failed: ${res.status}`);
   return res.json();
 }
 
-async function putJson(path, data) {
-  const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+async function putJson(subPath, data) {
+  const res = await fetch(buildUrl(subPath), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)

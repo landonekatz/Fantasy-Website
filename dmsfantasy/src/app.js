@@ -6,6 +6,8 @@ import { formatManagerDisplayName } from '/src/formatters.js';
 import { calculateSeasonLoser, getRuleDescription } from '/src/compiler.js';
 import { CommissionerNotesEngine } from '/src/commissioner_notes.js';
 import { PowerRankingsEngine } from '/src/power_rankings.js';
+import { TransactionsEngine } from '/src/transactions_engine.js';
+import { NewsletterEngine } from '/src/newsletter_engine.js';
 
 function formatDumbartonNflInfo(p) {
     if (!p) return 'NFL';
@@ -118,6 +120,59 @@ class FantasyApp {
         return '';
     }
 
+    isToiletBowlGame(g) {
+        if (!g) return false;
+        const gt = String(g.game_type || '').toLowerCase();
+        const pr = String(g.playoff_round || '').toLowerCase();
+        const bn = String(g.bracket_name || '').toLowerCase();
+        const note = String(g.note || g.description || '').toLowerCase();
+        if (gt.includes('toilet') || gt.includes('sacko') || 
+            pr.includes('toilet') || pr.includes('sacko') || pr.includes('11th') || pr.includes('12th') ||
+            bn.includes('toilet') || bn.includes('sacko') ||
+            note.includes('toilet') || note.includes('sacko') ||
+            g.is_toilet_bowl) {
+            return true;
+        }
+        const wk = Number(g.week);
+        if (wk >= 14 && Array.isArray(this.standings) && this.standings.length >= 4) {
+            const yr = Number(g.season || g.year);
+            const yrStandings = this.standings.filter(s => Number(s.season || s.year) === yr).sort((a, b) => (Number(b.rank || 0)) - (Number(a.rank || 0)));
+            if (yrStandings.length >= 4) {
+                const m1 = String(g.team_1_manager_id || g.home_manager_id || '').toLowerCase();
+                const m2 = String(g.team_2_manager_id || g.away_manager_id || '').toLowerCase();
+                const lastMgr = String(yrStandings[0]?.manager_id || '').toLowerCase();
+                const secondLastMgr = String(yrStandings[1]?.manager_id || '').toLowerCase();
+                if ((m1 === lastMgr && m2 === secondLastMgr) || (m1 === secondLastMgr && m2 === lastMgr)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    isConsolationGame(g) {
+        if (!g) return false;
+        if (this.isToiletBowlGame(g)) return false;
+        const gt = String(g.game_type || '').toLowerCase();
+        const pr = String(g.playoff_round || '').toLowerCase();
+        const bn = String(g.bracket_name || '').toLowerCase();
+        if (g.is_consolation) return true;
+        if (gt === 'consolation' || gt.includes('consolation') || gt.includes('3rd')) return true;
+        if (pr.includes('consolation') || pr.includes('3rd') || pr.includes('5th') || pr.includes('7th') || pr.includes('9th')) return true;
+        if (bn.includes('consolation')) return true;
+        return false;
+    }
+
+    getToiletBowlGameInfo(g) {
+        if (!this.isToiletBowlGame(g)) return null;
+        const gt = String(g.game_type || '').toLowerCase();
+        const pr = String(g.playoff_round || '').toLowerCase();
+        if (pr.includes('semi') || gt.includes('semi')) {
+            return { type: 'semi', label: 'Toilet Bowl • Semifinal' };
+        }
+        return { type: 'final', label: 'Toilet Bowl • Final' };
+    }
+
     renderPrivateGuard() {
         const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
         const userEmail = (session?.email || '').toLowerCase();
@@ -160,6 +215,7 @@ class FantasyApp {
 
                 <!-- Email & Password Form -->
                 <form id="guard-email-form" style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    <input type="text" id="guard-input-name" placeholder="Full Name (for new registrations)" style="width: 100%; padding: 0.65rem 0.8rem; background: #0f1115; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 0.88rem; box-sizing: border-box;">
                     <input type="email" id="guard-input-email" placeholder="name@example.com" required style="width: 100%; padding: 0.65rem 0.8rem; background: #0f1115; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 0.88rem; box-sizing: border-box;">
                     <input type="password" id="guard-input-pass" placeholder="Password" required style="width: 100%; padding: 0.65rem 0.8rem; background: #0f1115; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 0.88rem; box-sizing: border-box;">
                     <button type="submit" style="width: 100%; padding: 0.7rem; background: var(--accent-gold, #c5a059); color: #000; font-weight: 700; border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer;">Sign In / Register</button>
@@ -186,6 +242,8 @@ class FantasyApp {
         `;
         
         document.body.appendChild(overlay);
+
+        const pendingJoinCode = new URLSearchParams(window.location.search).get('join') || sessionStorage.getItem('vault_pending_join_code') || '';
 
         const showError = (msg) => {
             const errEl = document.getElementById('guard-error-msg');
@@ -217,6 +275,9 @@ class FantasyApp {
                     await window.AuthEngine.loginWithGoogle();
                     window.AuthEngine.setPersona('member');
                     await unlockVault();
+                    if (pendingJoinCode && typeof window.startManagerClaimFlow === 'function') {
+                        setTimeout(() => window.startManagerClaimFlow(pendingJoinCode), 200);
+                    }
                 } catch (err) {
                     showError("Google Sign-In failed: " + err.message);
                 }
@@ -228,13 +289,17 @@ class FantasyApp {
         if (emailForm) {
             emailForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const name = document.getElementById('guard-input-name')?.value.trim() || '';
                 const email = document.getElementById('guard-input-email')?.value.trim();
                 const pass = document.getElementById('guard-input-pass')?.value;
                 if (!email || !pass) return;
                 try {
-                    await window.AuthEngine.loginWithEmail(email, pass);
+                    await window.AuthEngine.loginWithEmail(email, pass, name);
                     window.AuthEngine.setPersona('member');
                     await unlockVault();
+                    if (pendingJoinCode && typeof window.startManagerClaimFlow === 'function') {
+                        setTimeout(() => window.startManagerClaimFlow(pendingJoinCode), 200);
+                    }
                 } catch (err) {
                     showError("Sign In failed: " + err.message);
                 }
@@ -465,6 +530,168 @@ class FantasyApp {
         if (bar) bar.remove();
     }
 
+    getDefaultScoringRules() {
+        return {
+            "Passing": [
+                { name: "Passing Yards (25 yards per point)", points: 0.04 },
+                { name: "Passing Touchdowns", points: 4 },
+                { name: "Interceptions Thrown", points: -2 },
+                { name: "2-Point Conversion Pass", points: 2 }
+            ],
+            "Rushing": [
+                { name: "Rushing Yards (10 yards per point)", points: 0.1 },
+                { name: "Rushing Touchdowns", points: 6 },
+                { name: "2-Point Conversion Rush", points: 2 }
+            ],
+            "Receiving": [
+                { name: "Receptions (Half-PPR)", points: 0.5 },
+                { name: "Receiving Yards (10 yards per point)", points: 0.1 },
+                { name: "Receiving Touchdowns", points: 6 },
+                { name: "2-Point Conversion Reception", points: 2 }
+            ],
+            "Kicking": [
+                { name: "Each PAT Made", points: 1 },
+                { name: "Extra Point Missed", points: -1 },
+                { name: "Field Goals (0-39 yards)", points: 3 },
+                { name: "Field Goals (40-49 yards)", points: 4 },
+                { name: "Field Goals (50+ yards)", points: 5 }
+            ],
+            "Team Defense and Special Teams": [
+                { name: "Each Sack", points: 1 },
+                { name: "Interceptions", points: 2 },
+                { name: "Fumbles Recovered", points: 2 },
+                { name: "Defensive Touchdowns", points: 6 },
+                { name: "Safeties", points: 2 },
+                { name: "Blocked Kicks", points: 2 },
+                { name: "0 Points Allowed", points: 10 },
+                { name: "1-6 Points Allowed", points: 7 },
+                { name: "7-13 Points Allowed", points: 4 },
+                { name: "14-20 Points Allowed", points: 1 },
+                { name: "28-34 Points Allowed", points: -1 },
+                { name: "35+ Points Allowed", points: -4 }
+            ],
+            "Miscellaneous": [
+                { name: "Total Fumbles Lost", points: -2 }
+            ]
+        };
+    }
+
+    openSettingsModal(season) {
+        const modal = document.getElementById('settings-modal');
+        const content = document.getElementById('settings-modal-content');
+        const yearTitle = document.getElementById('settings-modal-year');
+        
+        if (modal && content && yearTitle) {
+            yearTitle.textContent = `${season} Season`;
+            
+            let settings = (this.scoringSettings && (this.scoringSettings[season] || this.scoringSettings[String(season)])) ||
+                             (this.leagueSettings && (this.leagueSettings[season] || this.leagueSettings.scoringRules));
+
+            if (!settings || Object.keys(settings).length === 0) {
+                if (this.scoringSettings && Object.keys(this.scoringSettings).length > 0) {
+                    settings = Object.values(this.scoringSettings)[0];
+                } else {
+                    settings = this.getDefaultScoringRules();
+                }
+            }
+
+            if (!settings || Object.keys(settings).length === 0) {
+                content.innerHTML = '<p style="padding: 1rem; color: var(--text-muted);">No scoring settings available for this season.</p>';
+            } else {
+                const getScoringItemRank = (name, category) => {
+                    const cat = (category || '').toLowerCase();
+                    const n = (name || '').toLowerCase();
+                    
+                    if (cat.includes('defense')) {
+                        if (n.includes('sack')) return 10;
+                        if (n.includes('interception') && !n.includes('td')) return 11;
+                        if (n.includes('fumble recovered') || n.includes('fr')) return 12;
+                        if (n.includes('safety')) return 13;
+                        if (n.includes('blocked punt, pat or fg') || n.includes('blocked kick')) return 14;
+                        if (n.includes('blocked punt or fg return') || n.includes('return td')) return 20;
+                        if (n.includes('interception return td')) return 21;
+                        if (n.includes('fumble return td')) return 22;
+                        if (n.includes('kickoff return td')) return 23;
+                        if (n.includes('punt return td')) return 24;
+                        
+                        if (n.includes('0 point') || n.includes('0 pt') || n.includes('shutout')) return 30;
+                        if (n.includes('1-6 point') || n.includes('1-6 pt')) return 31;
+                        if (n.includes('7-13 point') || n.includes('7-13 pt')) return 32;
+                        if (n.includes('14-17 point') || n.includes('14-20 point') || n.includes('14-17 pt')) return 33;
+                        if (n.includes('18-21 point') || n.includes('18-21 pt')) return 34;
+                        if (n.includes('22-27 point') || n.includes('22-27 pt')) return 35;
+                        if (n.includes('28-34 point') || n.includes('28-34 pt')) return 36;
+                        if (n.includes('35-45 point') || n.includes('35-45 pt')) return 37;
+                        if (n.includes('46+ point') || n.includes('46+ pt')) return 38;
+                        
+                        if (n.includes('less than 100') || n.includes('< 100')) return 50;
+                        if (n.includes('100-199')) return 51;
+                        if (n.includes('200-299')) return 52;
+                        if (n.includes('300-349')) return 53;
+                        if (n.includes('350-399')) return 54;
+                        if (n.includes('400-449')) return 55;
+                        if (n.includes('450-499')) return 56;
+                        if (n.includes('500-549')) return 57;
+                        if (n.includes('550+')) return 58;
+                    }
+                    
+                    if (cat.includes('kick')) {
+                        if (n.includes('pat made') || n.includes('extra point made')) return 10;
+                        if (n.includes('pat miss') || n.includes('extra point miss')) return 11;
+                        if (n.includes('0-39') && n.includes('made')) return 20;
+                        if (n.includes('40-49') && n.includes('made')) return 21;
+                        if (n.includes('50-59') && n.includes('made')) return 22;
+                        if (n.includes('60+') && n.includes('made')) return 23;
+                        if (n.includes('50+') && n.includes('made')) return 24;
+                        if (n.includes('0-39') && n.includes('miss')) return 30;
+                        if (n.includes('40-49') && n.includes('miss')) return 31;
+                        if (n.includes('50+') && n.includes('miss')) return 32;
+                    }
+                    
+                    return 100;
+                };
+
+                let html = '';
+                const categoryOrder = ['Passing', 'Rushing', 'Receiving', 'Kicking', 'Team Defense and Special Teams', 'Team Defense / Special Teams', 'Miscellaneous'];
+                const sortedCategories = Object.keys(settings).sort((a, b) => {
+                    const idxA = categoryOrder.findIndex(c => a.toLowerCase().includes(c.toLowerCase()));
+                    const idxB = categoryOrder.findIndex(c => b.toLowerCase().includes(c.toLowerCase()));
+                    return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+                });
+
+                sortedCategories.forEach(category => {
+                    const rawItems = Array.isArray(settings[category]) ? settings[category] : Object.entries(settings[category]).map(([k, v]) => ({ name: k, points: typeof v === 'object' ? (v.points ?? v.value ?? 0) : v }));
+                    const sortedItems = [...rawItems].sort((a, b) => getScoringItemRank(a.name, category) - getScoringItemRank(b.name, category));
+                    
+                    html += `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="color: var(--accent-gold); font-size: 1.1rem; margin-bottom: 8px; border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1)); padding-bottom: 4px; font-family: var(--font-heading, 'Cinzel', serif);">${category}</h3>
+                        <table class="table" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border-color, rgba(255,255,255,0.1)); text-align: left;">
+                                    <th style="padding: 6px 8px; color: var(--text-muted); font-size: 0.85rem;">Action</th>
+                                    <th style="padding: 6px 8px; text-align: right; color: var(--text-muted); font-size: 0.85rem;">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    sortedItems.forEach(item => {
+                        html += `
+                            <tr style="border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.06));">
+                                <td style="padding: 8px; font-weight: 500;">${item.name}</td>
+                                <td style="padding: 8px; text-align: right; color: var(--text-primary); font-weight: 700;">${item.points > 0 ? '+' : ''}${item.points}</td>
+                            </tr>
+                        `;
+                    });
+                    html += '</tbody></table></div>';
+                });
+                content.innerHTML = html;
+            }
+            if (typeof modal.showModal === 'function') modal.showModal();
+            else modal.style.display = 'block';
+        }
+    }
+
     setupThemeToggle() {
         const btn = document.getElementById('theme-toggle-btn');
         const label = document.getElementById('theme-toggle-label');
@@ -498,14 +725,15 @@ class FantasyApp {
             return null;
         };
 
-        const [managersData, matchupsData, statsData, standingsData, transactionsData, powerRankingsData, draftData] = await Promise.all([
+        const [managersData, matchupsData, statsData, standingsData, transactionsData, powerRankingsData, draftData, seasonsMetadataData] = await Promise.all([
             fetchOrFallback('managers.json', 'managers'),
             fetchOrFallback('matchups.json', 'matchups'),
             fetchOrFallback('weekly_player_stats.json', 'weekly_player_stats'),
             fetchOrFallback('league_standings.json', 'league_standings'),
             fetchOrFallback('transactions.json', 'transactions'),
             fetchOrFallback('power_rankings_history.json', 'power_rankings_history'),
-            fetchOrFallback('draft_results.json', 'draft_results')
+            fetchOrFallback('draft_results.json', 'draft_results'),
+            fetchOrFallback('seasons_metadata.json', 'seasons_metadata')
         ]);
 
         if (managersData) {
@@ -523,13 +751,19 @@ class FantasyApp {
                     status_group: isRetired ? 'Retired Managers' : 'Current Managers'
                 };
             });
+            this.members = this.managers;
+        } else {
+            this.managers = [];
+            this.members = [];
         }
+
         this.matchups = matchupsData || [];
         this.playerStats = statsData || [];
         this.standings = standingsData || [];
         this.transactions = transactionsData || [];
         this.powerRankingsHistory = powerRankingsData || [];
         this.draftResults = draftData || [];
+        this.seasonsMetadata = seasonsMetadataData || [];
 
         nflStats.preloadSeason(2025);
         nflStats.preloadSeason(2024);
@@ -564,9 +798,11 @@ class FantasyApp {
                 this.claims = claimsSnap.val() || {};
                 Object.entries(this.claims).forEach(([mId, cVal]) => {
                     const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
-                    if (nick) {
-                        const target = this.managers.find(m => m.id === mId);
-                        if (target && !target.nickname) target.nickname = nick;
+                    const fav = typeof cVal === 'object' && cVal !== null ? cVal.favorite_team : '';
+                    const target = this.managers.find(m => m.id === mId);
+                    if (target) {
+                        if (nick && !target.nickname) target.nickname = nick;
+                        if (fav) target.favorite_team = fav;
                     }
                 });
             }
@@ -582,6 +818,7 @@ class FantasyApp {
                                 target.manager_name = rm.name;
                             }
                             if (rm.nickname !== undefined) target.nickname = rm.nickname;
+                            if (rm.favorite_team) target.favorite_team = rm.favorite_team;
                         }
                     });
                 }
@@ -594,8 +831,12 @@ class FantasyApp {
                     this.claims = snapshot.exists() ? (snapshot.val() || {}) : {};
                     Object.entries(this.claims).forEach(([mId, cVal]) => {
                         const nick = typeof cVal === 'object' && cVal !== null ? cVal.nickname : '';
+                        const fav = typeof cVal === 'object' && cVal !== null ? cVal.favorite_team : '';
                         const target = this.managers.find(m => m.id === mId || String(m.id).toLowerCase() === String(mId).toLowerCase());
-                        if (target) target.nickname = nick || '';
+                        if (target) {
+                            target.nickname = nick || '';
+                            if (fav) target.favorite_team = fav;
+                        }
                     });
                     this.refreshNicknamesUI();
                     this.checkAdminAccess();
@@ -731,24 +972,59 @@ class FantasyApp {
 
     setupNavigation() {
         const btnHome = document.getElementById('btn-tab-home');
+        const btnNewsletter = document.getElementById('btn-tab-newsletter');
         const btnH2h = document.getElementById('btn-tab-h2h');
         const btnRecords = document.getElementById('btn-tab-records');
         const btnDraft = document.getElementById('btn-tab-draft');
+        const btnTransactions = document.getElementById('btn-tab-transactions');
         const btnRivalry = document.getElementById('btn-tab-rivalry');
         const btnParadigms = document.getElementById('btn-tab-paradigms');
         const btnAdmin = document.getElementById('btn-tab-admin');
         const viewHome = document.getElementById('view-home');
+        const viewNewsletter = document.getElementById('view-newsletter');
         const viewH2h = document.getElementById('view-h2h');
         const viewRecords = document.getElementById('view-records');
         const viewDraft = document.getElementById('view-draft');
+        const viewTransactions = document.getElementById('view-transactions');
         const viewRivalry = document.getElementById('view-rivalry');
         const viewParadigms = document.getElementById('view-paradigms');
         const viewAdmin = document.getElementById('view-admin');
 
         const switchTab = (tab) => {
             this.activeTab = tab;
-            [btnHome, btnH2h, btnRecords, btnDraft, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
-            [viewHome, viewH2h, viewRecords, viewDraft, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
+            [btnHome, btnNewsletter, btnH2h, btnRecords, btnDraft, btnTransactions, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
+            [viewHome, viewNewsletter, viewH2h, viewRecords, viewDraft, viewTransactions, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
+
+            const tabBtnMap = {
+                home: btnHome,
+                newsletter: btnNewsletter,
+                h2h: btnH2h,
+                records: btnRecords,
+                draft: btnDraft,
+                transactions: btnTransactions,
+                rivalry: btnRivalry,
+                paradigms: btnParadigms,
+                admin: btnAdmin
+            };
+
+            const tabViewMap = {
+                home: viewHome,
+                newsletter: viewNewsletter,
+                h2h: viewH2h,
+                records: viewRecords,
+                draft: viewDraft,
+                transactions: viewTransactions,
+                rivalry: viewRivalry,
+                paradigms: viewParadigms,
+                admin: viewAdmin
+            };
+
+            const targetBtn = tabBtnMap[tab];
+            const targetView = tabViewMap[tab];
+
+            // 1. Immediately highlight clicked tab button and activate target view
+            if (targetBtn) targetBtn.classList.add('active');
+            if (targetView) targetView.classList.add('active');
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
@@ -777,48 +1053,66 @@ class FantasyApp {
                 }
             }
 
-            if (tab === 'home') {
-                btnHome && btnHome.classList.add('active');
-                viewHome && viewHome.classList.add('active');
-                if (this.powerRankingsEngine) {
-                    this.powerRankingsEngine.containerId = 'rankings';
-                    this.powerRankingsEngine.render();
+            // 2. If Transactions or Draft haven't rendered yet, show loading spinner immediately
+            if (tab === 'transactions' && !this.transactionsRendered) {
+                if (viewTransactions && !viewTransactions.querySelector('.page-scroller-bar')) {
+                    viewTransactions.innerHTML = `
+                        <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                            <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                            <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Transactions Tracker...</div>
+                        </div>
+                    `;
                 }
-            } else if (tab === 'h2h') {
-                btnH2h && btnH2h.classList.add('active');
-                viewH2h && viewH2h.classList.add('active');
-                this.renderH2H();
-            } else if (tab === 'records') {
-                btnRecords && btnRecords.classList.add('active');
-                viewRecords && viewRecords.classList.add('active');
-                this.renderRecordBook();
-            } else if (tab === 'draft') {
-                btnDraft && btnDraft.classList.add('active');
-                viewDraft && viewDraft.classList.add('active');
-                this.renderDraft();
-            } else if (tab === 'rivalry') {
-                btnRivalry && btnRivalry.classList.add('active');
-                viewRivalry && viewRivalry.classList.add('active');
-                if (typeof this.renderRivalryWeek === 'function') {
-                    this.renderRivalryWeek(document.getElementById('view-rivalry'));
+            } else if (tab === 'draft' && !this.draftRendered) {
+                if (viewDraft && !viewDraft.querySelector('.draft-board-container')) {
+                    viewDraft.innerHTML = `
+                        <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                            <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                            <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Draft Central...</div>
+                        </div>
+                    `;
                 }
-            } else if (tab === 'paradigms') {
-                btnParadigms && btnParadigms.classList.add('active');
-                viewParadigms && viewParadigms.classList.add('active');
-                this.renderParadigms();
-            } else if (tab === 'admin') {
-                btnAdmin && btnAdmin.classList.add('active');
-                viewAdmin && viewAdmin.classList.add('active');
-                this.renderAdminDashboard();
             }
+
+            // 3. Defer heavy execution by 20ms to yield to browser paint
+            setTimeout(() => {
+                if (tab === 'home') {
+                    if (this.powerRankingsEngine) {
+                        this.powerRankingsEngine.containerId = 'rankings';
+                        this.powerRankingsEngine.render();
+                    }
+                } else if (tab === 'newsletter') {
+                    this.renderNewsletter();
+                } else if (tab === 'h2h') {
+                    this.renderH2H();
+                } else if (tab === 'records') {
+                    this.renderRecordBook();
+                } else if (tab === 'draft') {
+                    this.renderDraft();
+                    this.draftRendered = true;
+                } else if (tab === 'transactions') {
+                    this.renderTransactions();
+                    this.transactionsRendered = true;
+                } else if (tab === 'rivalry') {
+                    if (typeof this.renderRivalryWeek === 'function') {
+                        this.renderRivalryWeek(document.getElementById('view-rivalry'));
+                    }
+                } else if (tab === 'paradigms') {
+                    this.renderParadigms();
+                } else if (tab === 'admin') {
+                    this.renderAdminDashboard();
+                }
+            }, 20);
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
         if (btnHome) btnHome.addEventListener('click', () => switchTab('home'));
+        if (btnNewsletter) btnNewsletter.addEventListener('click', () => switchTab('newsletter'));
         if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
         if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
         if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
+        if (btnTransactions) btnTransactions.addEventListener('click', () => switchTab('transactions'));
         if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
         if (btnParadigms) btnParadigms.addEventListener('click', () => switchTab('paradigms'));
         if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
@@ -843,46 +1137,15 @@ class FantasyApp {
 
         const urlParams = new URLSearchParams(window.location.search);
         const tabParam = urlParams.get('tab') || window.location.hash.replace(/^#/, '');
-        if (['home', 'h2h', 'records', 'draft', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
+        if (['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
             switchTab(tabParam);
         }
     }
 
     renderParadigms() {
-        const subtabPr = document.getElementById('paradigm-subtab-pr');
-        const subtabRiv = document.getElementById('paradigm-subtab-rivalry');
-        const secPr = document.getElementById('sec-paradigm-pr');
-        const secRiv = document.getElementById('sec-paradigm-rivalry');
-        const prContainer = document.getElementById('paradigm-power-rankings-container');
-        const rivContainer = document.getElementById('paradigm-rivalry-container');
-
-        if (!this.activeParadigmSubtab) {
-            this.activeParadigmSubtab = 'pr';
-        }
-
-        const showSubtab = (tab) => {
-            this.activeParadigmSubtab = tab;
-            if (subtabPr) subtabPr.classList.toggle('active', tab === 'pr');
-            if (subtabRiv) subtabRiv.classList.toggle('active', tab === 'rivalry');
-            if (secPr) secPr.style.display = (tab === 'pr') ? 'block' : 'none';
-            if (secRiv) secRiv.style.display = (tab === 'rivalry') ? 'block' : 'none';
-
-            if (tab === 'pr') {
-                if (this.powerRankingsEngine && prContainer) {
-                    this.powerRankingsEngine.containerId = 'paradigm-power-rankings-container';
-                    this.powerRankingsEngine.render();
-                }
-            } else if (tab === 'rivalry') {
-                if (typeof this.renderRivalryWeek === 'function' && rivContainer) {
-                    this.renderRivalryWeek(rivContainer);
-                }
-            }
-        };
-
-        if (subtabPr) subtabPr.onclick = () => showSubtab('pr');
-        if (subtabRiv) subtabRiv.onclick = () => showSubtab('rivalry');
-
-        showSubtab(this.activeParadigmSubtab);
+        const view = document.getElementById('view-paradigms');
+        if (!view) return;
+        // Explore Paradigms Coming Soon banner is rendered in view-paradigms
     }
 
     checkAdminAccess() {
@@ -1033,9 +1296,10 @@ class FantasyApp {
         const leagueName = this.leagueSettings?.name || "The Dumbarton Fantasy Football League HQ";
         const leagueSlug = "dmsfantasy";
         const currentTagline = this.leagueSettings?.tagline || this.leagueSettings?.subtitle || "8 Seasons • 15 Managers • One Vault";
+        const currentNewsletterTitle = this.leagueSettings?.newsletter_title || this.leagueSettings?.newsletter_name || "The Weekly Gazette";
         if (!this.leagueSettings) this.leagueSettings = {};
         if (!this.leagueSettings.join_code) {
-            this.leagueSettings.join_code = 'DNFUAM';
+            this.leagueSettings.join_code = 'BS4DRL';
         }
         const joinCode = this.leagueSettings.join_code.toUpperCase();
         const joinLink = `${window.location.origin}/dmsfantasy/?join=${joinCode}`;
@@ -1313,6 +1577,19 @@ class FantasyApp {
                             <button id="btn-save-tagline" class="btn btn-primary">Save Tagline</button>
                         </div>
                         <div id="tagline-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
+                    </div>
+
+                    <!-- Custom Newsletter Publication Name -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+                        <label for="admin-newsletter-title-input" style="display: block; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; color: var(--text-secondary);">Newsletter Publication Title:</label>
+                        <p style="margin: 0 0 10px 0; font-size: 0.84rem; color: var(--text-muted); line-height: 1.45;">
+                            Customize the publication name displayed at the top of your weekly newsletter dispatches. Defaults to <em>The Weekly Gazette</em>.
+                        </p>
+                        <div class="tagline-input-row">
+                            <input type="text" id="admin-newsletter-title-input" class="admin-input" value="${currentNewsletterTitle}" placeholder="The Weekly Gazette">
+                            <button id="btn-save-newsletter-title" class="btn btn-primary">Save Newsletter Title</button>
+                        </div>
+                        <div id="newsletter-title-save-feedback" class="admin-feedback-msg" style="display: none; margin-top: 0.5rem;"></div>
                     </div>
                 </div>
 
@@ -1770,6 +2047,32 @@ class FantasyApp {
                 }
             } catch (e) {
                 console.error('Failed to save tagline', e);
+            }
+        });
+
+        // Wire up Save Newsletter Title button
+        container.querySelector('#btn-save-newsletter-title')?.addEventListener('click', async () => {
+            const titleInput = container.querySelector('#admin-newsletter-title-input');
+            const newTitle = titleInput?.value.trim() || 'The Weekly Gazette';
+            const feedbackEl = document.getElementById('newsletter-title-save-feedback');
+            try {
+                if (!this.leagueSettings) this.leagueSettings = {};
+                this.leagueSettings.newsletter_title = newTitle;
+
+                if (this.newsletterEngine) {
+                    this.newsletterEngine.setNewsletterTitle(newTitle);
+                }
+
+                const settingsRef = dbRef(database, `leagues/dmsfantasy/league_settings`);
+                await update(settingsRef, { newsletter_title: newTitle });
+                if (feedbackEl) {
+                    feedbackEl.style.display = 'block';
+                    feedbackEl.style.color = '#15803d';
+                    feedbackEl.innerHTML = `✓ Newsletter title updated to: "<em>${newTitle}</em>"`;
+                    setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
+                }
+            } catch (e) {
+                console.error('Failed to save newsletter title', e);
             }
         });
 
@@ -2591,6 +2894,72 @@ class FantasyApp {
         await this.draftEngine.render();
     }
 
+    async renderNewsletter() {
+        if (!this.newsletterEngine) {
+            this.newsletterEngine = new NewsletterEngine({
+                leagueId: 'dmsfantasy',
+                leagueSlug: 'dmsfantasy',
+                containerId: 'view-newsletter',
+                app: this,
+                leagueSettings: this.leagueSettings,
+                newsletterTitle: this.leagueSettings?.newsletter_title || 'The Weekly Gazette',
+                managers: this.managers,
+                matchups: this.matchups,
+                standings: this.standings,
+                playerStats: this.playerStats,
+                draftResults: this.draftResults,
+                transactions: this.transactions,
+                seasonsMetadata: this.seasonsMetadata,
+                nflGames: this.nflGamesService?.allGames || []
+            });
+        } else {
+            this.newsletterEngine.setData({
+                leagueId: 'dmsfantasy',
+                leagueSlug: 'dmsfantasy',
+                leagueSettings: this.leagueSettings,
+                newsletterTitle: this.leagueSettings?.newsletter_title || 'The Weekly Gazette',
+                managers: this.managers,
+                matchups: this.matchups,
+                standings: this.standings,
+                playerStats: this.playerStats,
+                draftResults: this.draftResults,
+                transactions: this.transactions,
+                seasonsMetadata: this.seasonsMetadata,
+                nflGames: this.nflGamesService?.allGames || []
+            });
+        }
+        this.newsletterEngine.render();
+    }
+
+    async renderTransactions() {
+        if (!this.transactionsEngine) {
+            this.transactionsEngine = new TransactionsEngine({
+                containerId: 'view-transactions',
+                transactions: this.transactions,
+                playerStats: this.playerStats,
+                managers: this.managers,
+                draftResults: this.draftResults,
+                matchups: this.matchups,
+                leagueSettings: this.leagueSettings,
+                seasonsMetadata: this.seasonsMetadata,
+                formatSeasonYear: (y) => this.formatSeasonYear(y)
+            });
+        } else {
+            this.transactionsEngine.setData({
+                transactions: this.transactions,
+                playerStats: this.playerStats,
+                managers: this.managers,
+                draftResults: this.draftResults,
+                matchups: this.matchups,
+                leagueSettings: this.leagueSettings,
+                seasonsMetadata: this.seasonsMetadata,
+                formatSeasonYear: (y) => this.formatSeasonYear(y)
+            });
+        }
+        this.transactionsEngine.render();
+        window.transactionsEngine = this.transactionsEngine;
+    }
+
     setupH2HControls() {
         const sel1 = document.getElementById('h2h-manager-1');
         const sel2 = document.getElementById('h2h-manager-2');
@@ -2730,14 +3099,14 @@ class FantasyApp {
             return;
         }
 
-        // Filter games between m1 and m2 in the year span (excluding consolation games)
+        // Filter games between m1 and m2 in the year span (excluding generic consolation games, including Toilet Bowl)
         const filtered = this.matchups.filter(g => {
-            // 1. Never include consolation games (including 3rd place)
-            if (g.game_type && g.game_type.toLowerCase().includes('consolation')) return false;
-            if (g.playoff_round && g.playoff_round.toLowerCase().includes('consolation')) return false;
+            // 1. Never include generic consolation games (including 3rd, 5th, 7th, 9th place)
+            if (this.isConsolationGame(g)) return false;
 
-            // 2. Respect Playoff Games Toggle ON/OFF
-            if (!this.includePlayoffs && g.is_playoffs) return false;
+            const isToilet = this.isToiletBowlGame(g);
+            // 2. Respect Playoff Games Toggle ON/OFF (Toilet Bowl is included so managers can see them)
+            if (!this.includePlayoffs && g.is_playoffs && !isToilet) return false;
 
             // 3. Check year range filter
             const y = g.season;
@@ -2756,7 +3125,7 @@ class FantasyApp {
             return a.week - b.week;
         });
 
-        // Collect stats & historical team names
+        // Collect stats & historical team names (Toilet Bowl games do NOT count toward record totals)
         let m1Wins = 0, m2Wins = 0, ties = 0;
         let m1PF = 0, m2PF = 0;
         let m1Proj = 0, m2Proj = 0;
@@ -2786,35 +3155,39 @@ class FantasyApp {
                 if (t1Name) m2TeamNames.add(t1Name);
             }
 
-            m1PF += m1Score;
-            m2PF += m2Score;
-            m1Proj += m1ProjScore;
-            m2Proj += m2ProjScore;
+            const isToilet = this.isToiletBowlGame(g);
+            if (!isToilet) {
+                m1PF += m1Score;
+                m2PF += m2Score;
+                m1Proj += m1ProjScore;
+                m2Proj += m2ProjScore;
 
-            const margin = Math.abs(m1Score - m2Score);
-            const winnerId = g.winner_team_id;
-            const isM1Win = (isM1Team1 && winnerId === g.team_1_id) || (!isM1Team1 && winnerId === g.team_2_id);
-            const isM2Win = (isM1Team1 && winnerId === g.team_2_id) || (!isM1Team1 && winnerId === g.team_1_id);
+                const margin = Math.abs(m1Score - m2Score);
+                const winnerId = g.winner_team_id;
+                const isM1Win = (isM1Team1 && winnerId === g.team_1_id) || (!isM1Team1 && winnerId === g.team_2_id);
+                const isM2Win = (isM1Team1 && winnerId === g.team_2_id) || (!isM1Team1 && winnerId === g.team_1_id);
 
-            if (isM1Win) {
-                m1Wins++;
-                if (g.is_playoffs) m1PlayoffWins++;
-            } else if (isM2Win) {
-                m2Wins++;
-                if (g.is_playoffs) m2PlayoffWins++;
-            } else {
-                ties++;
-            }
+                if (isM1Win) {
+                    m1Wins++;
+                    if (g.is_playoffs) m1PlayoffWins++;
+                } else if (isM2Win) {
+                    m2Wins++;
+                    if (g.is_playoffs) m2PlayoffWins++;
+                } else {
+                    ties++;
+                }
 
-            if (!maxBlowout || margin > maxBlowout.margin) {
-                maxBlowout = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
-            }
-            if (!minMargin || margin < minMargin.margin) {
-                minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
+                if (!maxBlowout || margin > maxBlowout.margin) {
+                    maxBlowout = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
+                }
+                if (!minMargin || margin < minMargin.margin) {
+                    minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
+                }
             }
         });
 
-        const totalGames = filtered.length;
+        const playedGames = filtered.filter(g => !this.isToiletBowlGame(g));
+        const totalGames = playedGames.length;
         const winPct1 = totalGames > 0 ? ((m1Wins + 0.5 * ties) / totalGames * 100).toFixed(1) : '0.0';
         const winPct2 = totalGames > 0 ? ((m2Wins + 0.5 * ties) / totalGames * 100).toFixed(1) : '0.0';
 
@@ -2871,10 +3244,12 @@ class FantasyApp {
             const isT1Win = (isM1Team1 && g.winner_team_id === g.team_1_id) || (!isM1Team1 && g.winner_team_id === g.team_2_id);
             const isT2Win = (isM1Team1 && g.winner_team_id === g.team_2_id) || (!isM1Team1 && g.winner_team_id === g.team_1_id);
 
-            const isPlayoffs = g.is_playoffs;
+            const isToilet = this.isToiletBowlGame(g);
+            const tbInfo = isToilet ? this.getToiletBowlGameInfo(g) : null;
+            const isPlayoffs = g.is_playoffs && !isToilet;
             const roundLabel = this.getMatchupRoundLabel(g);
-            const gameTypeLabel = isPlayoffs ? `Playoffs • ${roundLabel || g.playoff_round || 'Game'}` : 'Regular Season';
-            const cardClass = isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card';
+            const gameTypeLabel = isToilet ? (tbInfo?.label || 'Toilet Bowl') : (isPlayoffs ? `Playoffs • ${roundLabel || g.playoff_round || 'Game'}` : 'Regular Season');
+            const cardClass = isToilet ? 'h2h-matchup-card toilet-bowl-game' : (isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card');
             const margin = Math.abs(t1Score - t2Score).toFixed(2);
 
             const leftTeamId = isM1Team1 ? g.team_1_id : g.team_2_id;
@@ -2911,8 +3286,11 @@ class FantasyApp {
             cardsHtml += `
                 <div class="${cardClass}" onclick="app.openBoxscoreModal(${g.season}, ${g.week}, '${leftTeamId}', '${rightTeamId}')">
                     <div class="matchup-date-badge">
-                        <div class="matchup-year-week">${g.season} • Week ${g.week}</div>
-                        <div class="matchup-game-type ${isPlayoffs ? 'playoff-label' : ''}">${gameTypeLabel}</div>
+                        <div class="matchup-year-week">
+                            <span>${g.season} • Week ${g.week}</span>
+                            <button type="button" class="btn-scoring-help" onclick="event.stopPropagation(); app.openSettingsModal(${g.season});" title="View Scoring Rules for ${g.season}">? Scoring</button>
+                        </div>
+                        <div class="matchup-game-type ${isToilet ? 'toilet-bowl-label' : (isPlayoffs ? 'playoff-label' : '')}">${gameTypeLabel}</div>
                     </div>
 
                     <div class="matchup-teams-comparison">
@@ -3246,7 +3624,10 @@ class FantasyApp {
                     <h2>${this.formatSeasonYear(sNum)} • Week ${wNum} ${m.is_playoffs || m.is_playoff ? ' • Playoffs (' + (this.getMatchupRoundLabel(m) || m.playoff_round || 'Playoffs') + ')' : ' • Regular Season'}</h2>
                     <p>${leftName} (${leftScore.toFixed(2)}) vs ${rightName} (${rightScore.toFixed(2)})</p>
                 </div>
-                <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn btn-sm btn-outline-primary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="app.openSettingsModal(${sNum})" title="View League Scoring Settings">? Scoring</button>
+                    <button class="modal-close-btn" onclick="document.getElementById('boxscore-modal').close()">✕</button>
+                </div>
             </div>
 
             <div class="rosters-grid">
@@ -3285,6 +3666,17 @@ function setupBoxscoreModal() {
                                 rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
             if (!isInDialog) {
                 modal.close();
+            }
+        });
+    }
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+            const rect = settingsModal.getBoundingClientRect();
+            const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+                                rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
+            if (!isInDialog) {
+                settingsModal.close();
             }
         });
     }

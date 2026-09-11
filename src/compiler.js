@@ -2,6 +2,7 @@
 // Replicates the core functionality of the Python scraper/parser for client-side execution.
 import { nflHistoricalTeams } from './nfl_historical_teams.js';
 import { nflGamesService } from './nfl_games.js';
+import espnAthletesData from './espn_athletes_data.json' with { type: 'json' };
 
 export function generateRandomJoinCode() {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -20,10 +21,14 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     3: ["Passing", "Passing Yards"],
     4: ["Passing", "TD Pass"],
     7: ["Passing", "Every 20 passing yards"],
+    8: ["Passing", "Every 25 passing yards"],
     17: ["Passing", "300-399 yard passing game"],
     18: ["Passing", "400+ yard passing game"],
     19: ["Passing", "2pt Passing Conversion"],
     20: ["Passing", "Interceptions Thrown"],
+    21: ["Passing", "Pass Completions"],
+    22: ["Passing", "Pass Incompletions"],
+    23: ["Passing", "Pass Attempts"],
 
     // Rushing
     24: ["Rushing", "Rushing Yards"],
@@ -32,15 +37,17 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     28: ["Rushing", "Every 10 rushing yards"],
     37: ["Rushing", "100-199 yard rushing game"],
     38: ["Rushing", "200+ yard rushing game"],
+    35: ["Rushing", "Rushing Attempts"],
 
     // Receiving
     42: ["Receiving", "Receiving Yards"],
     43: ["Receiving", "TD Reception"],
     44: ["Receiving", "2pt Receiving Conversion"],
     48: ["Receiving", "Every 10 receiving yards"],
-    53: ["Receiving", "Each reception"],
+    53: ["Receiving", "Each reception (PPR)"],
     56: ["Receiving", "100-199 yard receiving game"],
     57: ["Receiving", "200+ yard receiving game"],
+    58: ["Receiving", "Receiving Targets"],
 
     // Kicking
     86: ["Kicking", "Each PAT Made"],
@@ -98,42 +105,114 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   };
 
   const YAHOO_STAT_MAP = {
+    // Passing
     4: ["Passing", "Passing Yards"],
     5: ["Passing", "Passing Touchdowns"],
     6: ["Passing", "Interceptions Thrown"],
+    58: ["Passing", "Pick Sixes Thrown"],
+    59: ["Passing", "40+ Yard Completions"],
+    60: ["Passing", "40+ Yard Passing Touchdowns"],
+    79: ["Passing", "Passing 1st Downs"],
+
+    // Rushing
     8: ["Rushing", "Rushing Attempts"],
     9: ["Rushing", "Rushing Yards"],
     10: ["Rushing", "Rushing Touchdowns"],
-    11: ["Receiving", "Receptions"],
+    61: ["Rushing", "40+ Yard Run"],
+    62: ["Rushing", "40+ Yard Rushing Touchdowns"],
+    81: ["Rushing", "Rushing 1st Downs"],
+
+    // Receiving
+    11: ["Receiving", "Receptions (PPR)"],
     12: ["Receiving", "Receiving Yards"],
     13: ["Receiving", "Receiving Touchdowns"],
+    63: ["Receiving", "40+ Yard Receptions"],
+    64: ["Receiving", "40+ Yard Receiving Touchdowns"],
+    78: ["Receiving", "Targets"],
+    80: ["Receiving", "Receiving 1st Downs"],
+
+    // Returning
     15: ["Returning", "Return Touchdowns"],
+    48: ["Returning", "Return Yards"],
+    49: ["Returning", "Kickoff and Punt Return Touchdowns"],
+    97: ["Returning", "Kickoff Return Yards"],
+    98: ["Returning", "Punt Return Yards"],
+    99: ["Returning", "Kickoff Return TD"],
+    100: ["Returning", "Punt Return TD"],
+
+    // Miscellaneous
     16: ["Miscellaneous", "2-Point Conversions"],
+    17: ["Miscellaneous", "Fumbles"],
     18: ["Miscellaneous", "Fumbles Lost"],
     57: ["Miscellaneous", "Offensive Fumble Return TD"],
-    78: ["Passing", "Pick Sixes Thrown"],
-    // Defense / Special Teams
-    31: ["Team Defense and Special Teams", "0 points allowed"],
-    32: ["Team Defense and Special Teams", "1-6 points allowed"],
-    33: ["Team Defense and Special Teams", "7-13 points allowed"],
-    34: ["Team Defense and Special Teams", "14-20 points allowed"],
-    35: ["Team Defense and Special Teams", "21-27 points allowed"],
-    36: ["Team Defense and Special Teams", "28-34 points allowed"],
-    37: ["Team Defense and Special Teams", "35+ points allowed"],
-    49: ["Team Defense and Special Teams", "Each Sack"],
-    50: ["Team Defense and Special Teams", "Each Interception"],
-    51: ["Team Defense and Special Teams", "Each Fumble Recovered"],
-    52: ["Team Defense and Special Teams", "Touchdown"],
-    53: ["Team Defense and Special Teams", "Each Safety"],
-    54: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+    94: ["Miscellaneous", "Total Fumbles"],
+    95: ["Miscellaneous", "Total Fumbles Lost"],
+    96: ["Miscellaneous", "Fumble Recovered for TD"],
+
     // Kicking
     19: ["Kicking", "FG Made (0-19 yards)"],
     20: ["Kicking", "FG Made (20-29 yards)"],
     21: ["Kicking", "FG Made (30-39 yards)"],
     22: ["Kicking", "FG Made (40-49 yards)"],
     23: ["Kicking", "FG Made (50+ yards)"],
-    24: ["Kicking", "Each PAT Made"],
-    25: ["Kicking", "Extra Point Missed"]
+    24: ["Kicking", "FG Missed (0-19 yards)"],
+    25: ["Kicking", "FG Missed (20-29 yards)"],
+    26: ["Kicking", "FG Missed (30-39 yards)"],
+    27: ["Kicking", "FG Missed (40-49 yards)"],
+    28: ["Kicking", "FG Missed (50+ yards)"],
+    29: ["Kicking", "Point After Attempt Made"],
+    30: ["Kicking", "Point After Attempt Missed"],
+    84: ["Kicking", "Field Goals Total Yards"],
+    85: ["Kicking", "Field Goals Made"],
+    86: ["Kicking", "Field Goals Missed"],
+    104: ["Kicking", "FG Made (50-59 yards)"],
+    105: ["Kicking", "FG Made (60+ yards)"],
+    106: ["Kicking", "FG Missed (50-59 yards)"],
+    107: ["Kicking", "FG Missed (60+ yards)"],
+
+    // Team Defense and Special Teams
+    31: ["Team Defense and Special Teams", "Points Allowed"],
+    32: ["Team Defense and Special Teams", "Each Sack"],
+    33: ["Team Defense and Special Teams", "Each Interception"],
+    34: ["Team Defense and Special Teams", "Each Fumble Recovered"],
+    35: ["Team Defense and Special Teams", "Defensive Touchdown"],
+    36: ["Team Defense and Special Teams", "Each Safety"],
+    37: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+    40: ["Team Defense and Special Teams", "Each Sack"],
+    41: ["Team Defense and Special Teams", "Each Interception"],
+    42: ["Team Defense and Special Teams", "Fumble Forced"],
+    43: ["Team Defense and Special Teams", "Fumble Recovery"],
+    44: ["Team Defense and Special Teams", "Defensive Touchdown"],
+    45: ["Team Defense and Special Teams", "Each Safety"],
+    46: ["Team Defense and Special Teams", "Pass Defended"],
+    47: ["Team Defense and Special Teams", "Block Kick"],
+    50: ["Team Defense and Special Teams", "0 points allowed"],
+    51: ["Team Defense and Special Teams", "1-6 points allowed"],
+    52: ["Team Defense and Special Teams", "7-13 points allowed"],
+    53: ["Team Defense and Special Teams", "14-20 points allowed"],
+    54: ["Team Defense and Special Teams", "21-27 points allowed"],
+    55: ["Team Defense and Special Teams", "28-34 points allowed"],
+    56: ["Team Defense and Special Teams", "35+ points allowed"],
+    65: ["Team Defense and Special Teams", "Tackles for Loss"],
+    66: ["Team Defense and Special Teams", "Turnover Return Yards"],
+    67: ["Team Defense and Special Teams", "4th Down Stops"],
+    68: ["Team Defense and Special Teams", "Tackles for Loss"],
+    69: ["Team Defense and Special Teams", "Defensive Yards Allowed"],
+    70: ["Team Defense and Special Teams", "Defensive Yards Allowed - Negative"],
+    71: ["Team Defense and Special Teams", "Defensive Yards Allowed 0-99"],
+    72: ["Team Defense and Special Teams", "Defensive Yards Allowed 100-199"],
+    73: ["Team Defense and Special Teams", "Defensive Yards Allowed 200-299"],
+    74: ["Team Defense and Special Teams", "Defensive Yards Allowed 300-399"],
+    75: ["Team Defense and Special Teams", "Defensive Yards Allowed 400-499"],
+    76: ["Team Defense and Special Teams", "Defensive Yards Allowed 500+"],
+    77: ["Team Defense and Special Teams", "Three and Outs Forced"],
+    82: ["Team Defense and Special Teams", "Extra Point Returned"],
+    83: ["Team Defense and Special Teams", "Extra Point Returned"],
+    87: ["Team Defense and Special Teams", "Defensive Touchdown"],
+    90: ["Team Defense and Special Teams", "Turnovers Forced"],
+    101: ["Team Defense and Special Teams", "Interception Return TD"],
+    102: ["Team Defense and Special Teams", "Fumble Return TD"],
+    103: ["Team Defense and Special Teams", "Blocked Punt or FG Return TD"]
   };
 
   const SLEEPER_STAT_MAP = {
@@ -146,18 +225,24 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     pass_comp: ["Passing", "Pass Completion"],
     pass_inc: ["Passing", "Pass Incompletion"],
     pass_att: ["Passing", "Pass Attempt"],
+    pass_fd: ["Passing", "Passing 1st Down"],
     
     // Rushing
     rush_yd: ["Rushing", "Rushing Yards (per yard)"],
     rush_td: ["Rushing", "TD Rush"],
     rush_2pt: ["Rushing", "2pt Rushing Conversion"],
     rush_att: ["Rushing", "Rush Attempt"],
+    rush_fd: ["Rushing", "Rushing 1st Down"],
     
     // Receiving
     rec: ["Receiving", "Each Reception (PPR)"],
     rec_yd: ["Receiving", "Receiving Yards (per yard)"],
     rec_td: ["Receiving", "TD Reception"],
     rec_2pt: ["Receiving", "2pt Receiving Conversion"],
+    rec_fd: ["Receiving", "Receiving 1st Down"],
+    bonus_rec_te: ["Receiving", "TE Reception Bonus"],
+    bonus_rec_rb: ["Receiving", "RB Reception Bonus"],
+    bonus_rec_wr: ["Receiving", "WR Reception Bonus"],
     
     // Miscellaneous
     fum_lost: ["Miscellaneous", "Total Fumbles Lost"],
@@ -165,6 +250,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     fum_rec_td: ["Miscellaneous", "Fumble Recovery TD"],
     
     // Kicking
+    fgm: ["Kicking", "Field Goals Made"],
     fgm_0_19: ["Kicking", "FG Made (0-19 yards)"],
     fgm_20_29: ["Kicking", "FG Made (20-29 yards)"],
     fgm_30_39: ["Kicking", "FG Made (30-39 yards)"],
@@ -172,25 +258,51 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     fgm_50_59: ["Kicking", "FG Made (50-59 yards)"],
     fgm_50p: ["Kicking", "FG Made (50+ yards)"],
     fgm_60p: ["Kicking", "FG Made (60+ yards)"],
+    fgmiss: ["Kicking", "Field Goals Missed"],
+    fgmiss_0_19: ["Kicking", "FG Missed (0-19 yards)"],
+    fgmiss_20_29: ["Kicking", "FG Missed (20-29 yards)"],
+    fgmiss_30_39: ["Kicking", "FG Missed (30-39 yards)"],
+    fgmiss_40_49: ["Kicking", "FG Missed (40-49 yards)"],
+    fgmiss_50_59: ["Kicking", "FG Missed (50-59 yards)"],
+    fgmiss_50p: ["Kicking", "FG Missed (50+ yards)"],
+    fgmiss_60p: ["Kicking", "FG Missed (60+ yards)"],
     xpm: ["Kicking", "Each PAT Made"],
-    fgmiss: ["Kicking", "FG Missed"],
     xpmiss: ["Kicking", "Extra Point Missed"],
-    
-    // Defense / Special Teams
-    sack: ["Team Defense and Special Teams", "Each Sack"],
-    int: ["Team Defense and Special Teams", "Each Interception"],
-    fum_rec: ["Team Defense and Special Teams", "Each Fumble Recovered"],
-    safe: ["Team Defense and Special Teams", "Each Safety"],
-    def_td: ["Team Defense and Special Teams", "Defensive TD"],
-    st_td: ["Team Defense and Special Teams", "Special Teams TD"],
-    blk_kick: ["Team Defense and Special Teams", "Blocked Kick"],
+
+    // Team Defense and Special Teams
+    def_sack: ["Team Defense and Special Teams", "Each Sack"],
+    def_int: ["Team Defense and Special Teams", "Each Interception"],
+    def_fum_rec: ["Team Defense and Special Teams", "Each Fumble Recovered"],
+    def_safety: ["Team Defense and Special Teams", "Each Safety"],
+    def_blk_kick: ["Team Defense and Special Teams", "Blocked Punt, PAT or FG"],
+    def_td: ["Team Defense and Special Teams", "Defensive Touchdown"],
+    def_int_td: ["Team Defense and Special Teams", "Interception Return TD"],
+    def_fum_td: ["Team Defense and Special Teams", "Fumble Return TD"],
+    def_kr_td: ["Team Defense and Special Teams", "Kickoff Return TD"],
+    def_pr_td: ["Team Defense and Special Teams", "Punt Return TD"],
+    def_st_td: ["Team Defense and Special Teams", "Special Teams TD"],
+    def_4_and_stop: ["Team Defense and Special Teams", "4th Down Stops"],
+    def_3_and_out: ["Team Defense and Special Teams", "Three and Outs Forced"],
+
+    // Defense Points Allowed
     pts_allow_0: ["Team Defense and Special Teams", "0 points allowed"],
     pts_allow_1_6: ["Team Defense and Special Teams", "1-6 points allowed"],
     pts_allow_7_13: ["Team Defense and Special Teams", "7-13 points allowed"],
     pts_allow_14_20: ["Team Defense and Special Teams", "14-20 points allowed"],
     pts_allow_21_27: ["Team Defense and Special Teams", "21-27 points allowed"],
     pts_allow_28_34: ["Team Defense and Special Teams", "28-34 points allowed"],
-    pts_allow_35p: ["Team Defense and Special Teams", "35+ points allowed"]
+    pts_allow_35p: ["Team Defense and Special Teams", "35+ points allowed"],
+
+    // Defense Yards Allowed
+    yds_allow_0_100: ["Team Defense and Special Teams", "Less than 100 total yards allowed"],
+    yds_allow_100_199: ["Team Defense and Special Teams", "100-199 total yards allowed"],
+    yds_allow_200_299: ["Team Defense and Special Teams", "200-299 total yards allowed"],
+    yds_allow_300_349: ["Team Defense and Special Teams", "300-349 total yards allowed"],
+    yds_allow_350_399: ["Team Defense and Special Teams", "350-399 total yards allowed"],
+    yds_allow_400_449: ["Team Defense and Special Teams", "400-449 total yards allowed"],
+    yds_allow_450_499: ["Team Defense and Special Teams", "450-499 total yards allowed"],
+    yds_allow_500_549: ["Team Defense and Special Teams", "500-549 total yards allowed"],
+    yds_allow_550p: ["Team Defense and Special Teams", "550+ total yards allowed"]
   };
 
   const NFL_TEAMS = {
@@ -210,6 +322,19 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
 
   const playerIdToName = new Map();
   const playerIdToPosition = new Map();
+
+  if (espnAthletesData && typeof espnAthletesData === 'object') {
+    Object.entries(espnAthletesData).forEach(([id, athlete]) => {
+      if (athlete && athlete.name) {
+        playerIdToName.set(Number(id), athlete.name);
+        playerIdToName.set(String(id), athlete.name);
+        if (athlete.pos) {
+          playerIdToPosition.set(Number(id), athlete.pos);
+          playerIdToPosition.set(String(id), athlete.pos);
+        }
+      }
+    });
+  }
 
   // 0. Filter out unplayed seasons unless a draft has occurred
   let seasonsData = rawSeasonsData.filter(season => {
@@ -275,7 +400,10 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
   for (const config of uiMembersConfig) {
       if (managersMap.has(config.id)) {
           const target = managersMap.get(config.id);
-          if (config.alias) target.name = config.alias;
+          if (config.alias) {
+              target.name = config.alias;
+              target.alias = config.alias;  // Persist alias field explicitly so getManagerName resolves it on first pass
+          }
           if (config.isActive !== undefined) target.isActive = config.isActive;
       }
   }
@@ -725,8 +853,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       if (!pId && !pick.playerName) continue;
       const tid = pick.teamId;
       const tinfo = (teamMap[year] && teamMap[year][tid]) || {};
-      const pName = pick.playerName || (pId ? playerIdToName.get(pId) : null) || `Player ID ${pId}`;
-      const pos = pick.position || (pId ? playerIdToPosition.get(pId) : '') || '';
+      const pName = pick.playerName || (pId ? (playerIdToName.get(pId) || playerIdToName.get(Number(pId)) || playerIdToName.get(String(pId))) : null) || (pId ? `Player ID ${pId}` : '');
+      const pos = pick.position || (pId ? (playerIdToPosition.get(pId) || playerIdToPosition.get(Number(pId)) || playerIdToPosition.get(String(pId))) : '') || '';
       const histTeam = pick.nflTeam || nflHistoricalTeams.getTeam(pName, year, pos);
       draft_results.push({
         year,
@@ -770,11 +898,20 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         // Yahoo normalized format
         const addedPlayers = t.players.filter(p => p.action === 'add').map(p => p.name);
         const droppedPlayers = t.players.filter(p => p.action === 'drop').map(p => p.name);
+        const hasPicks = Array.isArray(t.draft_picks) && t.draft_picks.length > 0;
+        if (addedPlayers.length === 0 && droppedPlayers.length === 0 && !hasPicks && t.type !== 'trade') {
+          continue;
+        }
         const formattedTimestamp = t.timestamp ? new Date(t.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
         const parts = [];
         if (addedPlayers.length > 0) parts.push(`Added: ${addedPlayers.join(', ')}`);
         if (droppedPlayers.length > 0) parts.push(`Dropped: ${droppedPlayers.join(', ')}`);
         if (t.faabBid > 0) parts.push(`FAAB: $${t.faabBid}`);
+
+        const allTraded = [...new Set([...addedPlayers, ...droppedPlayers])];
+        const primaryTeamId = t.teamId !== undefined ? t.teamId : (t.team_id !== undefined ? t.team_id : null);
+        const tInfo = (primaryTeamId !== null && teamMap[year] && teamMap[year][primaryTeamId]) || {};
+        const partnerInfo = (t.partnerTeamId && teamMap[year] && teamMap[year][t.partnerTeamId]) || {};
 
         transactions.push({
           year,
@@ -783,13 +920,16 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
           timestamp: formattedTimestamp,
           action_type: t.type,
           type: t.type === 'trade' ? 'trade' : (t.faabBid > 0 ? 'waiver' : 'free_agent'),
-          team_id: t.teamId || 1,
-          team_name: t.teamName || '',
-          manager_id: '',
-          manager_name: '',
+          team_id: primaryTeamId || 1,
+          team_name: t.teamName || tInfo.name || '',
+          manager_id: tInfo.ownerId || t.managerId || '',
+          manager_name: tInfo.ownerName || t.managerName || '',
+          trade_partner_team: partnerInfo.name || t.trade_partner_team || '',
+          trade_partner_manager_id: partnerInfo.ownerId || t.trade_partner_manager_id || '',
+          trade_partner_manager_name: partnerInfo.ownerName || t.trade_partner_manager_name || '',
           added_players: addedPlayers,
           dropped_players: droppedPlayers,
-          traded_players: [],
+          traded_players: allTraded,
           faab_bid: t.faabBid || 0,
           details: parts.join(' · ') || t.type,
           items: []
@@ -802,10 +942,11 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       const droppedPlayers = [];
       const tradedPlayers = [];
       let primaryTeamId = null;
+      let partnerTeamId = null;
 
       if (t.items) {
         for (const item of t.items) {
-          const pName = playerIdToName.get(item.playerId) || `Player ID ${item.playerId}`;
+          const pName = (item.playerId ? (playerIdToName.get(item.playerId) || playerIdToName.get(Number(item.playerId)) || playerIdToName.get(String(item.playerId))) : null) || `Player ID ${item.playerId}`;
           processedItems.push({
             player_id: item.playerId,
             player_name: pName,
@@ -823,19 +964,42 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
           }
           if (t.type === 'TRADE') {
             tradedPlayers.push(pName);
+            if (primaryTeamId === null && item.toTeamId) primaryTeamId = item.toTeamId;
+            else if (partnerTeamId === null && item.toTeamId && item.toTeamId !== primaryTeamId) partnerTeamId = item.toTeamId;
+            if (partnerTeamId === null && item.fromTeamId && item.fromTeamId !== primaryTeamId) partnerTeamId = item.fromTeamId;
           }
         }
       }
-      // Filter out boring ROSTER moves to keep it clean, unless you want them
-      if (t.type === 'ROSTER') continue;
+      // Filter out boring ROSTER moves and draft noise to keep transactions clean
+      if (t.type === 'ROSTER' || t.type === 'DRAFT' || t.action_type === 'DRAFT') continue;
       
       const tInfo = (primaryTeamId !== null && teamMap[year] && teamMap[year][primaryTeamId]) || {};
+      const pInfo = (partnerTeamId !== null && teamMap[year] && teamMap[year][partnerTeamId]) || {};
       const execDate = t.executionDate || t.proposedDate;
       const formattedTimestamp = execDate ? new Date(execDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
       
+      // Separate players received by primary team vs partner team in trade
+      let team1Received = addedPlayers;
+      let team2Received = droppedPlayers;
+      if (t.type === 'TRADE' && processedItems.length > 0) {
+        team1Received = processedItems.filter(i => i.to_team === primaryTeamId).map(i => i.player_name);
+        team2Received = processedItems.filter(i => i.to_team === partnerTeamId || (i.from_team === primaryTeamId && i.to_team !== primaryTeamId)).map(i => i.player_name);
+      }
+
+      const finalAdds = t.type === 'TRADE' ? team1Received : addedPlayers;
+      const finalDrops = t.type === 'TRADE' ? team2Received : droppedPlayers;
+      const hasPlayers = (finalAdds && finalAdds.length > 0) || (finalDrops && finalDrops.length > 0) || (tradedPlayers && tradedPlayers.length > 0);
+      const hasPicks = Array.isArray(t.draft_picks) && t.draft_picks.length > 0;
+
+      if (!hasPlayers && !hasPicks) {
+        continue; // Skip empty transactions and draft noise
+      }
+
       let details = '';
       if (t.type === 'TRADE') {
-        details = `Trade: ${tradedPlayers.join(', ')}`;
+        const p1Str = team1Received.join(', ') || 'picks';
+        const p2Str = team2Received.join(', ') || 'picks';
+        details = `${tInfo.name || 'Team 1'} received ${p1Str}; ${pInfo.name || 'Team 2'} received ${p2Str}`;
       } else {
         const parts = [];
         if (addedPlayers.length > 0) parts.push(`Added: ${addedPlayers.join(', ')}`);
@@ -855,13 +1019,255 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
          team_name: tInfo.name || '',
          manager_id: tInfo.ownerId || '',
          manager_name: tInfo.ownerName || '',
-         added_players: addedPlayers,
-         dropped_players: droppedPlayers,
+         trade_partner_team: pInfo.name || '',
+         trade_partner_manager_id: pInfo.ownerId || '',
+         trade_partner_manager_name: pInfo.ownerName || '',
+         added_players: finalAdds,
+         dropped_players: finalDrops,
          traded_players: tradedPlayers,
          faab_bid: t.bidAmount || 0,
          details: details,
          items: processedItems
       });
+    }
+  }
+
+  // Fallback: If no transactions found from platform API, reconstruct from weekly rosters & drafts
+  if (transactions.length === 0 && weekly_player_stats.length > 0) {
+    const cleanNorm = (n) => (n || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    const mgrNameMap = new Map();
+    (members || []).forEach(m => {
+      const id = String(m.id || m.manager_id || '').toLowerCase();
+      mgrNameMap.set(id, m.name || m.manager_name || m.display_name || id);
+    });
+
+    const seasonStatsMap = new Map();
+    weekly_player_stats.forEach(s => {
+      const yr = Number(s.season || s.year);
+      if (!yr) return;
+      if (!seasonStatsMap.has(yr)) seasonStatsMap.set(yr, []);
+      seasonStatsMap.get(yr).push(s);
+    });
+
+    const seasonDraftMap = new Map();
+    draft_results.forEach(d => {
+      const yr = Number(d.season || d.year);
+      if (!yr) return;
+      if (!seasonDraftMap.has(yr)) seasonDraftMap.set(yr, []);
+      seasonDraftMap.get(yr).push(d);
+    });
+
+    const seasons = Array.from(seasonStatsMap.keys()).sort((a, b) => a - b);
+    for (const yr of seasons) {
+      const stats = seasonStatsMap.get(yr) || [];
+      const drafts = seasonDraftMap.get(yr) || [];
+
+      const draftRosters = new Map();
+      drafts.forEach(d => {
+        const mid = String(d.manager_id || '').toLowerCase();
+        if (!mid) return;
+        if (!draftRosters.has(mid)) draftRosters.set(mid, new Set());
+        draftRosters.get(mid).add(cleanNorm(d.player_name));
+      });
+
+      const weeklyRosters = new Map();
+      let maxWeek = 1;
+      stats.forEach(s => {
+        const w = Number(s.week || 1);
+        if (w > maxWeek) maxWeek = w;
+        const mid = String(s.manager_id || '').toLowerCase();
+        const pName = s.player_name || s.playerName || '';
+        const np = cleanNorm(pName);
+        if (!mid || !np) return;
+
+        if (!weeklyRosters.has(w)) weeklyRosters.set(w, new Map());
+        const weekMap = weeklyRosters.get(w);
+        if (!weekMap.has(mid)) weekMap.set(mid, new Map());
+        weekMap.get(mid).set(np, pName);
+      });
+
+      let priorRosters = new Map();
+      const w1Map = weeklyRosters.get(1) || new Map();
+      w1Map.forEach((pMap, mid) => {
+        const draftedSet = draftRosters.get(mid) || new Set();
+        pMap.forEach((rawName, np) => {
+          if (!draftedSet.has(np)) {
+            const mName = mgrNameMap.get(mid) || mid;
+            transactions.push({
+              year: yr,
+              season: yr,
+              week: 1,
+              date: `${yr}-09-06T12:00:00Z`,
+              timestamp: `Sep 6, Week 1`,
+              action_type: 'WAIVER',
+              type: 'waiver',
+              team_id: 1,
+              team_name: `${mName}'s Team`,
+              manager_id: mid,
+              manager_name: mName,
+              trade_partner_team: '',
+              trade_partner_manager_id: '',
+              trade_partner_manager_name: '',
+              added_players: [rawName],
+              dropped_players: [],
+              traded_players: [],
+              faab_bid: 0,
+              details: `Added: ${rawName}`,
+              items: []
+            });
+          }
+        });
+      });
+
+      priorRosters = w1Map;
+
+      for (let w = 2; w <= maxWeek; w++) {
+        const currMap = weeklyRosters.get(w);
+        if (!currMap) continue;
+
+        const playersLeaving = new Map();
+        priorRosters.forEach((pMap, mid) => {
+          const currPMap = currMap.get(mid) || new Map();
+          pMap.forEach((rawName, np) => {
+            if (!currPMap.has(np)) {
+              playersLeaving.set(np, { rawName, fromMid: mid });
+            }
+          });
+        });
+
+        const tradesFound = new Set();
+        currMap.forEach((currPMap, toMid) => {
+          const priorPMap = priorRosters.get(toMid) || new Map();
+          currPMap.forEach((rawName, np) => {
+            if (!priorPMap.has(np)) {
+              if (playersLeaving.has(np) && playersLeaving.get(np).fromMid !== toMid) {
+                const fromInfo = playersLeaving.get(np);
+                tradesFound.add(np);
+                const toName = mgrNameMap.get(toMid) || toMid;
+                const fromName = mgrNameMap.get(fromInfo.fromMid) || fromInfo.fromMid;
+                transactions.push({
+                  year: yr,
+                  season: yr,
+                  week: w,
+                  date: `${yr}-10-15T12:00:00Z`,
+                  timestamp: `Week ${w}`,
+                  action_type: 'TRADE',
+                  type: 'trade',
+                  team_id: 1,
+                  team_name: `${toName}'s Team`,
+                  manager_id: toMid,
+                  manager_name: toName,
+                  trade_partner_team: `${fromName}'s Team`,
+                  trade_partner_manager_id: fromInfo.fromMid,
+                  trade_partner_manager_name: fromName,
+                  added_players: [rawName],
+                  dropped_players: [],
+                  traded_players: [rawName],
+                  faab_bid: 0,
+                  details: `${toName} received ${rawName} from ${fromName}`,
+                  items: []
+                });
+              } else {
+                if (!mgrAddsMap.has(toMid)) mgrAddsMap.set(toMid, []);
+                mgrAddsMap.get(toMid).push(rawName);
+              }
+            }
+          });
+        });
+
+        const mgrDropsMap = new Map();
+        playersLeaving.forEach((info, np) => {
+          if (!tradesFound.has(np)) {
+            if (!mgrDropsMap.has(info.fromMid)) mgrDropsMap.set(info.fromMid, []);
+            mgrDropsMap.get(info.fromMid).push(info.rawName);
+          }
+        });
+
+        const allMids = new Set([...mgrAddsMap.keys(), ...mgrDropsMap.keys()]);
+        allMids.forEach(mid => {
+          const adds = mgrAddsMap.get(mid) || [];
+          const drops = mgrDropsMap.get(mid) || [];
+          const mName = mgrNameMap.get(mid) || mid;
+          const minPairs = Math.min(adds.length, drops.length);
+
+          for (let i = 0; i < minPairs; i++) {
+            transactions.push({
+              year: yr,
+              season: yr,
+              week: w,
+              date: `${yr}-10-15T12:00:00Z`,
+              timestamp: `Week ${w}`,
+              action_type: 'WAIVER',
+              type: 'waiver',
+              team_id: 1,
+              team_name: `${mName}'s Team`,
+              manager_id: mid,
+              manager_name: mName,
+              trade_partner_team: '',
+              trade_partner_manager_id: '',
+              trade_partner_manager_name: '',
+              added_players: [adds[i]],
+              dropped_players: [drops[i]],
+              traded_players: [],
+              faab_bid: 0,
+              details: `Added: ${adds[i]} · Dropped: ${drops[i]}`,
+              items: []
+            });
+          }
+
+          for (let i = minPairs; i < adds.length; i++) {
+            transactions.push({
+              year: yr,
+              season: yr,
+              week: w,
+              date: `${yr}-10-15T12:00:00Z`,
+              timestamp: `Week ${w}`,
+              action_type: 'WAIVER',
+              type: 'waiver',
+              team_id: 1,
+              team_name: `${mName}'s Team`,
+              manager_id: mid,
+              manager_name: mName,
+              trade_partner_team: '',
+              trade_partner_manager_id: '',
+              trade_partner_manager_name: '',
+              added_players: [adds[i]],
+              dropped_players: [],
+              traded_players: [],
+              faab_bid: 0,
+              details: `Added: ${adds[i]}`,
+              items: []
+            });
+          }
+
+          for (let i = minPairs; i < drops.length; i++) {
+            transactions.push({
+              year: yr,
+              season: yr,
+              week: w,
+              date: `${yr}-10-15T12:00:00Z`,
+              timestamp: `Week ${w}`,
+              action_type: 'DROP',
+              type: 'free_agent',
+              team_id: 1,
+              team_name: `${mName}'s Team`,
+              manager_id: mid,
+              manager_name: mName,
+              trade_partner_team: '',
+              trade_partner_manager_id: '',
+              trade_partner_manager_name: '',
+              added_players: [],
+              dropped_players: [drops[i]],
+              traded_players: [],
+              faab_bid: 0,
+              details: `Dropped: ${drops[i]}`,
+              items: []
+            });
+          }
+        });
+
+        priorRosters = currMap;
+      }
     }
   }
 

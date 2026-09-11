@@ -1,0 +1,29 @@
+name: Dispatch Fantasy Vault Multi-League Build Emails
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  dispatch-vault-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Wait for Vercel Deploy & Dispatch Multi-League Emails
+        env:
+          FIREBASE_DATABASE_SECRET: ${{ secrets.FIREBASE_DATABASE_SECRET }}
+        run: |
+          echo "Starting multi-league email dispatch for all Fantasy Vault users..."
+          node scripts/dispatch_vault_build_emails.js --watch

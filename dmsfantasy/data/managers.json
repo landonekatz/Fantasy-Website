@@ -3,42 +3,49 @@
     {
       "id": "alex",
       "name": "Alex",
+      "favorite_team": "New England Patriots",
       "status": "current",
       "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/65bdae48b332589fdb9b19fe1d356d5c24cca706306ebfb670cad4ba0abd3e9e.jpg"
     },
     {
       "id": "benjamin",
       "name": "Benjamin",
+      "favorite_team": "Kansas City Chiefs",
       "status": "current",
       "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a2cbd9723f84f4669346df652de732b6c5f6f3693459ee1df2940f334441bd13.jpg"
     },
     {
       "id": "carson",
       "name": "Carson",
+      "favorite_team": "Baltimore Ravens",
       "status": "current",
       "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/157d30b0ea6df11735279d1313d3a50ce138d6aa3bb4e1f3f4b1d84c543dcfba.jpg"
     },
     {
       "id": "isabella",
       "name": "Isabella",
+      "favorite_team": "Baltimore Ravens",
       "status": "current",
       "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_7_i.png"
     },
     {
       "id": "jake",
       "name": "Jake",
+      "favorite_team": "Buffalo Bills",
       "status": "current",
       "logo_url": "https://s.yimg.com/cv/apiv2/default/nfl/nfl_5_j.png"
     },
     {
       "id": "landon",
       "name": "Landon",
+      "favorite_team": "Baltimore Ravens",
       "status": "current",
       "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/f5d05065311484b29b90c8480db84f2b6ee5226325fb7dd446f369c6f93c5708.jpg"
     },
     {
       "id": "luke",
       "name": "Luke",
+      "favorite_team": "Baltimore Ravens",
       "status": "current",
       "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/1acd9d79f50832bfd32b61d8d8f3b8bd28132cbbc040d450a757b08131262cf0.jpg"
     },
@@ -51,12 +58,14 @@
     {
       "id": "will",
       "name": "Will",
+      "favorite_team": "Baltimore Ravens",
       "status": "current",
       "logo_url": "https://s.yimg.com/ba/images/7274328e007d59a7ceaeae50b72d5d9e9c44a26ed464268c930e21d83b8d2b25.png"
     },
     {
       "id": "ryan",
       "name": "Ryan",
+      "favorite_team": "Buffalo Bills",
       "status": "current",
       "logo_url": "https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/4e8e6bb7e77ed3968eb99ec73deea46c03e9f73f3b6a1f1667df26b3e67f9ae2.jpg"
     },

@@ -377,14 +377,17 @@ export async function fetchYahooSeasonData({ leagueKey, accessToken, refreshToke
             if (!pData) continue;
             const pMeta = pData[0];
             const pAction = pData[1]?.transaction_data;
-            const actionType = Array.isArray(pAction) ? pAction[0]?.type : pAction?.type;
+            const actionObj = Array.isArray(pAction) ? pAction[0] : pAction;
+            const actionType = actionObj?.type;
             const pName = pMeta?.find(x => x && x.name)?.name?.full || '';
             const pPos = pMeta?.find(x => x && x.display_position)?.display_position || '';
 
             transItem.players.push({
               name: pName,
               position: pPos,
-              action: actionType
+              action: actionType,
+              source_team_key: actionObj?.source_team_key || '',
+              destination_team_key: actionObj?.destination_team_key || ''
             });
           }
         }

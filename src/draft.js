@@ -74,6 +74,16 @@ export class VaultDraftEngine {
             this.render();
         });
 
+        if (typeof window !== 'undefined') {
+            this.handleAuthChange = () => {
+                const el = document.getElementById(this.containerId);
+                if (el && el.innerHTML.trim().length > 0) {
+                    this.render();
+                }
+            };
+            window.addEventListener('vault_auth_changed', this.handleAuthChange);
+        }
+
         this.init();
     }
 
@@ -257,6 +267,9 @@ export class VaultDraftEngine {
         if (this.unsubscribeLpi) {
             this.unsubscribeLpi();
         }
+        if (this.handleAuthChange && typeof window !== 'undefined') {
+            window.removeEventListener('vault_auth_changed', this.handleAuthChange);
+        }
     }
 
     getManagerList() {
@@ -315,6 +328,92 @@ export class VaultDraftEngine {
         if (!managerId) return false;
         const mgr = this.getManagerList().find(m => String(m.id).toLowerCase() === String(managerId).toLowerCase());
         return !!(mgr && mgr.isRetired);
+    }
+
+    /**
+     * Resolve Logged-in User's Manager Object in Current Season Leaderboard
+     */
+    getLoggedInManagerEntry(managerLeaderboard = []) {
+        if (typeof window === 'undefined') return null;
+        const session = window.AuthEngine?.getSession ? window.AuthEngine.getSession() : null;
+        if (!session) return null;
+
+        const currentLeagueSlug = this.options?.leagueSlug || 
+                                  this.leagueSettings?.slug || 
+                                  this.leagueSettings?.leagueId || 
+                                  window.app?.leagueSlug || 
+                                  (window.location.pathname.includes('dmsfantasy') ? 'dmsfantasy' : 
+                                  (window.location.pathname.includes('gaywood') ? 'gaywoodfantasyfootball' : ''));
+
+        // 1. Direct claim in session
+        let targetId = (session.claims && currentLeagueSlug) ? session.claims[currentLeagueSlug] : null;
+
+        // 2. Local storage claim fallback
+        if (!targetId && currentLeagueSlug) {
+            try {
+                targetId = localStorage.getItem('vault_claim_' + currentLeagueSlug);
+            } catch (e) {}
+        }
+
+        // 3. Claims in app instance
+        const appClaims = (this.claims) || (window.app?.claims) || {};
+        if (!targetId && appClaims) {
+            const foundClaim = Object.entries(appClaims).find(([mId, c]) => {
+                if (session.uid && c?.userId === session.uid) return true;
+                if (session.email && c?.email && c.email.toLowerCase() === session.email.toLowerCase()) return true;
+                return false;
+            });
+            if (foundClaim) targetId = foundClaim[0];
+        }
+
+        // 4. Founder identity (Landon)
+        const isFounder = Boolean(session.isFounder || (session.email && session.email.toLowerCase() === 'landonekatz@gmail.com'));
+        if (!targetId && isFounder) {
+            targetId = 'landon';
+        }
+
+        // 5. Match against managerLeaderboard
+        let matched = null;
+        if (targetId) {
+            const cleanTarget = String(targetId).toLowerCase();
+            matched = managerLeaderboard.find(m => {
+                const mId = String(m.managerId || '').toLowerCase();
+                return mId === cleanTarget;
+            });
+        }
+
+        // 6. Name match fallback
+        if (!matched && session.name) {
+            const cleanName = session.name.trim().toLowerCase();
+            matched = managerLeaderboard.find(m => {
+                const name = String(m.managerName || '').toLowerCase();
+                return name === cleanName || name.includes(cleanName) || cleanName.includes(name);
+            });
+        }
+
+        // 7. Founder fallback by name if targetId 'landon' was not matched directly
+        if (!matched && isFounder) {
+            matched = managerLeaderboard.find(m => {
+                const name = String(m.managerName || '').toLowerCase();
+                return name.includes('landon');
+            });
+        }
+
+        return matched || null;
+    }
+
+    /**
+     * Resolve Manager Avatar URL with Graceful Fallbacks
+     */
+    getManagerAvatarUrl(managerId, fallbackName = '') {
+        const mgrs = Array.isArray(this.managers) ? this.managers : (this.managers?.managers || []);
+        const cleanId = String(managerId || '').toLowerCase();
+        const found = mgrs.find(m => String(m.id || m.manager_id || '').toLowerCase() === cleanId || 
+                                     String(m.name || m.canonical_name || '').toLowerCase() === String(fallbackName || '').toLowerCase());
+
+        const session = typeof window !== 'undefined' && window.AuthEngine?.getSession ? window.AuthEngine.getSession() : null;
+
+        return found?.logo_url || found?.avatar || found?.avatar_url || session?.photoURL || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
     }
 
     buildTruePositionMap() {
@@ -1331,7 +1430,7 @@ export class VaultDraftEngine {
                     </button>
                 </div>
 
-                <div class="draft-subnav-right">
+                <div class="draft-subnav-right" style="display: flex; align-items: center; gap: 8px;">
                     <button id="btn-open-ldi-info" class="ldi-info-trigger-btn" title="Learn what makes the Landon Draft Index different">
                         <span class="ldi-info-icon">?</span>
                         <span class="ldi-info-text">What is LDI?</span>
@@ -1730,6 +1829,22 @@ export class VaultDraftEngine {
             `;
         }).join('');
 
+        // Resolve Logged-in Manager Draft Grade Card
+        let yourDraftGradeHTML = '';
+        const userMgr = this.getLoggedInManagerEntry(managerLeaderboard);
+        if (userMgr && userMgr.gradeInfo && userMgr.gradeInfo.grade && userMgr.gradeInfo.grade !== 'Pending') {
+            const userAvatar = this.getManagerAvatarUrl(userMgr.managerId, userMgr.managerName);
+            yourDraftGradeHTML = `
+                <div class="draft-user-grade-card" style="background: ${userMgr.gradeInfo.bg || 'rgba(255, 255, 255, 0.04)'}; border: 1px solid ${userMgr.gradeInfo.border || 'rgba(255, 255, 255, 0.15)'};" title="Your Draft Grade: ${userMgr.gradeInfo.grade}">
+                    <div class="draft-user-grade-title">Your Draft Grade</div>
+                    <div class="draft-user-grade-body">
+                        <img class="draft-user-grade-avatar" src="${userAvatar}" alt="${userMgr.managerName}" onerror="this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png'" />
+                        <div class="draft-user-grade-letter" style="color: ${userMgr.gradeInfo.color};">${userMgr.gradeInfo.grade}</div>
+                    </div>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             <div class="draft-view-wrapper">
                 <!-- Sub-navigation Bar -->
@@ -1737,16 +1852,17 @@ export class VaultDraftEngine {
 
                 <!-- Draft Hero Banner -->
                 <div class="draft-hero-banner">
-                    <div class="draft-hero-title-group">
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-                            <div>
-                                <span class="draft-hero-subtitle">Historical Draft Room</span>
-                                <h1>${this.formatSeasonYear(this.selectedYear)} League Draft</h1>
-                            </div>
+                    <div class="draft-hero-header-row">
+                        <div class="draft-hero-title-group">
+                            <span class="draft-hero-subtitle">${isUnplayed ? 'Prospective Draft Room' : 'Historical Draft Room'}</span>
+                            <h1>${this.formatSeasonYear(this.selectedYear)} League Draft</h1>
+                            <p class="draft-hero-desc">
+                                ${isUnplayed 
+                                    ? 'Complete round-by-round draft results with drafted positional ranks, model-projected output, and the <strong>Landon Prospective Index (LPI)</strong>.' 
+                                    : 'Complete round-by-round draft results with drafted positional ranks, season-end positional finishes, injury indicators, and the <strong>Landon Draft Index (LDI)</strong>.'}
+                            </p>
                         </div>
-                        <p class="draft-hero-desc">
-                            Complete round-by-round draft results with drafted positional ranks, season-end positional finishes, injury indicators, and the <strong>Landon Draft Index (LDI)</strong>.
-                        </p>
+                        ${yourDraftGradeHTML}
                     </div>
 
                     <!-- Year Selector Toolbar -->
@@ -3003,8 +3119,6 @@ export class VaultDraftEngine {
             if (e.target === modal) modal.close();
         });
     }
-
-
 
     openTradeModal(pickData) {
         if (!pickData) return;

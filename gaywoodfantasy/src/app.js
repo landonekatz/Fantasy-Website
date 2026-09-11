@@ -171,6 +171,7 @@ class FantasyApp {
 
                 <!-- Email & Password Form -->
                 <form id="guard-email-form" style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    <input type="text" id="guard-input-name" placeholder="Full Name (for new registrations)" style="width: 100%; padding: 0.65rem 0.8rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-size: 0.88rem; box-sizing: border-box;">
                     <input type="email" id="guard-input-email" placeholder="name@example.com" required style="width: 100%; padding: 0.65rem 0.8rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-size: 0.88rem; box-sizing: border-box;">
                     <input type="password" id="guard-input-pass" placeholder="Password" required style="width: 100%; padding: 0.65rem 0.8rem; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; color: #0f172a; font-size: 0.88rem; box-sizing: border-box;">
                     <button type="submit" style="width: 100%; padding: 0.7rem; background: #0f172a; color: #fff; font-weight: 700; border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer;">Sign In / Register</button>
@@ -197,6 +198,8 @@ class FantasyApp {
         `;
         
         document.body.appendChild(overlay);
+
+        const pendingJoinCode = new URLSearchParams(window.location.search).get('join') || sessionStorage.getItem('vault_pending_join_code') || '';
 
         const showError = (msg) => {
             const errEl = document.getElementById('guard-error-msg');
@@ -228,6 +231,9 @@ class FantasyApp {
                     await window.AuthEngine.loginWithGoogle();
                     window.AuthEngine.setPersona('member');
                     await unlockVault();
+                    if (pendingJoinCode && typeof window.startManagerClaimFlow === 'function') {
+                        setTimeout(() => window.startManagerClaimFlow(pendingJoinCode), 200);
+                    }
                 } catch (err) {
                     showError("Google Sign-In failed: " + err.message);
                 }
@@ -239,13 +245,17 @@ class FantasyApp {
         if (emailForm) {
             emailForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const name = document.getElementById('guard-input-name')?.value.trim() || '';
                 const email = document.getElementById('guard-input-email')?.value.trim();
                 const pass = document.getElementById('guard-input-pass')?.value;
                 if (!email || !pass) return;
                 try {
-                    await window.AuthEngine.loginWithEmail(email, pass);
+                    await window.AuthEngine.loginWithEmail(email, pass, name);
                     window.AuthEngine.setPersona('member');
                     await unlockVault();
+                    if (pendingJoinCode && typeof window.startManagerClaimFlow === 'function') {
+                        setTimeout(() => window.startManagerClaimFlow(pendingJoinCode), 200);
+                    }
                 } catch (err) {
                     showError("Sign In failed: " + err.message);
                 }

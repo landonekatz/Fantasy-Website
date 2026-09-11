@@ -559,3 +559,52 @@ body.rivalry-dungeon-mode .dossier-module-box {
     background: rgba(18, 14, 15, 0.8);
     border-color: rgba(255, 255, 255, 0.08);
 }
+
+/* Mobile Responsiveness for Newsletters */
+@media (max-width: 640px) {
+    .newsletter-page-wrapper {
+        padding: 0 4px 2rem;
+        gap: 1rem;
+    }
+    .newsletter-nav-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px;
+    }
+    .newsletter-nav-title-group {
+        text-align: center;
+    }
+    .newsletter-nav-title {
+        font-size: 1.15rem;
+    }
+    .newsletter-nav-controls {
+        justify-content: space-between;
+        width: 100%;
+    }
+    .newsletter-masthead {
+        padding: 16px 14px;
+    }
+    .newsletter-masthead h1 {
+        font-size: 1.5rem;
+    }
+    .newsletter-meta-row {
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-start;
+    }
+    .newsletter-grid, .dossier-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .newsletter-card {
+        padding: 14px;
+    }
+    .newsletter-article-headline {
+        font-size: 1.1rem;
+    }
+    .newsletter-quote-box {
+        padding: 14px;
+        font-size: 0.95rem;
+    }
+}

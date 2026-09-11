@@ -8,8 +8,12 @@ const PERSONA_KEY = 'vault_active_persona';
 
 // Registered League Join Codes (6-character uppercase alphanumeric)
 const JOIN_CODES = {
+  'BS4DRL': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   'DNFUAM': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   '7AR345': { leagueId: 'gaywoodfantasyfootball', name: 'Gaywood Fantasy Football', path: '/gaywoodfantasyfootball', managers: [] },
+  'CC9MJU': { leagueId: 'abtherapyleague', name: 'AB Therapy League', path: '/abtherapyleague', managers: [] },
+  'TJYCNS': { leagueId: 'fbo', name: 'FBO League', path: '/fbo', managers: [] },
+  '29Z4B2': { leagueId: 'lamarkablefantasy', name: 'Lamarkable Fantasy', path: '/lamarkablefantasy', managers: [] },
   // Legacy aliases
   'D8M4S2': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
   'DMS202': { leagueId: 'dmsfantasy', name: 'The Dumbarton League', path: '/dmsfantasy', managers: [] },
@@ -275,15 +279,31 @@ const AuthEngine = {
     }
   },
 
-  async loginWithEmail(email, password) {
+  async loginWithEmail(email, password, displayName = null) {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
+      if (displayName && result.user) {
+        try {
+          const cleanName = formatCapitalizedName(displayName, email);
+          if (database) {
+            await rtdbSet(dbRef(database, `users/${result.user.uid}/name`), cleanName);
+          }
+        } catch (e) {}
+      }
       return result.user;
     } catch (error) {
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         // Auto-signup if not found
         try {
           const newResult = await createUserWithEmailAndPassword(auth, email, password);
+          if (displayName && newResult.user) {
+            try {
+              const cleanName = formatCapitalizedName(displayName, email);
+              if (database) {
+                await rtdbSet(dbRef(database, `users/${newResult.user.uid}/name`), cleanName);
+              }
+            } catch (e) {}
+          }
           return newResult.user;
         } catch (signupError) {
           console.error("Signup Error", signupError);
@@ -457,7 +477,7 @@ const AuthEngine = {
     return { success: false, message: `Invalid code "${cleanCode}". Please check your 6-character Join Code.` };
   },
 
-  async finalizeJoin(code, managerId, favoriteTeam = null) {
+  async finalizeJoin(code, managerId, favoriteTeam = null, managerName = null) {
     const cleanCode = (code || '').trim().toUpperCase();
     let info = JOIN_CODES[cleanCode];
     if (!info || !info.managers || info.managers.length === 0) {
@@ -472,7 +492,19 @@ const AuthEngine = {
     try {
       await this.linkUserLeague(info.leagueId, 'member', info.name);
       if (managerId && managerId !== 'unknown' && managerId !== 'guest') {
-        await this.claimManagerProfile(info.leagueId, managerId, session.email, favoriteTeam);
+        const targetMgr = (info.managers || []).find(m => (m.id || m.manager_id) === managerId);
+        const resolvedName = managerName || targetMgr?.canonical_name || targetMgr?.name || formatCapitalizedName(session.name, session.email);
+        await this.claimManagerProfile(info.leagueId, managerId, resolvedName, favoriteTeam);
+
+        if (!session.name || session.name === session.email || (session.email && session.name.toLowerCase().includes(session.email.split('@')[0].toLowerCase()))) {
+          session.name = resolvedName;
+          try {
+            localStorage.setItem('vault_cached_session', JSON.stringify(session));
+            if (database) {
+              await rtdbSet(dbRef(database, `users/${session.uid}/name`), resolvedName);
+            }
+          } catch (e) {}
+        }
       }
       await this.recordActiveLeague(info.leagueId);
       window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: session }));

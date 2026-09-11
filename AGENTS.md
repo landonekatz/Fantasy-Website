@@ -72,6 +72,9 @@ Fantasy-Website/
 ### 6. Landon Draft Index (LDI) Single Source of Truth
 - Any work on LDI, including scoring calculations, games-missed proration, adjusted expectations, Winsorization, VORP, and diagnostic pills, must refer first and foremost to `landon_draft_index_framework.md` as the absolute bible for the system.
 
-### 7. Default Scope Policy
-- All proposed changes, new features, and bug fixes are for the Dumbarton League (`dmsfantasy/`) and for The Fantasy Vault engine (`src/` & `vault.html`), unless obvious or otherwise specified.
+### 7. Universal Vault League Rule
+- **The DMS league is a Vault league now.** Every league is a Vault league. There is no such thing as a non-Vault league. Everything that happens for the DMS league should be happening for every league across everywhere. All changes, features, data ingestion pipelines, transaction trackers, and newsletters must be applied across all hosted leagues (DMS, Gaywood / Katz, Yahoo, ESPN, Sleeper) unless explicitly specified otherwise.
+
+### 8. Manager Name & Alias Single Source of Truth
+- All references to manager names anywhere on the site (landing hub, headers, cards, modals, tabs, record book, rivalry history, newsletters, dossiers, etc.) MUST be exactly the aliases defined by the admin during import (which are stored in the admin dashboard and `managers` data / `name` / `alias`). Never use last names, never split compound first names (e.g. never split Benjamin into Ben Jamin), and never override an admin-defined alias with a user claim account's external full name or email across any league.
 

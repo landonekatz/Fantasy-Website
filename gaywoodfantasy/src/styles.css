@@ -2366,6 +2366,89 @@ footer.dungeon-quote-credit,
     margin-bottom: 20px;
 }
 
+.draft-hero-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.draft-hero-header-row .draft-hero-title-group {
+    flex: 1 1 300px;
+}
+
+.draft-hero-header-row .draft-hero-desc {
+    margin-bottom: 0;
+}
+
+.draft-user-grade-card {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 22px 14px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+    min-width: 170px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.draft-user-grade-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.draft-user-grade-title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary, #cbd5e1);
+    margin-bottom: 8px;
+    white-space: nowrap;
+}
+
+.draft-user-grade-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.draft-user-grade-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-gold, #f59e0b);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.draft-user-grade-letter {
+    font-family: 'JetBrains Mono', monospace, sans-serif;
+    font-size: 2.6rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 680px) {
+    .draft-hero-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    .draft-user-grade-card {
+        width: 100%;
+        max-width: 240px;
+    }
+}
+
 .draft-toolbar-row {
     display: flex;
     align-items: center;

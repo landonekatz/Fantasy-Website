@@ -8,14 +8,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=EB+Garamond:ital,wght@0,400..800;1,400..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/styles.css?v=20260802d">
+<link rel="stylesheet" href="/src/newsletter.css">
 </head>
 
 <body>
 
 <header>
     <div class="masthead-top-bar">
-        <div class="edition-info">VOL. IX • EST. 2018</div>
-        <div style="display:flex; gap: 1rem; align-items:center;">
+        <div class="masthead-top-left">
+            <div class="edition-info">VOL. IX • EST. 2018</div>
+            <div class="edition-info vault-brand-badge" style="color: var(--accent-gold);">Powered by The Fantasy Vault</div>
+        </div>
+        <div class="masthead-top-right">
             <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
                 <span id="theme-toggle-label">Theme: Light</span>
             </button>
@@ -28,9 +32,11 @@
     </div>
     <nav id="top-nav">
         <button id="btn-tab-home" class="top-nav-btn active">League Home</button>
+        <button id="btn-tab-newsletter" class="top-nav-btn">Newsletter</button>
         <button id="btn-tab-h2h" class="top-nav-btn">All-Time Head-to-Head History</button>
         <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
         <button id="btn-tab-draft" class="top-nav-btn">Draft Central</button>
+        <button id="btn-tab-transactions" class="top-nav-btn">Transactions Tracker</button>
         <button id="btn-tab-rivalry" class="top-nav-btn">Rivalry Week</button>
         <button id="btn-tab-paradigms" class="top-nav-btn">Explore Paradigms</button>
         <button id="btn-tab-admin" class="top-nav-btn admin-nav-btn" style="display: none;">Admin Dashboard <span class="admin-nav-badge">Admin</span></button>
@@ -71,6 +77,13 @@
         </div>
     </div>
     <!-- END LEAGUE HOME PAGE VIEW -->
+
+
+    <!-- LEAGUE NEWSLETTER PAGE VIEW -->
+    <div id="view-newsletter" class="page-view">
+        <!-- Populated dynamically by NewsletterEngine -->
+    </div>
+    <!-- END LEAGUE NEWSLETTER PAGE VIEW -->
 
 
     <!-- ALL-TIME HEAD-TO-HEAD HISTORY PAGE VIEW -->
@@ -189,6 +202,12 @@
     </div>
     <!-- END DRAFT VIEW -->
 
+    <!-- TRANSACTIONS TRACKER PAGE VIEW -->
+    <div id="view-transactions" class="page-view">
+        <!-- Dynamically rendered by TransactionsEngine -->
+    </div>
+    <!-- END TRANSACTIONS TRACKER VIEW -->
+
     <!-- RIVALRY WEEK PAGE VIEW (DUNGEON THEME) -->
     <div id="view-rivalry" class="page-view">
         <div id="rivalry-dungeon-root"></div>
@@ -197,26 +216,14 @@
 
     <!-- EXPLORE PARADIGMS PAGE VIEW -->
     <div id="view-paradigms" class="page-view">
-        <div class="page-scroller-bar">
-            <span class="scroller-label">Traditions:</span>
-            <div class="scroller-links">
-                <button type="button" id="paradigm-subtab-pr" class="scroller-pill active">Power Rankings</button>
-                <button type="button" id="paradigm-subtab-rivalry" class="scroller-pill">Rivalry Week</button>
+        <div class="coming-soon-banner" style="text-align: center; padding: 72px 24px; background: var(--card-bg, #121824); border: 1px solid var(--border-line, #1e293b); border-radius: 14px; margin: 36px auto; max-width: 620px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);">
+            <div style="display: inline-block; padding: 5px 14px; border-radius: 9999px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.28); color: #38bdf8; font-size: 0.75rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 18px;">
+                Coming Soon
             </div>
-        </div>
-
-        <!-- Power Rankings Section -->
-        <div id="sec-paradigm-pr" class="paradigm-sec-block">
-            <div class="card" id="paradigm-power-rankings-container">
-                <!-- Populated dynamically by PowerRankingsEngine or app.js -->
-            </div>
-        </div>
-
-        <!-- Rivalry Week Section -->
-        <div id="sec-paradigm-rivalry" class="paradigm-sec-block" style="display: none;">
-            <div id="paradigm-rivalry-container">
-                <!-- Populated dynamically by app.js -->
-            </div>
+            <h2 style="font-size: 2.1rem; font-weight: 800; color: #ffffff; margin: 0 0 14px 0; letter-spacing: -0.5px;">Explore Paradigms</h2>
+            <p style="color: var(--text-muted, #94a3b8); font-size: 1rem; line-height: 1.65; margin: 0 auto; max-width: 460px;">
+                Custom league traditions, alternative scoring paradigms, and historical matchup frameworks are under active development, as the Vault engine expands to new formats.
+            </p>
         </div>
     </div>
     <!-- END EXPLORE PARADIGMS VIEW -->
@@ -232,6 +239,19 @@
 <!-- HTML5 Dialog Modal for Full Matchup Boxscore & Roster Detail -->
 <dialog id="boxscore-modal" class="boxscore-modal">
     <div id="boxscore-modal-content"></div>
+</dialog>
+
+<!-- League Scoring Settings Modal -->
+<dialog id="settings-modal" class="boxscore-modal">
+    <div class="modal-header">
+        <div class="modal-title-area">
+            <h2>League Scoring Settings</h2>
+            <p id="settings-modal-year"></p>
+        </div>
+        <button class="modal-close-btn" onclick="document.getElementById('settings-modal').close()">✕</button>
+    </div>
+    <div id="settings-modal-content" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+    </div>
 </dialog>
 
 <!-- Account Modal -->

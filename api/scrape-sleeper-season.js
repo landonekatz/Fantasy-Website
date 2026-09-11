@@ -393,6 +393,67 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
 
       const txType = tx.type; // 'trade', 'waiver', 'free_agent'
       const createdTime = tx.created || tx.status_updated;
+
+      if (txType === 'trade' && Array.isArray(tx.roster_ids) && tx.roster_ids.length >= 2) {
+        const r1 = tx.roster_ids[0];
+        const r2 = tx.roster_ids[1];
+        const team1 = teams.find(t => t.id === r1);
+        const team2 = teams.find(t => t.id === r2);
+
+        const r1Adds = [];
+        const r2Adds = [];
+
+        if (tx.adds) {
+          for (const [pId, toRoster] of Object.entries(tx.adds)) {
+            const pInfo = sleeperPlayers[pId] || {};
+            const pName = `${pInfo.first_name || ''} ${pInfo.last_name || ''}`.trim() || `Player ${pId}`;
+            if (toRoster === r1) r1Adds.push(pName);
+            else if (toRoster === r2) r2Adds.push(pName);
+          }
+        }
+
+        const allTraded = [...r1Adds, ...r2Adds];
+
+        // Side 1
+        transactions.push({
+          id: `${tx.transaction_id || seasonYear}_${r1}`,
+          type: 'trade',
+          teamId: r1,
+          teamName: team1?.name || `Team ${r1}`,
+          trade_partner_team: team2?.name || `Team ${r2}`,
+          partnerTeamId: r2,
+          timestamp: createdTime,
+          faabBid: 0,
+          added_players: r1Adds,
+          dropped_players: r2Adds,
+          traded_players: allTraded,
+          players: [
+            ...r1Adds.map(name => ({ action: 'add', name })),
+            ...r2Adds.map(name => ({ action: 'drop', name }))
+          ]
+        });
+
+        // Side 2
+        transactions.push({
+          id: `${tx.transaction_id || seasonYear}_${r2}`,
+          type: 'trade',
+          teamId: r2,
+          teamName: team2?.name || `Team ${r2}`,
+          trade_partner_team: team1?.name || `Team ${r1}`,
+          partnerTeamId: r1,
+          timestamp: createdTime,
+          faabBid: 0,
+          added_players: r2Adds,
+          dropped_players: r1Adds,
+          traded_players: allTraded,
+          players: [
+            ...r2Adds.map(name => ({ action: 'add', name })),
+            ...r1Adds.map(name => ({ action: 'drop', name }))
+          ]
+        });
+        continue;
+      }
+
       const rosterId = Array.isArray(tx.roster_ids) && tx.roster_ids.length > 0 ? tx.roster_ids[0] : 1;
       const targetTeam = teams.find(t => t.id === rosterId);
 
@@ -424,6 +485,9 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
         teamName: targetTeam?.name || `Team ${rosterId}`,
         timestamp: createdTime,
         faabBid: faabBid,
+        added_players: addedList,
+        dropped_players: droppedList,
+        traded_players: [],
         players: [
           ...addedList.map(name => ({ action: 'add', name })),
           ...droppedList.map(name => ({ action: 'drop', name }))
