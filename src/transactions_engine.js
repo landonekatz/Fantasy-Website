@@ -371,13 +371,29 @@ export class TransactionsEngine {
     resolveManager(query) {
         if (!query) return null;
         const key = String(query).toLowerCase().trim();
-        if (this.managerMap.has(key)) return this.managerMap.get(key);
-        const norm = key.replace(/[^a-z0-9]/g, '');
-        if (this.managerMap.has(norm)) return this.managerMap.get(norm);
-        for (const [k, m] of this.managerMap.entries()) {
-            if (k.includes(key) || key.includes(k)) return m;
+        let found = null;
+        if (this.managerMap.has(key)) found = this.managerMap.get(key);
+        if (!found) {
+            const norm = key.replace(/[^a-z0-9]/g, '');
+            if (this.managerMap.has(norm)) found = this.managerMap.get(norm);
         }
-        return null;
+        if (!found) {
+            for (const [k, m] of this.managerMap.entries()) {
+                if (k.includes(key) || key.includes(k)) {
+                    found = m;
+                    break;
+                }
+            }
+        }
+        if (found && (found.is_retired || found.retired || !found.isActive)) {
+            // Check if there is an active manager matching this canonical alias / name
+            const activeMatch = (this.managers || []).find(m => 
+                (m.isActive || m.status === 'Active' || (!m.retired && !m.is_retired)) &&
+                (m.alias === found.alias || m.name === found.name || String(m.alias || '').toLowerCase() === String(found.alias || '').toLowerCase() || String(m.name || '').toLowerCase() === String(found.name || '').toLowerCase())
+            );
+            if (activeMatch) return activeMatch;
+        }
+        return found;
     }
 
     reconstructTransactionsFromRosters() {
@@ -727,22 +743,34 @@ export class TransactionsEngine {
     buildLookups() {
         // 1. Manager map: indexed by id, alias, name, full_name, display_name, username, slug, espn_id, platform_ids
         this.managerMap = new Map();
+        const isMgrActive = (mgr) => Boolean(mgr && (mgr.isActive || mgr.status === 'Active' || (!mgr.retired && !mgr.is_retired)));
+        const setEntry = (k, m) => {
+            if (!k) return;
+            const existing = this.managerMap.get(k);
+            if (!existing) {
+                this.managerMap.set(k, m);
+            } else if (!isMgrActive(existing) && isMgrActive(m)) {
+                // Active managers always take precedence over duplicate retired managers
+                this.managerMap.set(k, m);
+            }
+        };
+
         (this.managers || []).forEach(m => {
             if (!m) return;
             const primaryId = String(m.id || m.manager_id || '').toLowerCase().trim();
-            if (primaryId) this.managerMap.set(primaryId, m);
-            if (m.alias) this.managerMap.set(String(m.alias).toLowerCase().trim(), m);
-            if (m.name) this.managerMap.set(String(m.name).toLowerCase().trim(), m);
-            if (m.full_name) this.managerMap.set(String(m.full_name).toLowerCase().trim(), m);
-            if (m.display_name) this.managerMap.set(String(m.display_name).toLowerCase().trim(), m);
-            if (m.username) this.managerMap.set(String(m.username).toLowerCase().trim(), m);
-            if (m.slug) this.managerMap.set(String(m.slug).toLowerCase().trim(), m);
-            if (m.espn_id) this.managerMap.set(String(m.espn_id).toLowerCase().trim(), m);
+            if (primaryId) setEntry(primaryId, m);
+            if (m.alias) setEntry(String(m.alias).toLowerCase().trim(), m);
+            if (m.name) setEntry(String(m.name).toLowerCase().trim(), m);
+            if (m.full_name) setEntry(String(m.full_name).toLowerCase().trim(), m);
+            if (m.display_name) setEntry(String(m.display_name).toLowerCase().trim(), m);
+            if (m.username) setEntry(String(m.username).toLowerCase().trim(), m);
+            if (m.slug) setEntry(String(m.slug).toLowerCase().trim(), m);
+            if (m.espn_id) setEntry(String(m.espn_id).toLowerCase().trim(), m);
             if (Array.isArray(m.platform_ids)) {
-                m.platform_ids.forEach(pid => this.managerMap.set(String(pid).toLowerCase().trim(), m));
+                m.platform_ids.forEach(pid => setEntry(String(pid).toLowerCase().trim(), m));
             }
             if (Array.isArray(m.espn_ids)) {
-                m.espn_ids.forEach(eid => this.managerMap.set(String(eid).toLowerCase().trim(), m));
+                m.espn_ids.forEach(eid => setEntry(String(eid).toLowerCase().trim(), m));
             }
 
             const fullName = String(m.alias || m.name || m.full_name || '').trim();
@@ -750,14 +778,14 @@ export class TransactionsEngine {
                 const parts = fullName.split(/\s+/);
                 const firstName = parts[0].toLowerCase();
                 const normFull = fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (!this.managerMap.has(firstName)) this.managerMap.set(firstName, m);
-                if (!this.managerMap.has(normFull)) this.managerMap.set(normFull, m);
+                setEntry(firstName, m);
+                setEntry(normFull, m);
                 if (parts.length > 1) {
                     const lastInitial = parts[parts.length - 1][0].toLowerCase();
                     const slugWithInit = `${firstName}_${lastInitial}`;
                     const normWithInit = `${firstName}${lastInitial}`;
-                    if (!this.managerMap.has(slugWithInit)) this.managerMap.set(slugWithInit, m);
-                    if (!this.managerMap.has(normWithInit)) this.managerMap.set(normWithInit, m);
+                    setEntry(slugWithInit, m);
+                    setEntry(normWithInit, m);
                 }
             }
         });
@@ -834,11 +862,19 @@ export class TransactionsEngine {
      * Detects whether the active league uses FAAB waivers or standard waiver priority.
      */
     leagueUsesFaab() {
+        if (this.leagueSettings?.uses_faab !== undefined) {
+            return Boolean(this.leagueSettings.uses_faab);
+        }
         if (this.leagueSettings?.has_faab !== undefined) {
             return Boolean(this.leagueSettings.has_faab);
         }
         if (this.leagueSettings?.waiver_type) {
-            return this.leagueSettings.waiver_type.toLowerCase() === 'faab';
+            const wt = String(this.leagueSettings.waiver_type).toLowerCase();
+            if (wt === 'faab') return true;
+            if (['rolling', 'priority', 'waiver', 'standard'].includes(wt)) return false;
+        }
+        if (this.leagueSettings?.platform === 'espn') {
+            return false;
         }
         const hasBudget = (this.seasonsMetadata || []).some(s => Number(s.faab_budget || 0) > 0);
         if (hasBudget) return true;
@@ -847,8 +883,13 @@ export class TransactionsEngine {
             return true;
         }
 
-        const hasBids = (this.transactions || []).some(t => Number(t.faab_bid || t.bidAmount || 0) > 0);
-        return hasBids;
+        // Require at least 5 completed non-pending transactions with bids to classify as FAAB dynamically
+        const activeBids = (this.transactions || []).filter(t => {
+            const yr = Number(t.season || t.year);
+            const isPending = this.isSeasonUnplayed(yr);
+            return !isPending && Number(t.faab_bid || t.bidAmount || 0) > 0;
+        });
+        return activeBids.length >= 5;
     }
 
     /**
@@ -895,6 +936,9 @@ export class TransactionsEngine {
      * Dynamically determines the starting FAAB budget for a given season.
      */
     getSeasonFaabBudget(season) {
+        // If the league as a whole does not use FAAB, budget is 0
+        if (!this.leagueUsesFaab()) return 0;
+
         const yr = Number(season);
 
         // 1. Explicit metadata in seasonsMetadata
@@ -2140,7 +2184,7 @@ export class TransactionsEngine {
                     seenTradePairs.add(sortedKey);
                     evaluatedTrades.push(this.evaluateTrade(tx));
                 }
-            } else if (isWaiver || isFreeAgent || isDrop) {
+            } else if (isWaiver || isFreeAgent || isDrop || (Array.isArray(tx.added_players) && tx.added_players.length > 0) || (Array.isArray(tx.dropped_players) && tx.dropped_players.length > 0)) {
                 if (Array.isArray(tx.added_players) && tx.added_players.length > 0) {
                     evaluatedPickups.push(this.evaluatePickup(tx));
                 }
@@ -2261,12 +2305,13 @@ export class TransactionsEngine {
         });
 
         // 4. Best Free Agent Pickups ($0 FAAB gems) & Top Waiver Wire Pickups
+        const isFaabLeague = this.leagueUsesFaab();
         const freeAgentSteals = uniqueBestPickups
-            .filter(p => p.isFreeAgent)
+            .filter(p => p.isFreeAgent || (isFaabLeague && Number(p.faabBid || 0) === 0))
             .sort((a, b) => b.rosVorp - a.rosVorp || b.rosPoints - a.rosPoints);
 
         const topWaiverPickupsRaw = uniqueBestPickups
-            .filter(p => !p.isFreeAgent)
+            .filter(p => !p.isFreeAgent && (!isFaabLeague || Number(p.faabBid || 0) > 0))
             .sort((a, b) => b.rosVorp - a.rosVorp || b.rosPoints - a.rosPoints);
         const topWaiverPickups = topWaiverPickupsRaw.length > 0 ? topWaiverPickupsRaw : uniqueBestPickups;
 
@@ -2380,7 +2425,7 @@ export class TransactionsEngine {
             managerTradeStats.set(String(m.id).toLowerCase(), {
                 id: m.id,
                 name: m.alias || m.name,
-                logoUrl: m.logo_url,
+                logoUrl: m.logo_url || m.avatar || m.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png',
                 tradesCount: 0,
                 wins: 0,
                 losses: 0,
@@ -2522,7 +2567,7 @@ export class TransactionsEngine {
             managerStats.set(String(m.id).toLowerCase(), {
                 id: m.id,
                 name: m.alias || m.name,
-                logoUrl: m.logo_url,
+                logoUrl: m.logo_url || m.avatar || m.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png',
                 addsCount: 0,
                 waiverClaims: 0,
                 freeAgentAdds: 0,
@@ -3123,16 +3168,16 @@ export class TransactionsEngine {
                 </div>
 
                 <div class="card" style="margin: 0; background: var(--bg-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 10px;">
-                    <h4 style="color: var(--text-primary); margin: 0 0 0.5rem 0; font-size: 1rem;">Rest-of-Season Production (Lineup Evaluation)</h4>
+                    <h4 style="color: var(--text-primary); margin: 0 0 0.5rem 0; font-size: 1rem;">Composite ROS Production (Lineup Evaluation)</h4>
                     <p style="margin: 0; font-size: 0.9rem;">
-                        Displayed at the footer of each side in every trade card, Rest-of-Season Production measures the total starting fantasy output delivered to a franchise over the remainder of the fantasy calendar. It combines actual fantasy points scored during healthy starting appearances, Bayesian-extrapolated points for significant injury absences beyond normal wear-and-tear, and open-slot waiver baseline points (8.5 PPG) for consolidating managers in uneven deals.
+                        Displayed at the footer of each side in every trade card, Composite ROS Production measures the total starting fantasy output delivered to a franchise over the remainder of the fantasy calendar. It combines actual fantasy points scored during healthy starting appearances, Bayesian-extrapolated points for significant injury absences beyond normal wear-and-tear, and open-slot waiver baseline points (8.5 PPG) for consolidating managers in uneven deals.
                     </p>
                 </div>
 
                 <div class="card" style="margin: 0; background: var(--bg-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 10px;">
                     <h4 style="color: var(--text-primary); margin: 0 0 0.5rem 0; font-size: 1rem;">LTI Inconclusivity Dampener</h4>
                     <p style="margin: 0; font-size: 0.9rem;">
-                        When a trade suffers extensive injury time across the players exchanged, the empirical verdict becomes inherently less conclusive than a deal where all players stayed healthy. While Net Rest-of-Season Production remains completely unadjusted, as preserving exact lineup scoring, the Net LTI Delta scale is dynamically dampened by up to 30% based on the aggregate missed-game rate. This ensures high-variance, injury-marred trades are graded with appropriate statistical modesty.
+                        When a trade suffers extensive injury time across the players exchanged, the empirical verdict becomes inherently less conclusive than a deal where all players stayed healthy. While Net Composite ROS Production remains completely unadjusted, as preserving exact lineup scoring, the Net LTI Delta scale is dynamically dampened by up to 30% based on the aggregate missed-game rate. This ensures high-variance, injury-marred trades are graded with appropriate statistical modesty.
                     </p>
                 </div>
             </div>
@@ -3831,7 +3876,9 @@ export class TransactionsEngine {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${ev.bestPickups.slice(0, 10).map(pk => `
+                                ${ev.bestPickups.length === 0 ? `
+                                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No qualifying waiver pickups recorded yet.</td></tr>
+                                ` : ev.bestPickups.slice(0, 10).map(pk => `
                                     <tr>
                                         <td>
                                             <div class="tx-player-cell">
@@ -4040,7 +4087,7 @@ export class TransactionsEngine {
                                 <td><strong>#${idx + 1}</strong></td>
                                 <td>
                                     <div style="display:flex; align-items:center; gap: 0.5rem;">
-                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : ''}
+                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">` : ''}
                                         <strong>${m.name}</strong>
                                     </div>
                                 </td>
@@ -4134,7 +4181,7 @@ export class TransactionsEngine {
                                 <td><strong>#${idx + 1}</strong></td>
                                 <td>
                                     <div style="display:flex; align-items:center; gap: 0.5rem;">
-                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : ''}
+                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">` : ''}
                                         <strong>${m.name}</strong>
                                     </div>
                                 </td>
@@ -4326,7 +4373,7 @@ export class TransactionsEngine {
                         ${tr.isPending ? `
                             <span>Season Pending Kickoff</span>
                         ` : `
-                            <span>Rest-of-Season Production: <strong>${lineupPts} pts</strong></span>
+                            <span>Composite ROS Production: <strong>${lineupPts} pts</strong></span>
                         `}
                     </div>
                 </div>
@@ -4356,20 +4403,29 @@ export class TransactionsEngine {
 
     renderWaiverWireSection(ev) {
         const isFaab = this.leagueUsesFaab();
+        const showFaabBids = isFaab && (ev.blockbusterPickups || []).length > 0;
+        const card1Pickups = showFaabBids
+            ? ev.blockbusterPickups.slice(0, 10)
+            : (ev.topWaiverPickups || ev.bestPickups || []).slice(0, 10);
+
+        const hasSteals = (ev.freeAgentSteals || []).length > 0;
+        const card2Pickups = hasSteals
+            ? ev.freeAgentSteals.slice(0, 10)
+            : (ev.topWaiverPickups || ev.bestPickups || []).slice(10, 20);
 
         return `
             <div class="tx-grid-two-col">
-                <!-- Card 1: Top Waivers -->
+                <!-- Card 1: Top Waivers / FAAB -->
                 <div class="card">
-                    <h2>${isFaab ? 'Blockbuster FAAB Bids' : 'Top Waiver Wire Pickups of All Time'}</h2>
-                    <p class="tx-card-subtitle">${isFaab ? 'Standardized by percentage of starting season FAAB budget spent.' : 'Most impactful players claimed through waiver priority ranked by rest-of-season output.'}</p>
+                    <h2>${showFaabBids ? 'Blockbuster FAAB Bids' : 'Top Waiver Wire Pickups of All Time'}</h2>
+                    <p class="tx-card-subtitle">${showFaabBids ? 'Standardized by percentage of starting season FAAB budget spent.' : 'Most impactful players claimed through waiver priority ranked by rest-of-season output.'}</p>
                     <div class="tx-table-wrap">
                         <table class="tx-table">
                             <thead>
                                 <tr>
                                     <th>Player</th>
                                     <th>Manager</th>
-                                    ${isFaab ? `
+                                    ${showFaabBids ? `
                                         <th>Winning Bid</th>
                                         <th>% Bgt</th>
                                         <th>ROS Output</th>
@@ -4382,7 +4438,9 @@ export class TransactionsEngine {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${(isFaab ? ev.blockbusterPickups : (ev.topWaiverPickups || ev.bestPickups)).slice(0, 10).map(pk => `
+                                ${card1Pickups.length === 0 ? `
+                                    <tr><td colspan="${showFaabBids ? 6 : 5}" style="text-align: center; color: var(--text-muted); padding: 2rem;">No qualifying waiver pickups recorded yet.</td></tr>
+                                ` : card1Pickups.map(pk => `
                                     <tr>
                                         <td>
                                             <div class="tx-player-cell">
@@ -4391,7 +4449,7 @@ export class TransactionsEngine {
                                             </div>
                                         </td>
                                         <td>${pk.managerName}</td>
-                                        ${isFaab ? `
+                                        ${showFaabBids ? `
                                             <td><strong>$${pk.faabBid}</strong></td>
                                             <td><strong style="color: var(--accent-gold);">${pk.budgetPct}%</strong></td>
                                             <td class="tx-pos">${pk.rosPoints} pts <small class="tx-muted">(${pk.rosPpg} PPG)</small></td>
@@ -4408,10 +4466,10 @@ export class TransactionsEngine {
                     </div>
                 </div>
 
-                <!-- Card 2: Top Free Agents -->
+                <!-- Card 2: Top Free Agents / Value Pickups -->
                 <div class="card">
-                    <h2>${isFaab ? 'Free Agent Steals ($0 FAAB)' : 'Top Free Agent Pickups of All Time'}</h2>
-                    <p class="tx-card-subtitle">${isFaab ? 'Undiscovered gems claimed for free ranked by rest-of-season production.' : 'Undiscovered gems claimed directly from free agency ranked by rest-of-season production.'}</p>
+                    <h2>${hasSteals ? (isFaab ? 'Free Agent Steals ($0 FAAB)' : 'Top Free Agent Pickups of All Time') : 'Top In-Season Value Pickups'}</h2>
+                    <p class="tx-card-subtitle">${hasSteals ? (isFaab ? 'Undiscovered gems claimed for free ranked by rest-of-season production.' : 'Undiscovered gems claimed directly from free agency ranked by rest-of-season production.') : 'Most impactful secondary waiver and free agent pickups ranked by rest-of-season output.'}</p>
                     <div class="tx-table-wrap">
                         <table class="tx-table">
                             <thead>
@@ -4424,7 +4482,9 @@ export class TransactionsEngine {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${ev.freeAgentSteals.slice(0, 10).map(pk => `
+                                ${card2Pickups.length === 0 ? `
+                                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No in-season free agent pickups recorded yet.</td></tr>
+                                ` : card2Pickups.map(pk => `
                                     <tr>
                                         <td>
                                             <div class="tx-player-cell">
@@ -4462,7 +4522,9 @@ export class TransactionsEngine {
                             </tr>
                         </thead>
                         <tbody>
-                            ${ev.worstDrops.slice(0, 15).map((d, idx) => `
+                            ${ev.worstDrops.length === 0 ? `
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No in-season player cuts recorded yet.</td></tr>
+                            ` : ev.worstDrops.slice(0, 15).map((d, idx) => `
                                 <tr>
                                     <td><strong>#${idx + 1}</strong></td>
                                     <td>
@@ -4507,8 +4569,8 @@ export class TransactionsEngine {
                         <select id="filter-tx-type">
                             <option value="all" ${this.filterType === 'all' ? 'selected' : ''}>All Transactions</option>
                             <option value="trade" ${this.filterType === 'trade' ? 'selected' : ''}>Trades Only</option>
-                            <option value="waiver" ${this.filterType === 'waiver' ? 'selected' : ''}>${this.leagueUsesFaab() ? 'Waiver Claims (FAAB)' : 'Waiver Claims'}</option>
-                            <option value="free_agent" ${this.filterType === 'free_agent' ? 'selected' : ''}>Free Agents</option>
+                            <option value="waiver" ${this.filterType === 'waiver' ? 'selected' : ''}>${this.leagueUsesFaab() ? 'Waiver Claims (FAAB)' : ((this.transactions || []).some(t => t.type === 'free_agent' || t.action_type === 'FREE_AGENT' || t.action_type === 'FREEAGENT') ? 'Waiver Claims' : 'Waivers & Pickups')}</option>
+                            ${(this.transactions || []).some(t => t.type === 'free_agent' || t.action_type === 'FREE_AGENT' || t.action_type === 'FREEAGENT') ? `<option value="free_agent" ${this.filterType === 'free_agent' ? 'selected' : ''}>Free Agents</option>` : ''}
                         </select>
                     </div>
 
@@ -4534,6 +4596,7 @@ export class TransactionsEngine {
     }
 
     renderFeedItems(ev) {
+        const hasDistinctFreeAgents = (this.transactions || []).some(t => t.type === 'free_agent' || t.action_type === 'FREE_AGENT' || t.action_type === 'FREEAGENT');
         let items = (this.transactions || []).filter(tx => {
             if (!tx) return false;
             if (tx.action_type === 'DRAFT' || tx.type === 'DRAFT') return false;
@@ -4542,11 +4605,11 @@ export class TransactionsEngine {
             if (this.filterYear !== 'all' && yr !== Number(this.filterYear)) return false;
 
             const isTrade = tx.type === 'trade' || tx.action_type === 'TRADE';
-            const isWaiver = tx.type === 'waiver' || tx.action_type === 'WAIVER';
+            const isWaiver = tx.type === 'waiver' || tx.action_type === 'WAIVER' || tx.type === 'claim' || tx.action_type === 'CLAIM';
             const isFreeAgent = !isWaiver && (tx.type === 'free_agent' || tx.action_type === 'FREE_AGENT' || tx.action_type === 'FREEAGENT');
 
             if (this.filterType === 'trade' && !isTrade) return false;
-            if (this.filterType === 'waiver' && !isWaiver) return false;
+            if (this.filterType === 'waiver' && !isWaiver && (hasDistinctFreeAgents || !isFreeAgent)) return false;
             if (this.filterType === 'free_agent' && !isFreeAgent) return false;
 
             const rawAdds = (tx.added_players || []).map(p => this.resolvePlayerName(p?.name || p)).filter(Boolean);

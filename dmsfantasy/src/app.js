@@ -3345,17 +3345,20 @@ class FantasyApp {
         const m1TeamNames = new Set();
         const m2TeamNames = new Set();
 
+        const playedGames = filtered.filter(g => {
+            if (this.isToiletBowlGame(g)) return false;
+            const isM1Team1 = g.team_1_manager_id === m1Id;
+            const s1 = isM1Team1 ? g.team_1_actual_points : g.team_2_actual_points;
+            const s2 = isM1Team1 ? g.team_2_actual_points : g.team_1_actual_points;
+            const winnerId = g.winner_team_id;
+            return (Number(s1) > 0 || Number(s2) > 0 || (winnerId && winnerId !== 'UNDECIDED' && winnerId !== 'N/A' && g.winner !== 'TIE')) && g.away_manager_name !== 'BYE';
+        });
+
+        // Collect all team names across all matchups (including upcoming)
         filtered.forEach(g => {
             const isM1Team1 = g.team_1_manager_id === m1Id;
             const t1Name = g.team_1_name || 'Team 1';
             const t2Name = g.team_2_name || 'Team 2';
-
-            const m1Score = isM1Team1 ? g.team_1_actual_points : g.team_2_actual_points;
-            const m2Score = isM1Team1 ? g.team_2_actual_points : g.team_1_actual_points;
-
-            const m1ProjScore = isM1Team1 ? (g.team_1_projected_points || 0) : (g.team_2_projected_points || 0);
-            const m2ProjScore = isM1Team1 ? (g.team_2_projected_points || 0) : (g.team_1_projected_points || 0);
-
             if (isM1Team1) {
                 if (t1Name) m1TeamNames.add(t1Name);
                 if (t2Name) m2TeamNames.add(t2Name);
@@ -3363,39 +3366,44 @@ class FantasyApp {
                 if (t2Name) m1TeamNames.add(t2Name);
                 if (t1Name) m2TeamNames.add(t1Name);
             }
+        });
 
-            const isToilet = this.isToiletBowlGame(g);
-            if (!isToilet) {
-                m1PF += m1Score;
-                m2PF += m2Score;
-                m1Proj += m1ProjScore;
-                m2Proj += m2ProjScore;
+        playedGames.forEach(g => {
+            const isM1Team1 = g.team_1_manager_id === m1Id;
+            const m1Score = Number(isM1Team1 ? g.team_1_actual_points : g.team_2_actual_points) || 0;
+            const m2Score = Number(isM1Team1 ? g.team_2_actual_points : g.team_1_actual_points) || 0;
 
-                const margin = Math.abs(m1Score - m2Score);
-                const winnerId = g.winner_team_id;
-                const isM1Win = (isM1Team1 && winnerId === g.team_1_id) || (!isM1Team1 && winnerId === g.team_2_id);
-                const isM2Win = (isM1Team1 && winnerId === g.team_2_id) || (!isM1Team1 && winnerId === g.team_1_id);
+            const m1ProjScore = Number(isM1Team1 ? (g.team_1_projected_points || 0) : (g.team_2_projected_points || 0)) || 0;
+            const m2ProjScore = Number(isM1Team1 ? (g.team_2_projected_points || 0) : (g.team_1_projected_points || 0)) || 0;
 
-                if (isM1Win) {
-                    m1Wins++;
-                    if (g.is_playoffs) m1PlayoffWins++;
-                } else if (isM2Win) {
-                    m2Wins++;
-                    if (g.is_playoffs) m2PlayoffWins++;
-                } else {
-                    ties++;
-                }
+            m1PF += m1Score;
+            m2PF += m2Score;
+            m1Proj += m1ProjScore;
+            m2Proj += m2ProjScore;
 
-                if (!maxBlowout || margin > maxBlowout.margin) {
-                    maxBlowout = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
-                }
-                if (!minMargin || margin < minMargin.margin) {
-                    minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
-                }
+            const margin = Math.abs(m1Score - m2Score);
+            const winnerId = g.winner_team_id;
+            const isM1Win = (isM1Team1 && winnerId === g.team_1_id) || (!isM1Team1 && winnerId === g.team_2_id) || (m1Score > m2Score);
+            const isM2Win = (isM1Team1 && winnerId === g.team_2_id) || (!isM1Team1 && winnerId === g.team_1_id) || (m2Score > m1Score);
+
+            if (isM1Win) {
+                m1Wins++;
+                if (g.is_playoffs) m1PlayoffWins++;
+            } else if (isM2Win) {
+                m2Wins++;
+                if (g.is_playoffs) m2PlayoffWins++;
+            } else {
+                ties++;
+            }
+
+            if (!maxBlowout || margin > maxBlowout.margin) {
+                maxBlowout = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
+            }
+            if (!minMargin || margin < minMargin.margin) {
+                minMargin = { margin, winner: isM1Win ? m1Name : m2Name, season: g.season, week: g.week };
             }
         });
 
-        const playedGames = filtered.filter(g => !this.isToiletBowlGame(g));
         const totalGames = playedGames.length;
         const winPct1 = totalGames > 0 ? ((m1Wins + 0.5 * ties) / totalGames * 100).toFixed(1) : '0.0';
         const winPct2 = totalGames > 0 ? ((m2Wins + 0.5 * ties) / totalGames * 100).toFixed(1) : '0.0';
@@ -3410,7 +3418,7 @@ class FantasyApp {
         heroContainer.innerHTML = `
             <div class="hero-content-grid">
                 <div class="hero-manager-col">
-                    <img src="${m1Obj.logo_url || 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a0fe865f598d352044589dffd4119b4a5b5eab9fbb8d4a5b226a56f71aa36a3c.jpg'}" alt="${m1Name}" class="hero-avatar">
+                    <img src="${m1Obj.logo_url || 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a0fe865f598d352044589dffd4119b4a5b5eab9fbb8d4a5b226a56f71aa36a3c.jpg'}" alt="${m1Name}" class="hero-avatar" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                     <div class="hero-team-names" style="font-size:1.1rem; color:var(--text-primary); font-weight:bold;">${currentTeam1}</div>
                     <div class="hero-manager-name" style="font-size:0.9rem; color:var(--text-secondary); margin-top:2px;">${m1Name}</div>
                 </div>
@@ -3426,7 +3434,7 @@ class FantasyApp {
                 </div>
 
                 <div class="hero-manager-col">
-                    <img src="${m2Obj.logo_url || 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a2cbd9723f84f4669346df652de732b6c5f6f3693459ee1df2940f334441bd13.jpg'}" alt="${m2Name}" class="hero-avatar">
+                    <img src="${m2Obj.logo_url || 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/a2cbd9723f84f4669346df652de732b6c5f6f3693459ee1df2940f334441bd13.jpg'}" alt="${m2Name}" class="hero-avatar" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                     <div class="hero-team-names" style="font-size:1.1rem; color:var(--text-primary); font-weight:bold;">${currentTeam2}</div>
                     <div class="hero-manager-name" style="font-size:0.9rem; color:var(--text-secondary); margin-top:2px;">${m2Name}</div>
                 </div>
@@ -3450,8 +3458,9 @@ class FantasyApp {
             const t1Proj = isM1Team1 ? g.team_1_projected_points : g.team_2_projected_points;
             const t2Proj = isM1Team1 ? g.team_2_projected_points : g.team_1_projected_points;
 
-            const isT1Win = (isM1Team1 && g.winner_team_id === g.team_1_id) || (!isM1Team1 && g.winner_team_id === g.team_2_id);
-            const isT2Win = (isM1Team1 && g.winner_team_id === g.team_2_id) || (!isM1Team1 && g.winner_team_id === g.team_1_id);
+            const isPlayed = (Number(t1Score) > 0 || Number(t2Score) > 0 || (g.winner_team_id && g.winner_team_id !== 'UNDECIDED' && g.winner_team_id !== 'N/A' && g.winner !== 'TIE')) && g.away_manager_name !== 'BYE';
+            const isT1Win = isPlayed && ((isM1Team1 && g.winner_team_id === g.team_1_id) || (!isM1Team1 && g.winner_team_id === g.team_2_id) || (Number(t1Score) > Number(t2Score)));
+            const isT2Win = isPlayed && !isT1Win && ((isM1Team1 && g.winner_team_id === g.team_2_id) || (!isM1Team1 && g.winner_team_id === g.team_1_id) || (Number(t2Score) > Number(t1Score)));
 
             const isToilet = this.isToiletBowlGame(g);
             const tbInfo = isToilet ? this.getToiletBowlGameInfo(g) : null;
@@ -3459,7 +3468,7 @@ class FantasyApp {
             const roundLabel = this.getMatchupRoundLabel(g);
             const gameTypeLabel = isToilet ? (tbInfo?.label || 'Toilet Bowl') : (isPlayoffs ? `Playoffs • ${roundLabel || g.playoff_round || 'Game'}` : 'Regular Season');
             const cardClass = isToilet ? 'h2h-matchup-card toilet-bowl-game' : (isPlayoffs ? 'h2h-matchup-card playoff-game' : 'h2h-matchup-card');
-            const margin = Math.abs(t1Score - t2Score).toFixed(2);
+            const margin = isPlayed ? Math.abs(Number(t1Score) - Number(t2Score)).toFixed(2) : null;
 
             const leftTeamId = isM1Team1 ? g.team_1_id : g.team_2_id;
             const rightTeamId = isM1Team1 ? g.team_2_id : g.team_1_id;
@@ -3493,7 +3502,7 @@ class FantasyApp {
             ` : '';
 
             cardsHtml += `
-                <div class="${cardClass}" onclick="app.openBoxscoreModal(${g.season}, ${g.week}, '${leftTeamId}', '${rightTeamId}')">
+                <div class="${cardClass}" ${isPlayed ? `onclick="app.openBoxscoreModal(${g.season}, ${g.week}, '${leftTeamId}', '${rightTeamId}')"` : `onclick="alert('This matchup has not been played yet.')"`}>
                     <div class="matchup-date-badge">
                         <div class="matchup-year-week">
                             <span>${g.season} • Week ${g.week}</span>
@@ -3506,30 +3515,30 @@ class FantasyApp {
                         <div class="team-box ${isT1Win ? 'winner' : ''}">
                             <div class="team-name-line">${t1Name} (${m1Name})</div>
                             <div class="team-score-line">
-                                <span class="team-score">${t1Score.toFixed(2)} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
-                                <span class="team-proj">Proj: ${t1Proj ? t1Proj.toFixed(2) : '-'}</span>
+                                <span class="team-score">${isPlayed ? Number(t1Score).toFixed(2) : '-'} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
+                                <span class="team-proj">Proj: ${isPlayed && t1Proj ? Number(t1Proj).toFixed(2) : '-'}</span>
                             </div>
                             ${top1Html}
                         </div>
 
                         <div class="matchup-margin-badge">
                             <div>VS</div>
-                            <div style="font-size: 0.7rem; opacity: 0.8;">+${margin}</div>
+                            ${margin !== null ? `<div style="font-size: 0.7rem; opacity: 0.8;">+${margin}</div>` : ''}
                         </div>
 
                         <div class="team-box ${isT2Win ? 'winner' : ''}">
                             <div class="team-name-line">${t2Name} (${m2Name})</div>
                             <div class="team-score-line">
-                                <span class="team-score">${t2Score.toFixed(2)} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
-                                <span class="team-proj">Proj: ${t2Proj ? t2Proj.toFixed(2) : '-'}</span>
+                                <span class="team-score">${isPlayed ? Number(t2Score).toFixed(2) : '-'} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
+                                <span class="team-proj">Proj: ${isPlayed && t2Proj ? Number(t2Proj).toFixed(2) : '-'}</span>
                             </div>
                             ${top2Html}
                         </div>
                     </div>
 
                     <div class="matchup-action-hint">
-                        <span>View Boxscore & Roster</span>
-                        <span>➔</span>
+                        <span>${isPlayed ? 'View Boxscore & Roster' : 'Matchup Pending'}</span>
+                        <span>${isPlayed ? '➔' : ''}</span>
                     </div>
                 </div>
             `;

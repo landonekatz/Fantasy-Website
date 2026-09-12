@@ -1030,8 +1030,8 @@ class FantasyApp {
             }, 750);
         }
 
-        // 2. Preload heavy data tabs (Transactions & Draft) once heavyDataPromise resolves
-        const preloadHeavy = () => {
+        // 2. Preload heavy data tabs (Transactions & Draft) once their promises resolve
+        const preloadTx = () => {
             scheduleTask(() => {
                 try {
                     if (!this.transactionsRendered && this.activeTab !== 'transactions') {
@@ -1041,8 +1041,10 @@ class FantasyApp {
                 } catch (e) {
                     console.warn('Background preloading Transactions:', e);
                 }
-            }, 900);
+            }, 400);
+        };
 
+        const preloadDraftTab = () => {
             scheduleTask(() => {
                 try {
                     if (!this.draftRendered && this.activeTab !== 'draft') {
@@ -1052,13 +1054,25 @@ class FantasyApp {
                 } catch (e) {
                     console.warn('Background preloading Draft:', e);
                 }
-            }, 1200);
+            }, 800);
         };
 
         if (this.heavyDataPromise) {
-            this.heavyDataPromise.then(preloadHeavy).catch(() => {});
+            this.heavyDataPromise.then(preloadTx).catch(() => {});
+        } else if (this.transactionsPromise && this.playerStatsPromise) {
+            Promise.all([this.transactionsPromise, this.playerStatsPromise]).then(preloadTx).catch(() => {});
+        } else if (this.transactionsPromise) {
+            this.transactionsPromise.then(preloadTx).catch(() => {});
         } else {
-            preloadHeavy();
+            preloadTx();
+        }
+
+        if (this.playerStatsPromise) {
+            this.playerStatsPromise.then(preloadDraftTab).catch(() => {});
+        } else if (this.heavyDataPromise) {
+            this.heavyDataPromise.then(preloadDraftTab).catch(() => {});
+        } else {
+            preloadDraftTab();
         }
     }
 
@@ -1284,46 +1298,81 @@ class FantasyApp {
                 if (dataMap.league_settings || dataMap.members || dataMap.league_standings) {
                     bundleData = dataMap;
 
-                    // Non-blocking background fetch for heavy datasets (weekly_player_stats 16MB + transactions 1MB)
-                    this.heavyDataPromise = Promise.all([
-                        get(dbRef(database, `leagues/${slug}/transactions`)).then(s => s.exists() ? s.val() : []).catch(() => []),
-                        get(dbRef(database, `leagues/${slug}/weekly_player_stats`)).then(s => s.exists() ? s.val() : []).catch(() => [])
-                    ]).then(([txs, stats]) => {
-                        this.transactions = txs || [];
-                        this.playerStats = stats || [];
-                        if (this.transactionsEngine) {
-                            this.transactionsEngine.setData({
-                                transactions: this.transactions,
-                                playerStats: this.playerStats,
-                                managers: this.managers,
-                                draftResults: this.draftResults,
-                                matchups: this.matchups,
-                                leagueSettings: this.leagueSettings,
-                                seasonsMetadata: this.seasonsMetadata,
-                                formatSeasonYear: (y) => this.formatSeasonYear(y)
-                            });
-                            this.transactionsEngine.render();
-                        }
-                        if (this.draftEngine) {
-                            this.draftEngine.updateData({
-                                draftResults: this.draftResults,
-                                weeklyPlayerStats: this.playerStats,
-                                matchups: this.matchups,
-                                transactions: this.transactions,
-                                managers: this.managers,
-                                leagueSettings: this.leagueSettings,
-                                leagueSlug: this.leagueSlug,
-                                seasonLabelConvention: this.seasonLabelConvention,
-                                scoringSettings: this.scoringSettings
-                            });
-                            if (this.activeTab === 'draft') {
-                                this.draftEngine.render();
+                    // Fast non-blocking background fetch for transactions (~1MB)
+                    this.transactionsPromise = get(dbRef(database, `leagues/${slug}/transactions`))
+                        .then(s => s.exists() ? (s.val() || []) : [])
+                        .catch(err => {
+                            console.warn("Fetch transactions error:", err);
+                            return [];
+                        })
+                        .then(txs => {
+                            this.transactions = txs || [];
+                            if (this.transactionsEngine) {
+                                this.transactionsEngine.setData({
+                                    transactions: this.transactions,
+                                    playerStats: this.playerStats || [],
+                                    managers: this.managers,
+                                    draftResults: this.draftResults,
+                                    matchups: this.matchups,
+                                    leagueSettings: this.leagueSettings,
+                                    seasonsMetadata: this.seasonsMetadata,
+                                    formatSeasonYear: (y) => this.formatSeasonYear(y)
+                                });
+                                if (this.activeTab === 'transactions') {
+                                    this.transactionsEngine.render();
+                                }
                             }
-                        }
-                        return { transactions: this.transactions, playerStats: this.playerStats };
-                    }).catch(err => {
-                        console.warn("Background fetch of heavy datasets completed with error:", err);
-                    });
+                            return this.transactions;
+                        });
+
+                    // Heavy background fetch for weekly_player_stats (15-20MB)
+                    this.playerStatsPromise = get(dbRef(database, `leagues/${slug}/weekly_player_stats`))
+                        .then(s => s.exists() ? (s.val() || []) : [])
+                        .catch(err => {
+                            console.warn("Fetch player stats error:", err);
+                            return [];
+                        })
+                        .then(stats => {
+                            this.playerStats = stats || [];
+                            if (this.transactionsEngine) {
+                                this.transactionsEngine.setData({
+                                    transactions: this.transactions || [],
+                                    playerStats: this.playerStats,
+                                    managers: this.managers,
+                                    draftResults: this.draftResults,
+                                    matchups: this.matchups,
+                                    leagueSettings: this.leagueSettings,
+                                    seasonsMetadata: this.seasonsMetadata,
+                                    formatSeasonYear: (y) => this.formatSeasonYear(y)
+                                });
+                                if (this.activeTab === 'transactions') {
+                                    this.transactionsEngine.render();
+                                }
+                            }
+                            if (this.draftEngine) {
+                                this.draftEngine.updateData({
+                                    draftResults: this.draftResults,
+                                    weeklyPlayerStats: this.playerStats,
+                                    matchups: this.matchups,
+                                    transactions: this.transactions || [],
+                                    managers: this.managers,
+                                    leagueSettings: this.leagueSettings,
+                                    leagueSlug: this.leagueSlug,
+                                    seasonLabelConvention: this.seasonLabelConvention,
+                                    scoringSettings: this.scoringSettings
+                                });
+                                if (this.activeTab === 'draft') {
+                                    this.draftEngine.render();
+                                }
+                            }
+                            return this.playerStats;
+                        });
+
+                    this.heavyDataPromise = Promise.all([this.transactionsPromise, this.playerStatsPromise])
+                        .then(([txs, stats]) => ({ transactions: txs, playerStats: stats }))
+                        .catch(err => {
+                            console.warn("Background fetch of heavy datasets completed with error:", err);
+                        });
                 } else {
                     // Fallback to full league node if individual keys not found
                     const databaseRef = dbRef(database, `leagues/${slug}`);
@@ -1929,7 +1978,13 @@ class FantasyApp {
                     el.insertBefore(rankNumEl, el.firstChild);
                 }
 
-                if (logoEl) logoEl.src = manager.logo_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                if (logoEl) {
+                    logoEl.onerror = () => {
+                        logoEl.onerror = null;
+                        logoEl.src = 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                    };
+                    logoEl.src = manager.logo_url || manager.avatar || manager.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                }
                 if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
                 if (mgrEl) mgrEl.textContent = this.getManagerDisplayName(managerId, manager.name);
                 
@@ -2323,7 +2378,7 @@ class FantasyApp {
 
     async renderDraft() {
         const container = document.getElementById('view-draft');
-        if ((!this.playerStats || this.playerStats.length === 0) && this.heavyDataPromise) {
+        if ((!this.playerStats || this.playerStats.length === 0) && (this.playerStatsPromise || this.heavyDataPromise)) {
             if (container && (!this.draftEngine || !this.draftEngine.rendered)) {
                 container.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 360px; gap: 1rem;">
@@ -2332,7 +2387,11 @@ class FantasyApp {
                     </div>
                 `;
             }
-            await this.heavyDataPromise;
+            if (this.playerStatsPromise) {
+                await this.playerStatsPromise;
+            } else if (this.heavyDataPromise) {
+                await this.heavyDataPromise;
+            }
         }
 
         if (!this.draftEngine) {
@@ -2366,16 +2425,23 @@ class FantasyApp {
 
     async renderTransactions() {
         const container = document.getElementById('view-transactions');
-        if ((!this.transactions || this.transactions.length === 0) && this.heavyDataPromise) {
-            if (container) {
+        const needsTransactions = (!this.transactions || this.transactions.length === 0) && (this.transactionsPromise || this.heavyDataPromise);
+        const needsPlayerStats = (!this.playerStats || this.playerStats.length === 0) && (this.playerStatsPromise || this.heavyDataPromise);
+        if (needsTransactions || needsPlayerStats) {
+            if (container && (!this.transactionsEngine || !this.transactionsEngine.rendered)) {
                 container.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 360px; gap: 1rem;">
                         <div class="vault-spinner" style="width: 42px; height: 42px; border: 3px solid rgba(212, 175, 55, 0.2); border-top-color: #d4af37; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-                        <div style="color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.02em;">Loading League Transaction History...</div>
+                        <div style="color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.02em;">Loading League Transaction History &amp; Player Stats...</div>
                     </div>
                 `;
             }
-            await this.heavyDataPromise;
+            if (this.heavyDataPromise) {
+                await this.heavyDataPromise;
+            } else {
+                if (this.transactionsPromise) await this.transactionsPromise;
+                if (this.playerStatsPromise) await this.playerStatsPromise;
+            }
         }
 
         if (!this.transactionsEngine) {
@@ -2624,7 +2690,7 @@ class FantasyApp {
             const s1 = isM1Home ? (g.home_score !== undefined ? g.home_score : g.team_1_actual_points) : (g.away_score !== undefined ? g.away_score : g.team_2_actual_points);
             const s2 = isM1Home ? (g.away_score !== undefined ? g.away_score : g.team_2_actual_points) : (g.home_score !== undefined ? g.home_score : g.team_1_actual_points);
             const winner = g.winner || '';
-            return Number(s1) > 0 || Number(s2) > 0 || (winner && winner !== 'UNDECIDED');
+            return (Number(s1) > 0 || Number(s2) > 0 || (winner && winner !== 'UNDECIDED' && winner !== 'N/A' && winner !== 'TIE')) && g.away_manager_name !== 'BYE';
         });
 
         playedGames.forEach(g => {
@@ -2662,11 +2728,11 @@ class FantasyApp {
         const m2Avatar = m2Obj.avatar || m2Obj.logo_url || m2Obj.avatar_url;
 
         const m1AvatarHtml = m1Avatar
-            ? `<img src="${m1Avatar}" alt="${m1Name}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
+            ? `<img src="${m1Avatar}" alt="${m1Name}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
             : `<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m1Name.charAt(0).toUpperCase()}</div>`;
 
         const m2AvatarHtml = m2Avatar
-            ? `<img src="${m2Avatar}" alt="${m2Name}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
+            ? `<img src="${m2Avatar}" alt="${m2Name}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
             : `<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m2Name.charAt(0).toUpperCase()}</div>`;
 
         heroContainer.innerHTML = `
@@ -2708,9 +2774,9 @@ class FantasyApp {
             const t1Proj = projMap[`${g.year || g.season}_${g.week}_${m1Id}`] || 0;
             const t2Proj = projMap[`${g.year || g.season}_${g.week}_${m2Id}`] || 0;
             
-            const isPlayed = Number(t1Score) > 0 || Number(t2Score) > 0 || (g.winner && g.winner !== 'UNDECIDED');
+            const isPlayed = (Number(t1Score) > 0 || Number(t2Score) > 0 || (g.winner && g.winner !== 'UNDECIDED' && g.winner !== 'N/A' && g.winner !== 'TIE')) && g.away_manager_name !== 'BYE';
             const isT1Win = isPlayed && ((isM1Home && g.winner === 'HOME') || (!isM1Home && g.winner === 'AWAY') || (t1Score > t2Score));
-            const isT2Win = isPlayed && !isT1Win && t2Score > t1Score;
+            const isT2Win = isPlayed && !isT1Win && ((isM1Home && g.winner === 'AWAY') || (!isM1Home && g.winner === 'HOME') || (t2Score > t1Score));
 
             const isToilet = isToiletBowlGame(g, this.standings);
             const tbInfo = isToilet ? getToiletBowlGameInfo(g, this.standings) : null;
@@ -2770,7 +2836,7 @@ class FantasyApp {
                             <div class="team-score-line">
                                 <span class="team-score">${isPlayed ? t1Score.toFixed(2) : '-'} ${isT1Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                             </div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${t1Proj ? t1Proj.toFixed(2) : '-'}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${isPlayed && t1Proj ? t1Proj.toFixed(2) : '-'}</div>
                             ${top1Html}
                         </div>
                         <div class="matchup-margin-badge"><div>VS</div>${margin !== null ? `<div style="font-size:0.7rem;opacity:0.8;">+${margin}</div>` : ''}</div>
@@ -2779,7 +2845,7 @@ class FantasyApp {
                             <div class="team-score-line">
                                 <span class="team-score">${isPlayed ? t2Score.toFixed(2) : '-'} ${isT2Win ? '<span class="win-badge">WIN</span>' : ''}</span>
                             </div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${t2Proj ? t2Proj.toFixed(2) : '-'}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Proj: ${isPlayed && t2Proj ? t2Proj.toFixed(2) : '-'}</div>
                             ${top2Html}
                         </div>
                     </div>

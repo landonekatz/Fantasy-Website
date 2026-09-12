@@ -137,22 +137,55 @@ async function main() {
     '{73801D46-DE9E-4790-AED8-EC62B65C878B}': 'Ethan'
   };
 
+  const gaywoodHistoricalMappings = {
+    '{3415FA77-065E-4CB9-BFBB-C803074EC3B7}': ['{abeck71-0000-0000-0000-000000000000}', 'adam_b', 'adam b', 'adamb'],
+    '{58FFDC7E-BDE4-4D47-B3A8-F7B2CBADA24D}': ['{bradylo-0000-0000-0000-000000000000}', 'brady'],
+    '{69E8ED34-E92E-4ED6-A8ED-34E92E5ED660}': ['{RickyHub-0000-0000-0000-000000000000}', 'mike'],
+    '{9C7552C0-331D-49ED-9FF6-5138BF1DFF1A}': ['{Maximus5252-0000-0000-0000-000000000000}', 'scott'],
+    '{BC4778B4-2400-4B0B-8778-B424005B0BF1}': ['{Nattyb4s-0000-0000-0000-000000000000}', 'lee'],
+    '{BFD6F1F8-D676-4D12-9030-3F76A4B7F468}': ['{irabka5685803-000-0000-0000-000000000000}', 'ira'],
+    '{DD30D761-92C3-4505-9FAF-EFE381DA6F00}': ['{nngold00-0000-0000-0000-000000000000}', 'nick'],
+    '{E29B3DF4-B743-4BE8-B889-961C630B9BFC}': ['{tharris31-0000-0000-0000-000000000000}', 'tyler'],
+    '{FB9735E7-F1A8-4E0D-885F-BAC76F1AA1B6}': ['{hopkins28-000-0000-0000-000000000000}', 'john'],
+    '{FDB4062B-AC75-4A46-ADE9-012ADDB91DDD}': ['{lbatll1-0000-0000-0000-000000000000}', 'luis'],
+    '{73801D46-DE9E-4790-AED8-EC62B65C878B}': ['{wbaisy1688281-000-0000-0000-000000000000}', 'ethan']
+  };
+
+  const gaywoodDuplicateIds = new Set([
+    '{abeck71-0000-0000-0000-000000000000}',
+    '{wbaisy1688281-000-0000-0000-000000000000}',
+    '{bradylo-0000-0000-0000-000000000000}',
+    '{irabka5685803-000-0000-0000-000000000000}',
+    '{Maximus5252-0000-0000-0000-000000000000}',
+    '{tharris31-0000-0000-0000-000000000000}',
+    '{nngold00-0000-0000-0000-000000000000}',
+    '{RickyHub-0000-0000-0000-000000000000}',
+    '{Nattyb4s-0000-0000-0000-000000000000}',
+    '{hopkins28-000-0000-0000-000000000000}',
+    '{lbatll1-0000-0000-0000-000000000000}'
+  ]);
+
   const gaywoodMembersMap = new Map();
-  gaywoodCurrentMembers.forEach(m => {
+  gaywoodCurrentMembers.filter(m => !gaywoodDuplicateIds.has(m.id)).forEach(m => {
     const alias = gaywoodAliases[m.id] || m.alias || m.name || 'Manager';
+    const extra = gaywoodHistoricalMappings[m.id] || [];
+    const existingEspn = Array.isArray(m.espn_ids) ? m.espn_ids : [m.id];
+    const existingPlat = Array.isArray(m.platform_ids) ? m.platform_ids : [m.id];
     gaywoodMembersMap.set(m.id, {
       ...m,
       name: alias,
       alias: alias,
       canonical_name: alias,
-      manager_name: alias
+      manager_name: alias,
+      espn_ids: Array.from(new Set([...existingEspn, ...extra])),
+      platform_ids: Array.from(new Set([...existingPlat, ...extra]))
     });
   });
 
-  // Ensure all historical managers from gaywood data archive are included if not present
+  // Ensure all genuine historical retired managers from gaywood data archive are included
   gaywoodHistoricalManagers.forEach(hm => {
     const espnId = hm.espn_id || hm.id;
-    if (!gaywoodMembersMap.has(espnId)) {
+    if (!gaywoodMembersMap.has(espnId) && !gaywoodDuplicateIds.has(espnId)) {
       gaywoodMembersMap.set(espnId, {
         id: espnId,
         name: hm.name,
@@ -181,19 +214,19 @@ async function main() {
   // ==========================================
   console.log('\n[3/5] Processing lamarkablefantasy...');
   const lamarkableCanonical = [
-    // 12 Active Managers
-    { id: '865088988120236032', alias: 'Leo', avatar: 'https://sleepercdn.com/avatars/thumbs/736d35092a06141a5d5904d4981fc1f9', isActive: true, status: 'Active' },
-    { id: '884205459035361280', alias: 'Jamison', avatar: 'https://sleepercdn.com/avatars/thumbs/674329068019056640', isActive: true, status: 'Active' },
+    // 12 Active Managers with verified live 200 OK avatars
+    { id: '865088988120236032', alias: 'Leo', avatar: 'https://sleepercdn.com/avatars/thumbs/736d350acbdce784be8a59591b5665e0', isActive: true, status: 'Active' },
+    { id: '884205459035361280', alias: 'Jamison', avatar: 'https://sleepercdn.com/avatars/thumbs/67432901e9de714cb77d22ee5d46e64d', isActive: true, status: 'Active' },
     { id: '1258232732161417216', alias: 'Frank', avatar: 'https://sleepercdn.com/avatars/thumbs/1edba0c821b721f24495393a11b33c73', isActive: true, status: 'Active' },
     { id: '870742790919901184', alias: 'Thomas', avatar: 'https://sleepercdn.com/avatars/thumbs/061e550c8b264cb5c9142dc3ddfc8fd0', isActive: true, status: 'Active' },
     { id: '1256746836975157248', alias: 'Josh', avatar: 'https://sleepercdn.com/avatars/thumbs/79f55a2cf200bbb671e48c1218661807', isActive: true, status: 'Active' },
     { id: '1179722739718299648', alias: 'Tyler', avatar: 'https://sleepercdn.com/avatars/thumbs/578c6b253dd7b4bab45382e1af102204', isActive: true, status: 'Active' },
     { id: '870487784425750528', alias: 'Laird', avatar: 'https://sleepercdn.com/avatars/thumbs/e7af4deab0289b4f5505646424895246', isActive: true, status: 'Active' },
     { id: '870546917308952576', alias: 'Blake', avatar: 'https://sleepercdn.com/avatars/thumbs/62ac456f8de505eb862ea09cd2d97504', isActive: true, status: 'Active' },
-    { id: '1389311619867103232', alias: 'Rocco', avatar: 'https://sleepercdn.com/avatars/thumbs/7572250ce4ad9e023f03b2907406a1d8', isActive: true, status: 'Active' },
-    { id: '870366179724849152', alias: 'Monil', avatar: 'https://sleepercdn.com/avatars/thumbs/b319fdfb7fe5b2b291a1ea0396495111', isActive: true, status: 'Active' },
-    { id: '863584035753054208', alias: 'Patrick', avatar: 'https://sleepercdn.com/avatars/thumbs/a85231362ad79cbbfae5ea3ad6c1e33c', isActive: true, status: 'Active' },
-    { id: '870840753167962112', alias: 'Asher', avatar: 'https://sleepercdn.com/avatars/thumbs/a0365fed1ee6a90890bc41d2b78a08d2', isActive: true, status: 'Active' },
+    { id: '1389311619867103232', alias: 'Rocco', avatar: 'https://sleepercdn.com/avatars/thumbs/7572250c2fb084c434fed0e82229e183', isActive: true, status: 'Active' },
+    { id: '870366179724849152', alias: 'Monil', avatar: 'https://sleepercdn.com/avatars/thumbs/b319fdf8b7b5b0359d3c78622ba4d70c', isActive: true, status: 'Active' },
+    { id: '863584035753054208', alias: 'Patrick', avatar: 'https://sleepercdn.com/avatars/thumbs/a852313daa7d5376a2780407541e051e', isActive: true, status: 'Active' },
+    { id: '870840753167962112', alias: 'Asher', avatar: 'https://sleepercdn.com/avatars/thumbs/a0365fe3ac0dfdc1ecab52574c2662d0', isActive: true, status: 'Active' },
     // 8 Retired Managers
     { id: '1132016225690722304', alias: 'Dylan', avatar: 'https://sleepercdn.com/avatars/thumbs/f0edbf4278f53f9425db175073df6584', isActive: false, status: 'Retired', lastSeenYear: 2025 },
     { id: '1126319416876101632', alias: 'Mason', avatar: 'https://sleepercdn.com/avatars/thumbs/969db25e34b3c959787a586164b8c4ed', isActive: false, status: 'Retired', lastSeenYear: 2025 },

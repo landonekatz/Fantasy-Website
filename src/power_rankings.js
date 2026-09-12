@@ -237,7 +237,7 @@ export class PowerRankingsEngine {
             displayName = this.app.getManagerDisplayName(canonicalId, displayName);
         }
 
-        const logoUrl = found?.logo_url || found?.avatar || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+        const logoUrl = found?.logo_url || found?.avatar || found?.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
 
         return {
             id: canonicalId,
@@ -479,7 +479,7 @@ export class PowerRankingsEngine {
                                 <div class="ranking-num-badge ${rank <= 3 ? 'rank-top3' : ''}">
                                     ${rank}
                                 </div>
-                                <img class="ranking-team-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" loading="lazy">
+                                <img class="ranking-team-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" loading="lazy" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                                 <div class="ranking-team-info">
                                     <span class="ranking-team-name">${mgr.teamName}</span>
                                     <span class="ranking-manager-name">${mgr.name}</span>
@@ -887,7 +887,7 @@ export class PowerRankingsEngine {
                                 <span class="sort-drag-handle" title="Drag to reorder">☰</span>
                             </div>
                             <div class="sort-rank-badge ${rank <= 3 ? 'rank-top3' : ''}">#${rank}</div>
-                            <img class="sort-team-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}">
+                            <img class="sort-team-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                             <div class="sort-team-info">
                                 <span class="sort-team-name">${mgr.teamName}</span>
                                 <span class="sort-manager-name">${mgr.name}</span>
@@ -972,7 +972,7 @@ export class PowerRankingsEngine {
                 return `
                     <button type="button" class="blurb-team-nav-item ${idx === state.focusedIndex ? 'active' : ''}" data-index="${idx}">
                         <div class="nav-item-rank ${rank <= 3 ? 'rank-top3' : ''}">#${rank}</div>
-                        <img class="nav-item-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}">
+                        <img class="nav-item-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                         <div class="nav-item-info">
                             <span class="nav-item-team">${mgr.teamName}</span>
                             <span class="nav-item-mgr">${mgr.name}</span>
@@ -1009,7 +1009,7 @@ export class PowerRankingsEngine {
                 <div class="focus-team-banner">
                     <div class="focus-banner-left">
                         <div class="focus-rank-pill ${activeRank <= 3 ? 'rank-top3' : ''}">Rank #${activeRank}</div>
-                        <img class="focus-team-logo" src="${activeMgr.logoUrl}" alt="${activeMgr.teamName}">
+                        <img class="focus-team-logo" src="${activeMgr.logoUrl}" alt="${activeMgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                         <div>
                             <h4 class="focus-team-title">${activeMgr.teamName}</h4>
                             <span class="focus-mgr-subtitle">Manager: ${activeMgr.name}</span>
@@ -1148,7 +1148,7 @@ export class PowerRankingsEngine {
                     <div class="blurb-all-card" data-index="${idx}">
                         <div class="blurb-all-card-header">
                             <div class="blurb-all-rank ${rank <= 3 ? 'rank-top3' : ''}">#${rank}</div>
-                            <img class="blurb-all-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}">
+                            <img class="blurb-all-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
                             <div class="blurb-all-team-info">
                                 <span class="blurb-all-team-name">${mgr.teamName}</span>
                                 <span class="blurb-all-mgr-name">${mgr.name}</span>
