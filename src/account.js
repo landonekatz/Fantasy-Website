@@ -253,11 +253,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             document.getElementById('btn-claim-google')?.addEventListener('click', async () => {
                 try {
-                    await window.AuthEngine.loginWithGoogle();
+                    const user = await window.AuthEngine.loginWithGoogle();
+                    if (!user) return;
                     window.startDirectManagerClaim(leagueSlug, targetManagerId, onSuccess);
                 } catch (e) {
                     console.error("Google sign in failed", e);
-                    alert("Google sign in failed. Please try again.");
+                    alert(e.message || "Google sign in failed. Please try again.");
                 }
             });
 
@@ -418,11 +419,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             document.getElementById('btn-admin-google')?.addEventListener('click', async () => {
                 try {
-                    await window.AuthEngine.loginWithGoogle();
+                    const user = await window.AuthEngine.loginWithGoogle();
+                    if (!user) return;
                     window.startAdminTransferFlow(leagueSlug, onSuccess);
                 } catch (e) {
                     console.error("Google sign in failed", e);
-                    alert("Google sign in failed.");
+                    alert(e.message || "Google sign in failed.");
                 }
             });
 
@@ -942,11 +944,12 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             document.getElementById('btn-claim-google')?.addEventListener('click', async () => {
                 try {
-                    await window.AuthEngine.loginWithGoogle();
+                    const user = await window.AuthEngine.loginWithGoogle();
+                    if (!user) return;
                     window.startManagerClaimFlow(code, onSuccess);
                 } catch (e) {
                     console.error("Google sign in failed", e);
-                    alert("Google sign in failed.");
+                    alert(e.message || "Google sign in failed.");
                 }
             });
 
@@ -2669,14 +2672,15 @@ import { ref as dbRef, set, get, child, update } from 'firebase/database';
 
             document.getElementById('btn-u-auth-google')?.addEventListener('click', async () => {
                 try {
-                    await window.AuthEngine.loginWithGoogle();
+                    const user = await window.AuthEngine.loginWithGoogle();
+                    if (!user) return;
                     const s = window.AuthEngine.getSession();
                     if (s && s.uid) {
                         onAuthenticated();
                     }
                 } catch (err) {
                     console.error("Google sign in failed:", err);
-                    alert("Google sign in failed: " + err.message);
+                    alert(err.message || "Google sign in failed.");
                 }
             });
 

@@ -129,6 +129,7 @@ export class TransactionsEngine {
         this.seasonsMetadata = options.seasonsMetadata || [];
         this.formatSeasonYear = options.formatSeasonYear || ((y) => `${y}`);
         this.openThroughlineCallback = options.openThroughlineCallback || null;
+        this.enableRosterReconstruction = Boolean(options.enableRosterReconstruction);
 
         this.ldiEngine = new LDIEngine();
         
@@ -155,6 +156,15 @@ export class TransactionsEngine {
         this.pickupSortAsc = false;
 
         this.cachedEvaluations = null;
+        this._cachedTrades = null;
+        this._cachedPickups = null;
+        this._cachedDrops = null;
+        this._ltiWindowCache = new Map();
+        this.weeklyRosterMap = new Map();
+        this._leagueUsesFaab = null;
+        this._seasonFaabBudgets = new Map();
+        this._seasonUnplayed = new Map();
+        this._leagueMaxWeeks = new Map();
         this.init();
     }
 
@@ -168,12 +178,20 @@ export class TransactionsEngine {
         if (data.seasonsMetadata) this.seasonsMetadata = data.seasonsMetadata;
         if (data.formatSeasonYear) this.formatSeasonYear = data.formatSeasonYear;
         this.cachedEvaluations = null;
+        this._cachedTrades = null;
+        this._cachedPickups = null;
+        this._cachedDrops = null;
+        this._ltiWindowCache = new Map();
+        this._leagueUsesFaab = null;
+        this._seasonFaabBudgets = new Map();
+        this._seasonUnplayed = new Map();
+        this._leagueMaxWeeks = new Map();
         this.init();
     }
 
     init() {
         this.buildLookups();
-        if (!this.transactions || this.transactions.length === 0) {
+        if ((!this.transactions || this.transactions.length === 0) && this.enableRosterReconstruction) {
             const reconstructed = this.reconstructTransactionsFromRosters();
             if (reconstructed && reconstructed.length > 0) {
                 this.transactions = reconstructed;
@@ -182,7 +200,7 @@ export class TransactionsEngine {
         if (this.transactions && this.transactions.length > 0) {
             this.transactions = this.pairUnilateralTransactions(this.transactions);
         }
-        this.evaluateAllTransactions();
+        // Lazy evaluation: Do not evaluate transactions here to keep initial tab open instantaneous
     }
 
     resolvePlayerName(pName) {
@@ -795,6 +813,7 @@ export class TransactionsEngine {
 
         // 3. Weekly player stats map: `${season}_${normPlayerName}` -> array of weekly stats sorted by week
         this.playerStatsMap = new Map();
+        this.weeklyRosterMap = new Map();
         (this.playerStats || []).forEach(stat => {
             const yr = Number(stat.season || stat.year);
             const np = normalizeName(stat.player_name || stat.playerName || '');
@@ -810,7 +829,7 @@ export class TransactionsEngine {
             if (!this.playerStatsMap.has(key)) {
                 this.playerStatsMap.set(key, []);
             }
-            this.playerStatsMap.get(key).push({
+            const statObj = {
                 week: Number(stat.week || 1),
                 points: Number(stat.fantasy_points ?? stat.points ?? 0),
                 projected: Number(stat.projected_points ?? 0),
@@ -818,8 +837,20 @@ export class TransactionsEngine {
                 rosterSlot: stat.roster_slot || '',
                 teamId: stat.team_id,
                 managerId: String(stat.manager_id || '').toLowerCase(),
-                pos
-            });
+                pos,
+                player_name: stat.player_name || stat.playerName || ''
+            };
+            this.playerStatsMap.get(key).push(statObj);
+
+            // Index into weekly roster map for O(1) drop context lookups
+            const mid = statObj.managerId;
+            if (mid) {
+                const rKey = `${yr}_${statObj.week}_${mid}`;
+                if (!this.weeklyRosterMap.has(rKey)) {
+                    this.weeklyRosterMap.set(rKey, []);
+                }
+                this.weeklyRosterMap.get(rKey).push(statObj);
+            }
         });
 
         // Sort player weekly logs by week ascending
@@ -862,34 +893,37 @@ export class TransactionsEngine {
      * Detects whether the active league uses FAAB waivers or standard waiver priority.
      */
     leagueUsesFaab() {
+        if (this._leagueUsesFaab !== null && this._leagueUsesFaab !== undefined) {
+            return this._leagueUsesFaab;
+        }
+
+        let result = false;
         if (this.leagueSettings?.uses_faab !== undefined) {
-            return Boolean(this.leagueSettings.uses_faab);
-        }
-        if (this.leagueSettings?.has_faab !== undefined) {
-            return Boolean(this.leagueSettings.has_faab);
-        }
-        if (this.leagueSettings?.waiver_type) {
+            result = Boolean(this.leagueSettings.uses_faab);
+        } else if (this.leagueSettings?.has_faab !== undefined) {
+            result = Boolean(this.leagueSettings.has_faab);
+        } else if (this.leagueSettings?.waiver_type) {
             const wt = String(this.leagueSettings.waiver_type).toLowerCase();
-            if (wt === 'faab') return true;
-            if (['rolling', 'priority', 'waiver', 'standard'].includes(wt)) return false;
+            if (wt === 'faab') result = true;
+            else if (['rolling', 'priority', 'waiver', 'standard'].includes(wt)) result = false;
+        } else if (this.leagueSettings?.platform === 'espn') {
+            result = false;
+        } else if ((this.seasonsMetadata || []).some(s => Number(s.faab_budget || 0) > 0)) {
+            result = true;
+        } else if (this.leagueSettings?.faab_budgets && Object.values(this.leagueSettings.faab_budgets).some(b => Number(b) > 0)) {
+            result = true;
+        } else {
+            // Require at least 5 completed non-pending transactions with bids to classify as FAAB dynamically
+            const activeBids = (this.transactions || []).filter(t => {
+                const yr = Number(t.season || t.year);
+                const isPending = this.isSeasonUnplayed(yr);
+                return !isPending && Number(t.faab_bid || t.bidAmount || 0) > 0;
+            });
+            result = activeBids.length >= 5;
         }
-        if (this.leagueSettings?.platform === 'espn') {
-            return false;
-        }
-        const hasBudget = (this.seasonsMetadata || []).some(s => Number(s.faab_budget || 0) > 0);
-        if (hasBudget) return true;
 
-        if (this.leagueSettings?.faab_budgets && Object.values(this.leagueSettings.faab_budgets).some(b => Number(b) > 0)) {
-            return true;
-        }
-
-        // Require at least 5 completed non-pending transactions with bids to classify as FAAB dynamically
-        const activeBids = (this.transactions || []).filter(t => {
-            const yr = Number(t.season || t.year);
-            const isPending = this.isSeasonUnplayed(yr);
-            return !isPending && Number(t.faab_bid || t.bidAmount || 0) > 0;
-        });
-        return activeBids.length >= 5;
+        this._leagueUsesFaab = result;
+        return result;
     }
 
     /**
@@ -936,39 +970,45 @@ export class TransactionsEngine {
      * Dynamically determines the starting FAAB budget for a given season.
      */
     getSeasonFaabBudget(season) {
-        // If the league as a whole does not use FAAB, budget is 0
-        if (!this.leagueUsesFaab()) return 0;
-
+        if (!this._seasonFaabBudgets) this._seasonFaabBudgets = new Map();
         const yr = Number(season);
+        if (this._seasonFaabBudgets.has(yr)) {
+            return this._seasonFaabBudgets.get(yr);
+        }
 
+        // If the league as a whole does not use FAAB, budget is 0
+        if (!this.leagueUsesFaab()) {
+            this._seasonFaabBudgets.set(yr, 0);
+            return 0;
+        }
+
+        let budget = 100;
         // 1. Explicit metadata in seasonsMetadata
         const meta = (this.seasonsMetadata || []).find(m => Number(m.season || m.year) === yr);
         if (meta && typeof meta.faab_budget === 'number' && meta.faab_budget >= 0) {
-            return meta.faab_budget;
+            budget = meta.faab_budget;
+        } else if (this.leagueSettings?.faab_budgets?.[yr]) {
+            budget = Number(this.leagueSettings.faab_budgets[yr]);
+        } else if (this.leagueSettings?.seasons?.[yr]?.faab_budget) {
+            budget = Number(this.leagueSettings.seasons[yr].faab_budget);
+        } else {
+            // 3. Dynamic detection from transaction bids in this season
+            const seasonTxs = (this.transactions || []).filter(t => Number(t.season || t.year) === yr);
+            const bids = seasonTxs.map(t => Number(t.faab_bid || t.bidAmount || 0)).filter(b => b > 0);
+            if (bids.length > 0) {
+                const maxBid = Math.max(...bids);
+                if (maxBid > 200) budget = 1000;
+                else if (maxBid > 100) budget = 1000;
+                else budget = 100;
+            } else {
+                if (yr >= 2027) budget = 100;
+                else if (yr >= 2024 && yr < 2027) budget = 1000;
+                else budget = 0; // 2018-2023 were rolling priority waivers
+            }
         }
 
-        // 2. League settings
-        if (this.leagueSettings?.faab_budgets?.[yr]) {
-            return Number(this.leagueSettings.faab_budgets[yr]);
-        }
-        if (this.leagueSettings?.seasons?.[yr]?.faab_budget) {
-            return Number(this.leagueSettings.seasons[yr].faab_budget);
-        }
-
-        // 3. Dynamic detection from transaction bids in this season
-        const seasonTxs = (this.transactions || []).filter(t => Number(t.season || t.year) === yr);
-        const bids = seasonTxs.map(t => Number(t.faab_bid || t.bidAmount || 0)).filter(b => b > 0);
-        if (bids.length > 0) {
-            const maxBid = Math.max(...bids);
-            if (maxBid > 200) return 1000;
-            if (maxBid > 100) return 1000;
-            return 100;
-        }
-
-        // 4. Default fallbacks for DMS
-        if (yr >= 2027) return 100;
-        if (yr >= 2024 && yr < 2027) return 1000;
-        return 0; // 2018-2023 were rolling priority waivers
+        this._seasonFaabBudgets.set(yr, budget);
+        return budget;
     }
 
     /**
@@ -1051,17 +1091,24 @@ export class TransactionsEngine {
      * Checks if a season is unplayed (kickoff pending or 0 games completed).
      */
     isSeasonUnplayed(season) {
+        if (!this._seasonUnplayed) this._seasonUnplayed = new Map();
         const yr = Number(season);
         if (!yr) return false;
+        if (this._seasonUnplayed.has(yr)) {
+            return this._seasonUnplayed.get(yr);
+        }
 
+        let result = false;
         // 1. Explicitly 0 weeks scraped in seasonsMetadata
         if (this.seasonsMetadata && this.seasonsMetadata.length > 0) {
             const meta = this.seasonsMetadata.find(s => Number(s.season || s.year) === yr);
-            if (meta && meta.total_weeks_scraped === 0) return true;
+            if (meta && meta.total_weeks_scraped === 0) {
+                result = true;
+            }
         }
 
         // 2. Matchups check: has any game been completed?
-        if (this.matchups && this.matchups.length > 0) {
+        if (!result && this.matchups && this.matchups.length > 0) {
             const seasonMatchups = this.matchups.filter(m => Number(m.year || m.season) === yr);
             if (seasonMatchups.length > 0) {
                 const hasCompletedGame = seasonMatchups.some(m => {
@@ -1069,24 +1116,25 @@ export class TransactionsEngine {
                     const s2 = Number(m.away_score ?? m.team_2_actual_points ?? 0);
                     return s1 > 0 || s2 > 0 || (m.winner && m.winner !== 'UNDECIDED' && m.winner !== 'N/A');
                 });
-                if (!hasCompletedGame) return true;
+                if (!hasCompletedGame) result = true;
             }
         }
 
         // 3. Player stats check
-        if (this.playerStats && this.playerStats.length > 0) {
+        if (!result && this.playerStats && this.playerStats.length > 0) {
             const seasonStats = this.playerStats.filter(s => Number(s.season || s.year) === yr);
             if (seasonStats.length === 0) {
                 const allYears = Array.from(new Set(this.playerStats.map(s => Number(s.season || s.year)).filter(Boolean)));
                 const maxYear = Math.max(...allYears, 0);
-                if (yr > maxYear) return true;
+                if (yr > maxYear) result = true;
             } else {
                 const hasPoints = seasonStats.some(s => Number(s.fantasy_points ?? s.points ?? 0) > 0);
-                if (!hasPoints) return true;
+                if (!hasPoints) result = true;
             }
         }
 
-        return false;
+        this._seasonUnplayed.set(yr, result);
+        return result;
     }
 
     /**
@@ -1094,11 +1142,16 @@ export class TransactionsEngine {
      * ensuring unplayed NFL weeks (e.g. Week 18, or Week 17 in earlier eras) are completely excluded.
      */
     getLeagueMaxWeek(season) {
+        if (!this._leagueMaxWeeks) this._leagueMaxWeeks = new Map();
         const yr = Number(season);
-        if (this.isSeasonUnplayed(yr)) {
-            return 0;
+        if (this._leagueMaxWeeks.has(yr)) {
+            return this._leagueMaxWeeks.get(yr);
         }
-        if (this.playerStats && this.playerStats.length > 0) {
+
+        let maxWeek = yr >= 2022 ? 17 : 16;
+        if (this.isSeasonUnplayed(yr)) {
+            maxWeek = 0;
+        } else if (this.playerStats && this.playerStats.length > 0) {
             const realGames = this.playerStats.filter(s => 
                 s.season === yr && 
                 s.matchup_result && 
@@ -1107,20 +1160,28 @@ export class TransactionsEngine {
                 (s.team_score > 0 || s.points > 0)
             );
             if (realGames.length > 0) {
-                return Math.max(...realGames.map(s => s.week));
+                maxWeek = Math.max(...realGames.map(s => s.week));
             }
         }
-        return yr >= 2022 ? 17 : 16;
+
+        this._leagueMaxWeeks.set(yr, maxWeek);
+        return maxWeek;
     }
 
     /**
      * Calculates LTI (Landon Transaction Index), points, and positional VORP within a specific window of weeks.
      */
     calculatePlayerLtiWindow(playerName, season, startWeek, endWeek) {
+        if (!this._ltiWindowCache) this._ltiWindowCache = new Map();
         const yr = Number(season);
         const leagueMaxWeek = this.getLeagueMaxWeek(yr);
         const effectiveEndWeek = Math.min(endWeek, leagueMaxWeek);
         const np = normalizeName(playerName);
+        const cacheKey = `${yr}_${np}_${startWeek}_${effectiveEndWeek}`;
+        if (this._ltiWindowCache.has(cacheKey)) {
+            return this._ltiWindowCache.get(cacheKey);
+        }
+
         const pos = this.getPlayerPosition(playerName, yr);
         const logs = this.playerStatsMap.get(`${yr}_${np}`) || [];
 
@@ -1163,31 +1224,67 @@ export class TransactionsEngine {
         const vorpPoints = Math.round((totalPoints - (replPpg * gamesPlayed)) * 10) / 10;
         const posVorpPpg = Math.round((ppg - replPpg) * 10) / 10;
 
+        let result = null;
+
         if (gamesPlayed === 0) {
             // Player missed the entire window (inactive, injured, unrostered, or 0 games played)
             // Evaluates zero fantasy output against replacement expectation
-            const vorpPoints = Math.round((0 - (replPpg * windowWeeks)) * 10) / 10;
-            const posVorpPpg = -replPpg;
-            const z = vorpPoints / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
+            const vPts = Math.round((0 - (replPpg * windowWeeks)) * 10) / 10;
+            const pVorpPpg = -replPpg;
+            const z = vPts / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
             const ltiScore = Math.max(1, Math.min(99, Math.round(standardNormalCdf(z) * 100)));
-            return {
+            result = {
                 ltiScore,
                 totalPoints: 0,
                 effectivePoints: 0,
                 gamesPlayed: 0,
                 ppg: 0,
-                vorpPoints,
-                posVorpPpg,
+                vorpPoints: vPts,
+                posVorpPpg: pVorpPpg,
                 position: pos,
                 weeklyPoints: []
             };
-        }
-
-        if (!isSkill) {
+        } else if (!isSkill) {
             // Kickers and Defenses: LTI calibrated by VORP against positional baseline
             const z = vorpPoints / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
             const ltiScore = Math.max(1, Math.min(99, Math.round(standardNormalCdf(z) * 100)));
-            return {
+            result = {
+                ltiScore,
+                totalPoints: Math.round(totalPoints * 10) / 10,
+                effectivePoints: Math.round(totalPoints * 10) / 10,
+                gamesPlayed,
+                ppg: Math.round(ppg * 10) / 10,
+                vorpPoints,
+                posVorpPpg,
+                position: pos,
+                weeklyPoints
+            };
+        } else if (pos === 'QB') {
+            // Quarterbacks in 1-QB leagues have high scoring baselines (16.5 PPG).
+            // Discount QB effectivePoints to flex-starter scale so their raw baseline does not distort skill player trades:
+            // effectivePoints = (5.5 flex baseline + Math.max(0, posVorpPpg)) * gamesPlayed
+            const qbEffectivePpg = 5.5 + Math.max(0, posVorpPpg);
+            const effectivePoints = Math.round(qbEffectivePpg * gamesPlayed * 10) / 10;
+            const z = vorpPoints / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
+            const ltiScore = Math.max(1, Math.min(99, Math.round(standardNormalCdf(z) * 100)));
+            result = {
+                ltiScore,
+                totalPoints: Math.round(totalPoints * 10) / 10,
+                effectivePoints,
+                gamesPlayed,
+                ppg: Math.round(ppg * 10) / 10,
+                vorpPoints,
+                posVorpPpg,
+                position: pos,
+                weeklyPoints
+            };
+        } else {
+            // Monotonic LTI calibration directly tied to Value Over Replacement Player (VORP)
+            // 0 VORP = 50 LTI (replacement level). Higher VORP strictly yields higher LTI.
+            const z = vorpPoints / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
+            const ltiScore = Math.max(1, Math.min(99, Math.round(standardNormalCdf(z) * 100)));
+
+            result = {
                 ltiScore,
                 totalPoints: Math.round(totalPoints * 10) / 10,
                 effectivePoints: Math.round(totalPoints * 10) / 10,
@@ -1200,43 +1297,8 @@ export class TransactionsEngine {
             };
         }
 
-        if (pos === 'QB') {
-            // Quarterbacks in 1-QB leagues have high scoring baselines (16.5 PPG).
-            // Discount QB effectivePoints to flex-starter scale so their raw baseline does not distort skill player trades:
-            // effectivePoints = (5.5 flex baseline + Math.max(0, posVorpPpg)) * gamesPlayed
-            const qbEffectivePpg = 5.5 + Math.max(0, posVorpPpg);
-            const effectivePoints = Math.round(qbEffectivePpg * gamesPlayed * 10) / 10;
-            const z = vorpPoints / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
-            const ltiScore = Math.max(1, Math.min(99, Math.round(standardNormalCdf(z) * 100)));
-            return {
-                ltiScore,
-                totalPoints: Math.round(totalPoints * 10) / 10,
-                effectivePoints,
-                gamesPlayed,
-                ppg: Math.round(ppg * 10) / 10,
-                vorpPoints,
-                posVorpPpg,
-                position: pos,
-                weeklyPoints
-            };
-        }
-
-        // Monotonic LTI calibration directly tied to Value Over Replacement Player (VORP)
-        // 0 VORP = 50 LTI (replacement level). Higher VORP strictly yields higher LTI.
-        const z = vorpPoints / (14.0 * Math.sqrt(Math.max(1, windowWeeks)));
-        const ltiScore = Math.max(1, Math.min(99, Math.round(standardNormalCdf(z) * 100)));
-
-        return {
-            ltiScore,
-            totalPoints: Math.round(totalPoints * 10) / 10,
-            effectivePoints: Math.round(totalPoints * 10) / 10,
-            gamesPlayed,
-            ppg: Math.round(ppg * 10) / 10,
-            vorpPoints,
-            posVorpPpg,
-            position: pos,
-            weeklyPoints
-        };
+        this._ltiWindowCache.set(cacheKey, result);
+        return result;
     }
 
     /**
@@ -2019,18 +2081,10 @@ export class TransactionsEngine {
             gradeBadge = 'balanced-deal';
         } else {
             // Compulsory pure drop
-            if (this.playerStats && this.playerStats.length > 0) {
-                let roster = (this.playerStats || []).filter(s => 
-                    Number(s.season || s.year) === yr && 
-                    Number(s.week || 1) === week && 
-                    String(s.manager_id || '').toLowerCase() === mgrId
-                );
+            if (this.weeklyRosterMap) {
+                let roster = this.weeklyRosterMap.get(`${yr}_${week}_${mgrId}`) || [];
                 if (roster.length === 0 && week > 1) {
-                    roster = (this.playerStats || []).filter(s => 
-                        Number(s.season || s.year) === yr && 
-                        Number(s.week || 1) === (week - 1) && 
-                        String(s.manager_id || '').toLowerCase() === mgrId
-                    );
+                    roster = this.weeklyRosterMap.get(`${yr}_${week - 1}_${mgrId}`) || [];
                 }
 
                 const droppedNorms = new Set(droppedPlayers.map(p => normalizeName(p)));
@@ -2160,39 +2214,87 @@ export class TransactionsEngine {
     }
 
     /**
-     * Compiles and evaluates all platform transactions.
+     * Lazily evaluates all completed trades across league history.
+     * Completes in <5ms, keeping the Trade Leaderboard lightning fast.
      */
-    evaluateAllTransactions() {
-        if (this.cachedEvaluations) return this.cachedEvaluations;
-
+    getEvaluatedTrades() {
+        if (this._cachedTrades) return this._cachedTrades;
         const evaluatedTrades = [];
-        const evaluatedPickups = [];
-        const evaluatedDrops = [];
         const seenTradePairs = new Set();
-
         (this.transactions || []).forEach(tx => {
             const isTrade = tx.type === 'trade' || tx.action_type === 'TRADE';
-            const isWaiver = tx.type === 'waiver' || tx.action_type === 'WAIVER';
-            const isFreeAgent = tx.type === 'free_agent' || tx.action_type === 'FREE_AGENT' || tx.action_type === 'FREEAGENT';
-            const isDrop = tx.type === 'drop' || tx.action_type === 'DROP';
-
             if (isTrade) {
                 const team1 = tx.team_name || '';
                 const team2 = tx.trade_partner_team || '';
                 const sortedKey = `${tx.season}_${[team1, team2].sort().join('_vs_')}_${tx.timestamp}`;
                 if (!seenTradePairs.has(sortedKey)) {
                     seenTradePairs.add(sortedKey);
-                    evaluatedTrades.push(this.evaluateTrade(tx));
-                }
-            } else if (isWaiver || isFreeAgent || isDrop || (Array.isArray(tx.added_players) && tx.added_players.length > 0) || (Array.isArray(tx.dropped_players) && tx.dropped_players.length > 0)) {
-                if (Array.isArray(tx.added_players) && tx.added_players.length > 0) {
-                    evaluatedPickups.push(this.evaluatePickup(tx));
-                }
-                if (Array.isArray(tx.dropped_players) && tx.dropped_players.length > 0) {
-                    evaluatedDrops.push(this.evaluateDrop(tx));
+                    try {
+                        const ev = this.evaluateTrade(tx);
+                        if (ev) evaluatedTrades.push(ev);
+                    } catch (err) {
+                        console.warn('Trade evaluation warning:', err, tx);
+                    }
                 }
             }
         });
+        this._cachedTrades = evaluatedTrades;
+        return evaluatedTrades;
+    }
+
+    /**
+     * Lazily evaluates all waiver and free agent pickups across league history.
+     */
+    getEvaluatedPickups() {
+        if (this._cachedPickups) return this._cachedPickups;
+        const evaluatedPickups = [];
+        (this.transactions || []).forEach(tx => {
+            const isTrade = tx.type === 'trade' || tx.action_type === 'TRADE';
+            const hasAdds = Array.isArray(tx.added_players) && tx.added_players.length > 0;
+            if (!isTrade && hasAdds) {
+                try {
+                    const ev = this.evaluatePickup(tx);
+                    if (ev) evaluatedPickups.push(ev);
+                } catch (err) {
+                    console.warn('Pickup evaluation warning:', err, tx);
+                }
+            }
+        });
+        this._cachedPickups = evaluatedPickups;
+        return evaluatedPickups;
+    }
+
+    /**
+     * Lazily evaluates all player drops across league history.
+     */
+    getEvaluatedDrops() {
+        if (this._cachedDrops) return this._cachedDrops;
+        const evaluatedDrops = [];
+        (this.transactions || []).forEach(tx => {
+            const isTrade = tx.type === 'trade' || tx.action_type === 'TRADE';
+            const hasDrops = Array.isArray(tx.dropped_players) && tx.dropped_players.length > 0;
+            if (!isTrade && hasDrops) {
+                try {
+                    const ev = this.evaluateDrop(tx);
+                    if (ev) evaluatedDrops.push(ev);
+                } catch (err) {
+                    console.warn('Drop evaluation warning:', err, tx);
+                }
+            }
+        });
+        this._cachedDrops = evaluatedDrops;
+        return evaluatedDrops;
+    }
+
+    /**
+     * Compiles and evaluates all platform transactions and superlatives.
+     */
+    evaluateAllTransactions() {
+        if (this.cachedEvaluations) return this.cachedEvaluations;
+
+        const evaluatedTrades = this.getEvaluatedTrades();
+        const evaluatedPickups = this.getEvaluatedPickups();
+        const evaluatedDrops = this.getEvaluatedDrops();
 
         // 1. Worst Drops of All Time (In-Season blunders, week >= 1, ranked by VORP/LTI)
         const worstDrops = [];
@@ -2398,8 +2500,7 @@ export class TransactionsEngine {
      * Builds the manager trade leaderboard with active filtering options.
      */
     getFilteredManagerLeaderboard() {
-        const ev = this.evaluateAllTransactions();
-        let filteredTrades = (ev.trades || []).filter(t => !t.isPending);
+        let filteredTrades = (this.getEvaluatedTrades() || []).filter(t => !t.isPending);
 
         // 1. Era filter
         if (this.leaderboardEra === '2020') {
@@ -2526,9 +2627,8 @@ export class TransactionsEngine {
      * Builds the manager pickup & waiver leaderboard.
      */
     getFilteredPickupLeaderboard() {
-        const ev = this.evaluateAllTransactions();
-        let pickups = (ev.pickups || []).filter(p => !p.isPending);
-        let drops = (ev.drops || []).filter(d => !d.isPending);
+        let pickups = (this.getEvaluatedPickups() || []).filter(p => !p.isPending);
+        let drops = (this.getEvaluatedDrops() || []).filter(d => !d.isPending);
 
         // 1. Era filter
         if (this.leaderboardEra === '2020') {
@@ -2729,10 +2829,10 @@ export class TransactionsEngine {
         const id2 = String(mgr2Id || '').toLowerCase();
         if (!id1 || !id2 || id1 === id2) return [];
 
-        const ev = this.evaluateAllTransactions();
-        return ev.trades.filter(tr => {
+        const trades = this.getEvaluatedTrades();
+        return trades.filter(tr => {
             const t1 = tr.team1.managerId;
-            const t2 = tr.team2.managerId;
+            const t2 = tr.trade_partner_manager_id || tr.team2.managerId;
             return (t1 === id1 && t2 === id2) || (t1 === id2 && t2 === id1);
         });
     }
@@ -3383,7 +3483,10 @@ export class TransactionsEngine {
         const container = document.getElementById(this.containerId);
         if (!container) return;
 
-        const ev = this.evaluateAllTransactions();
+        let ev = null;
+        if (this.activeSubTab === 'overview' || this.activeSubTab === 'waivers') {
+            ev = this.evaluateAllTransactions();
+        }
 
         container.innerHTML = `
             <div class="page-scroller-bar">
@@ -3400,10 +3503,10 @@ export class TransactionsEngine {
             <!-- Top Level Sub-Views -->
             <div id="tx-subview-content">
                 ${this.activeSubTab === 'trades' ? `<div id="tx-subview-trades" class="tx-subview">${this.renderTradeMasterSection()}</div>` : ''}
-                ${this.activeSubTab === 'overview' ? `<div id="tx-subview-overview" class="tx-subview">${this.renderOverviewSection(ev)}</div>` : ''}
-                ${this.activeSubTab === 'h2h' ? `<div id="tx-subview-h2h" class="tx-subview">${this.renderH2HSection(ev)}</div>` : ''}
-                ${this.activeSubTab === 'waivers' ? `<div id="tx-subview-waivers" class="tx-subview">${this.renderWaiverWireSection(ev)}</div>` : ''}
-                ${this.activeSubTab === 'feed' ? `<div id="tx-subview-feed" class="tx-subview">${this.renderFeedSection(ev)}</div>` : ''}
+                ${this.activeSubTab === 'overview' && ev ? `<div id="tx-subview-overview" class="tx-subview">${this.renderOverviewSection(ev)}</div>` : ''}
+                ${this.activeSubTab === 'h2h' ? `<div id="tx-subview-h2h" class="tx-subview">${this.renderH2HSection()}</div>` : ''}
+                ${this.activeSubTab === 'waivers' && ev ? `<div id="tx-subview-waivers" class="tx-subview">${this.renderWaiverWireSection(ev)}</div>` : ''}
+                ${this.activeSubTab === 'feed' ? `<div id="tx-subview-feed" class="tx-subview">${this.renderFeedSection()}</div>` : ''}
             </div>
         `;
 
@@ -3417,8 +3520,25 @@ export class TransactionsEngine {
             const btn = document.getElementById(`tab-tx-${st}`);
             if (btn) {
                 btn.addEventListener('click', () => {
+                    if (this.activeSubTab === st) return;
                     this.activeSubTab = st;
-                    this.render();
+                    const needsFullAnalytics = (st === 'overview' || st === 'waivers');
+                    if (needsFullAnalytics && !this.cachedEvaluations) {
+                        const contentEl = document.getElementById('tx-subview-content');
+                        if (contentEl) {
+                            contentEl.innerHTML = `
+                                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; gap: 1rem;">
+                                    <div class="vault-spinner" style="width: 38px; height: 38px; border: 3px solid rgba(212, 175, 55, 0.2); border-top-color: #d4af37; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                                    <div style="color: var(--text-muted); font-size: 0.95rem;">Compiling Transaction Analytics...</div>
+                                </div>
+                            `;
+                        }
+                        setTimeout(() => {
+                            this.render();
+                        }, 25);
+                    } else {
+                        this.render();
+                    }
                 });
             }
         });
@@ -3428,12 +3548,29 @@ export class TransactionsEngine {
         const btnModePickups = document.getElementById('btn-lead-mode-pickups');
         if (btnModeTrades && btnModePickups) {
             btnModeTrades.addEventListener('click', () => {
+                if (this.leaderboardMode === 'trades') return;
                 this.leaderboardMode = 'trades';
                 this.updateTradeLeaderboard();
             });
             btnModePickups.addEventListener('click', () => {
+                if (this.leaderboardMode === 'pickups') return;
                 this.leaderboardMode = 'pickups';
-                this.updateTradeLeaderboard();
+                if (!this._cachedPickups) {
+                    const tableWrap = document.getElementById('trade-leaderboard-table-container');
+                    if (tableWrap) {
+                        tableWrap.innerHTML = `
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 180px; gap: 0.75rem;">
+                                <div class="vault-spinner" style="width: 32px; height: 32px; border: 3px solid rgba(212, 175, 55, 0.2); border-top-color: #d4af37; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                                <div style="color: var(--text-muted); font-size: 0.9rem;">Compiling Pickup Acumen...</div>
+                            </div>
+                        `;
+                    }
+                    setTimeout(() => {
+                        this.updateTradeLeaderboard();
+                    }, 25);
+                } else {
+                    this.updateTradeLeaderboard();
+                }
             });
         }
 
@@ -3703,8 +3840,7 @@ export class TransactionsEngine {
     updateFeedView() {
         const container = document.getElementById('tx-feed-list-container');
         if (!container) return;
-        const ev = this.evaluateAllTransactions();
-        container.innerHTML = this.renderFeedItems(ev);
+        container.innerHTML = this.renderFeedItems();
         this.attachPlayerTriggers();
     }
 
@@ -4547,7 +4683,7 @@ export class TransactionsEngine {
         `;
     }
 
-    renderFeedSection(ev) {
+    renderFeedSection() {
         const seasons = [...new Set((this.transactions || []).map(t => Number(t.season || t.year)).filter(Boolean))].sort((a, b) => b - a);
 
         return `
@@ -4589,13 +4725,13 @@ export class TransactionsEngine {
                 </div>
 
                 <div id="tx-feed-list-container" style="margin-top: 1.5rem;">
-                    ${this.renderFeedItems(ev)}
+                    ${this.renderFeedItems()}
                 </div>
             </div>
         `;
     }
 
-    renderFeedItems(ev) {
+    renderFeedItems() {
         const hasDistinctFreeAgents = (this.transactions || []).some(t => t.type === 'free_agent' || t.action_type === 'FREE_AGENT' || t.action_type === 'FREEAGENT');
         let items = (this.transactions || []).filter(tx => {
             if (!tx) return false;

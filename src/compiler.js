@@ -1341,10 +1341,13 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
     }
   }
 
+  const isDmsLeague = options.slug === 'dmsfantasy' || options.leagueSlug === 'dmsfantasy' || (customName || '').toLowerCase().includes('dumbarton');
+  const defaultTagline = isDmsLeague ? "Variance is an excuse for incompetence." : "In a league of our own";
+
   const league_settings = {
     name: customName || activeSeason.data.settings?.name || "Fantasy League",
-    tagline: "In a league of our own",
-    subtitle: "In a league of our own",
+    tagline: options.tagline || options.subtitle || defaultTagline,
+    subtitle: options.subtitle || options.tagline || defaultTagline,
     id: activeSeason.data.id || "",
     firstYear: seasonsData[seasonsData.length - 1].year,
     lastYear: activeYear,
@@ -1592,7 +1595,7 @@ export function calculateSeasonLoser(year, standings = [], matchups = [], loserC
   if (seasonStandings.length === 0) return null;
 
   // Guard: if no games have been played yet (everyone at 0-0 with 0 points),
-  // the season hasn't started — don't fabricate a loser.
+  // the season hasn't started, as don't fabricate a loser.
   const totalGamesPlayed = seasonStandings.reduce((sum, s) => sum + (Number(s.wins) || 0) + (Number(s.losses) || 0) + (Number(s.ties) || 0), 0);
   const totalPointsScored = seasonStandings.reduce((sum, s) => sum + (Number(s.points_for) || 0), 0);
   if (totalGamesPlayed === 0 && totalPointsScored === 0) return null;

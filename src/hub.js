@@ -654,12 +654,14 @@ let currentLeagueCreds = null;
     btnRegisterGoogle.addEventListener('click', async () => {
       try {
         const user = await AuthEngine.loginWithGoogle();
+        if (!user) return; // Pending redirect
         const rawName = leagueNameInput ? leagueNameInput.value.trim() : 'League';
         const slug = rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'ironcladdynastyleague';
         
         advanceToStep4(slug);
       } catch (err) {
-        alert("Google Sign-In failed: " + err.message);
+        console.error("Register Google Auth error:", err);
+        alert(err.message);
       }
     });
   }
@@ -927,12 +929,28 @@ let currentLeagueCreds = null;
   if (btnGoogleSSO) {
     btnGoogleSSO.addEventListener('click', async (e) => {
       e.preventDefault();
+      const errorBox = document.getElementById('auth-modal-error-box');
+      if (errorBox) errorBox.style.display = 'none';
       try {
         const user = await AuthEngine.loginWithGoogle();
+        if (!user) return; // Pending redirect
         if (authModal) authModal.close();
         await handlePostLogin(`Signed in via Google SSO as ${user.email}.`);
       } catch (err) {
-        alert("Google Sign-In failed: " + err.message);
+        console.error("Google Sign-In caught:", err);
+        if (errorBox) {
+          errorBox.style.display = 'block';
+          errorBox.innerHTML = `<strong>Google Sign-In Notice:</strong> ${err.message}`;
+          const emailInput = document.getElementById('input-auth-email');
+          const passInput = document.getElementById('input-auth-pass');
+          if (emailInput && !emailInput.value) {
+            emailInput.focus();
+          } else if (passInput) {
+            passInput.focus();
+          }
+        } else {
+          alert(err.message);
+        }
       }
     });
   }

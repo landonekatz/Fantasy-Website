@@ -233,6 +233,119 @@ function formatPlayerNflGameInfo(player) {
     return [opp, statLine].filter(Boolean).join(' • ') || 'NFL';
 }
 
+export function getTabSkeletonHtml(tabName) {
+    if (tabName === 'records') {
+        return `
+            <div class="vault-tab-skeleton-view">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                    <div class="card" style="padding: 16px;"><div class="vault-skeleton-line" style="width: 80px; height: 14px; margin-bottom: 8px;"></div><div class="vault-skeleton-line" style="width: 120px; height: 28px;"></div></div>
+                    <div class="card" style="padding: 16px;"><div class="vault-skeleton-line" style="width: 80px; height: 14px; margin-bottom: 8px;"></div><div class="vault-skeleton-line" style="width: 120px; height: 28px;"></div></div>
+                    <div class="card" style="padding: 16px;"><div class="vault-skeleton-line" style="width: 80px; height: 14px; margin-bottom: 8px;"></div><div class="vault-skeleton-line" style="width: 120px; height: 28px;"></div></div>
+                    <div class="card" style="padding: 16px;"><div class="vault-skeleton-line" style="width: 80px; height: 14px; margin-bottom: 8px;"></div><div class="vault-skeleton-line" style="width: 120px; height: 28px;"></div></div>
+                </div>
+                <div class="card" style="padding: 24px;">
+                    <div class="vault-skeleton-line" style="width: 240px; height: 22px; margin-bottom: 20px;"></div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="vault-skeleton-line" style="width: 100%; height: 32px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100%; height: 32px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100%; height: 32px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100%; height: 32px;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    if (tabName === 'transactions') {
+        return `
+            <div class="vault-tab-skeleton-view">
+                <div class="card" style="padding: 20px;">
+                    <div class="vault-skeleton-line" style="width: 200px; height: 22px; margin-bottom: 16px;"></div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 16px; overflow-x: auto;">
+                        <div class="vault-skeleton-line" style="width: 80px; height: 28px; border-radius: 9999px;"></div>
+                        <div class="vault-skeleton-line" style="width: 90px; height: 28px; border-radius: 9999px;"></div>
+                        <div class="vault-skeleton-line" style="width: 80px; height: 28px; border-radius: 9999px;"></div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        <div class="card" style="padding: 14px; margin: 0; background: var(--bg-card);"><div class="vault-skeleton-line" style="width: 100%; height: 48px;"></div></div>
+                        <div class="card" style="padding: 14px; margin: 0; background: var(--bg-card);"><div class="vault-skeleton-line" style="width: 100%; height: 48px;"></div></div>
+                        <div class="card" style="padding: 14px; margin: 0; background: var(--bg-card);"><div class="vault-skeleton-line" style="width: 100%; height: 48px;"></div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    if (tabName === 'draft') {
+        return `
+            <div class="vault-tab-skeleton-view">
+                <div class="card" style="padding: 20px;">
+                    <div class="vault-skeleton-line" style="width: 220px; height: 22px; margin-bottom: 16px;"></div>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto;">
+                        <div class="vault-skeleton-line" style="width: 100px; height: 32px; border-radius: 6px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100px; height: 32px; border-radius: 6px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100px; height: 32px; border-radius: 6px;"></div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;">
+                        <div class="vault-skeleton-box" style="height: 90px;"></div>
+                        <div class="vault-skeleton-box" style="height: 90px;"></div>
+                        <div class="vault-skeleton-box" style="height: 90px;"></div>
+                        <div class="vault-skeleton-box" style="height: 90px;"></div>
+                        <div class="vault-skeleton-box" style="height: 90px;"></div>
+                        <div class="vault-skeleton-box" style="height: 90px;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    if (tabName === 'h2h') {
+        return `
+            <div class="vault-tab-skeleton-view">
+                <div class="card" style="padding: 24px;">
+                    <div style="display: flex; justify-content: space-around; align-items: center; margin-bottom: 24px;">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                            <div class="vault-skeleton-circle" style="width: 60px; height: 60px; border-radius: 50%;"></div>
+                            <div class="vault-skeleton-line" style="width: 100px; height: 16px;"></div>
+                        </div>
+                        <div class="vault-skeleton-line" style="width: 30px; height: 20px;"></div>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                            <div class="vault-skeleton-circle" style="width: 60px; height: 60px; border-radius: 50%;"></div>
+                            <div class="vault-skeleton-line" style="width: 100px; height: 16px;"></div>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="vault-skeleton-line" style="width: 100%; height: 55px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100%; height: 55px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100%; height: 55px;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    if (tabName === 'newsletter') {
+        return `
+            <div class="vault-tab-skeleton-view">
+                <div class="card" style="padding: 24px; text-align: center;">
+                    <div class="vault-skeleton-line" style="width: 280px; height: 32px; margin: 0 auto 16px;"></div>
+                    <div class="vault-skeleton-line" style="width: 180px; height: 14px; margin: 0 auto 24px;"></div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                        <div class="card" style="padding: 16px; margin: 0; background: var(--bg-card);"><div class="vault-skeleton-line" style="width: 100%; height: 120px;"></div></div>
+                        <div class="card" style="padding: 16px; margin: 0; background: var(--bg-card);"><div class="vault-skeleton-line" style="width: 100%; height: 120px;"></div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    return `
+        <div class="vault-tab-skeleton-view">
+            <div class="card" style="padding: 24px;">
+                <div class="vault-skeleton-line" style="width: 200px; height: 24px; margin-bottom: 16px;"></div>
+                <div class="vault-skeleton-line" style="width: 100%; height: 18px; margin-bottom: 10px;"></div>
+                <div class="vault-skeleton-line" style="width: 80%; height: 18px; margin-bottom: 10px;"></div>
+                <div class="vault-skeleton-line" style="width: 60%; height: 18px;"></div>
+            </div>
+        </div>
+    `;
+}
+
 class FantasyApp {
     constructor() {
         this.managers = [];
@@ -264,6 +377,42 @@ class FantasyApp {
         this.db = null;
         this.notesEngine = null;
         this.transactionsEngine = null;
+        this._topLoaderTimer = null;
+    }
+
+    startTopLoader(percent = 25) {
+        let bar = document.getElementById('vault-top-loader-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'vault-top-loader-bar';
+            bar.className = 'vault-top-loader-bar';
+            document.body.prepend(bar);
+        }
+        bar.style.opacity = '1';
+        bar.style.width = `${percent}%`;
+        if (this._topLoaderTimer) clearInterval(this._topLoaderTimer);
+        this._topLoaderTimer = setInterval(() => {
+            const currentW = parseFloat(bar.style.width) || percent;
+            if (currentW < 85) {
+                bar.style.width = `${currentW + Math.random() * 10 + 4}%`;
+            }
+        }, 150);
+    }
+
+    finishTopLoader() {
+        const bar = document.getElementById('vault-top-loader-bar');
+        if (this._topLoaderTimer) {
+            clearInterval(this._topLoaderTimer);
+            this._topLoaderTimer = null;
+        }
+        if (!bar) return;
+        bar.style.width = '100%';
+        setTimeout(() => {
+            bar.style.opacity = '0';
+            setTimeout(() => {
+                bar.style.width = '0%';
+            }, 300);
+        }, 200);
     }
 
     isRawChampionshipYearBasis() {
@@ -673,7 +822,7 @@ class FantasyApp {
                     await window.AuthEngine.loginWithGoogle();
                     await checkAndUnlock();
                 } catch (err) {
-                    showError("Google Sign-In failed: " + err.message);
+                    showError(err.message || "Google Sign-In failed.");
                 }
             });
         }
@@ -821,6 +970,7 @@ class FantasyApp {
     }
 
     async init() {
+        this.startTopLoader(30);
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('building')) {
             window.history.replaceState({}, '', window.location.pathname);
@@ -936,7 +1086,8 @@ class FantasyApp {
         this.renderAdminOnboardingPopover();
         this.renderH2H();
         this.updateAdminTabVisibility();
-        this.renderActiveTab();
+        await this.renderActiveTab();
+        this.finishTopLoader();
 
         // Check for join code in URL params (e.g. ?join=CODE)
         const joinCodeParam = urlParams.get('join');
@@ -953,11 +1104,18 @@ class FantasyApp {
             this.finishBuildingOverlay();
         }
 
-        // Seamlessly preload all remaining tabs in the background during idle time
+        // Seamlessly preload remaining tabs in background during idle time (desktop only)
         this.preloadBackgroundTabs();
     }
 
     preloadBackgroundTabs() {
+        // On mobile devices, never starve the main CPU thread with aggressive preloading of inactive tabs.
+        // Rendering tabs on-demand with skeleton shimmers provides a silky smooth 60fps experience.
+        const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && window.innerWidth <= 1024);
+        if (isMobile) {
+            return;
+        }
+
         const scheduleTask = (fn, delay = 100) => {
             if (typeof window.requestIdleCallback === 'function') {
                 window.requestIdleCallback(() => fn(), { timeout: 2000 });
@@ -1275,6 +1433,11 @@ class FantasyApp {
         }
         this.leagueSlug = slug;
         
+        const withTimeout = (promise, ms = 3500) => Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms))
+        ]);
+
         let bundleData = null;
         if (this.precompiledBundle) {
             bundleData = this.precompiledBundle;
@@ -1288,9 +1451,12 @@ class FantasyApp {
                     'seasons_metadata', 'scoring_settings', 'team_stats', 'credentials', 'sync_status'
                 ];
                 
-                const results = await Promise.all(coreKeys.map(k => 
+                const results = await withTimeout(Promise.all(coreKeys.map(k => 
                     get(dbRef(database, `leagues/${slug}/${k}`)).then(s => s.exists() ? s.val() : null).catch(() => null)
-                ));
+                )), 3500).catch(err => {
+                    console.warn("RTDB coreKeys fetch timeout/error:", err);
+                    return [];
+                });
 
                 const dataMap = {};
                 coreKeys.forEach((k, i) => { dataMap[k] = results[i]; });
@@ -1376,8 +1542,8 @@ class FantasyApp {
                 } else {
                     // Fallback to full league node if individual keys not found
                     const databaseRef = dbRef(database, `leagues/${slug}`);
-                    const snapshot = await get(databaseRef);
-                    if (snapshot.exists()) {
+                    const snapshot = await withTimeout(get(databaseRef), 3500).catch(() => null);
+                    if (snapshot && snapshot.exists()) {
                         bundleData = snapshot.val();
                     }
                 }
@@ -1392,28 +1558,88 @@ class FantasyApp {
                 bundleData = window.FANTASY_DATA;
             } else if (slug === 'dmsfantasy') {
                 try {
-                    const [mgrs, stands, mat, stats, draft, tx, pr, meta] = await Promise.all([
+                    const [mgrs, stands, mat, draft, pr, meta] = await Promise.all([
                         fetch('/dmsfantasy/data/managers.json').then(r => r.json()).catch(() => null),
-                        fetch('/dmsfantasy/data/league_standings.json').then(r => r.json()),
-                        fetch('/dmsfantasy/data/matchups.json').then(r => r.json()),
-                        fetch('/dmsfantasy/data/weekly_player_stats.json').then(r => r.json()),
-                        fetch('/dmsfantasy/data/draft_results.json').then(r => r.json()),
-                        fetch('/dmsfantasy/data/transactions.json').then(r => r.json()),
+                        fetch('/dmsfantasy/data/league_standings.json').then(r => r.json()).catch(() => []),
+                        fetch('/dmsfantasy/data/matchups.json').then(r => r.json()).catch(() => []),
+                        fetch('/dmsfantasy/data/draft_results.json').then(r => r.json()).catch(() => []),
                         fetch('/dmsfantasy/data/power_rankings_history.json').then(r => r.json()).catch(() => null),
                         fetch('/dmsfantasy/data/seasons_metadata.json').then(r => r.json()).catch(() => null)
                     ]);
                     bundleData = {
                         members: mgrs?.managers || [],
                         team_mappings: mgrs?.team_mappings || [],
-                        league_standings: stands,
-                        matchups: mat,
-                        weekly_player_stats: stats,
-                        draft_results: draft,
-                        transactions: tx,
+                        league_standings: stands || [],
+                        matchups: mat || [],
+                        weekly_player_stats: [],
+                        draft_results: draft || [],
+                        transactions: [],
                         power_rankings_history: pr || [],
                         seasons_metadata: meta || [],
                         league_settings: { name: 'The Dumbarton Fantasy Football League', firstYear: 2018, lastYear: 2026, totalSeasons: 10, scoring_format: 'Half-PPR (0.5)' }
                     };
+
+                    this.transactionsPromise = fetch('/dmsfantasy/data/transactions.json')
+                        .then(r => r.json())
+                        .then(txs => {
+                            this.transactions = txs || [];
+                            if (this.transactionsEngine) {
+                                this.transactionsEngine.setData({
+                                    transactions: this.transactions,
+                                    playerStats: this.playerStats || [],
+                                    managers: this.managers,
+                                    draftResults: this.draftResults,
+                                    matchups: this.matchups,
+                                    leagueSettings: this.leagueSettings,
+                                    seasonsMetadata: this.seasonsMetadata,
+                                    formatSeasonYear: (y) => this.formatSeasonYear(y)
+                                });
+                                if (this.activeTab === 'transactions') {
+                                    this.transactionsEngine.render();
+                                }
+                            }
+                            return this.transactions;
+                        })
+                        .catch(() => []);
+
+                    this.playerStatsPromise = fetch('/dmsfantasy/data/weekly_player_stats.json')
+                        .then(r => r.json())
+                        .then(stats => {
+                            this.playerStats = stats || [];
+                            if (this.transactionsEngine) {
+                                this.transactionsEngine.setData({
+                                    transactions: this.transactions || [],
+                                    playerStats: this.playerStats,
+                                    managers: this.managers,
+                                    draftResults: this.draftResults,
+                                    matchups: this.matchups,
+                                    leagueSettings: this.leagueSettings,
+                                    seasonsMetadata: this.seasonsMetadata,
+                                    formatSeasonYear: (y) => this.formatSeasonYear(y)
+                                });
+                                if (this.activeTab === 'transactions') {
+                                    this.transactionsEngine.render();
+                                }
+                            }
+                            if (this.draftEngine) {
+                                this.draftEngine.updateData({
+                                    draftResults: this.draftResults,
+                                    weeklyPlayerStats: this.playerStats,
+                                    matchups: this.matchups,
+                                    transactions: this.transactions || [],
+                                    managers: this.managers,
+                                    leagueSettings: this.leagueSettings,
+                                    leagueSlug: this.leagueSlug,
+                                    seasonLabelConvention: this.seasonLabelConvention,
+                                    scoringSettings: this.scoringSettings
+                                });
+                                if (this.activeTab === 'draft') {
+                                    this.draftEngine.render();
+                                }
+                            }
+                            return this.playerStats;
+                        })
+                        .catch(() => []);
                 } catch (e) {
                     console.warn('Failed local dms fallback:', e);
                 }
@@ -1693,7 +1919,11 @@ class FantasyApp {
             titleEl.innerHTML = `${baseName}<br>League HQ`;
         }
 
-        const tagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
+        const isDmsLeague = this.leagueSlug === 'dmsfantasy' || this.leagueSlug === 'dms' || (this.leagueSettings?.name || '').toLowerCase().includes('dumbarton');
+        const defaultTagline = isDmsLeague ? "Variance is an excuse for incompetence." : "In a league of our own";
+        const tagline = (isDmsLeague && this.leagueSettings?.tagline === 'In a league of our own')
+            ? defaultTagline
+            : (this.leagueSettings?.tagline || this.leagueSettings?.subtitle || defaultTagline);
         const subtitleEl = document.getElementById("league-subtitle");
         if (subtitleEl) subtitleEl.textContent = tagline;
         
@@ -1898,6 +2128,10 @@ class FantasyApp {
         return formatManagerDisplayName(baseName, nick, allowNicknames);
     }
 
+    getManagerName(managerId, fallbackName = '') {
+        return this.getManagerDisplayName(managerId, fallbackName);
+    }
+
     getCurrentTeamName(managerId) {
         const cleanId = String(managerId || '').toLowerCase().trim();
         const targetId = (cleanId === 'ben' || cleanId === 'benjamin') ? 'benjamin' : cleanId;
@@ -2027,10 +2261,15 @@ class FantasyApp {
         }
     }
 
-    renderActiveTab() {
+    async renderActiveTab() {
         const tab = this.activeTab || 'home';
         if (tab === 'home') {
-            if (!this.homeRendered) {
+            const hasPrSkeletons = Boolean(document.querySelector('#rankings .vault-skeleton-pr'));
+            const hasNotesSkeletons = Boolean(document.querySelector('#commissioner-note .vault-skeleton-notes'));
+            if (!this.homeRendered || hasPrSkeletons || hasNotesSkeletons) {
+                if (this.notesEngine) {
+                    this.notesEngine.render();
+                }
                 const hasPr = Boolean(
                     this.paradigms?.power_rankings?.enabled ||
                     this.paradigms?.power_rankings?.current_ranking ||
@@ -2047,7 +2286,7 @@ class FantasyApp {
             }
         } else if (tab === 'newsletter') {
             if (!this.newsletterRendered) {
-                this.renderNewsletter();
+                await this.renderNewsletter();
                 this.newsletterRendered = true;
             }
         } else if (tab === 'h2h') {
@@ -2062,12 +2301,12 @@ class FantasyApp {
             }
         } else if (tab === 'draft') {
             if (!this.draftRendered) {
-                this.renderDraft();
+                await this.renderDraft();
                 this.draftRendered = true;
             }
         } else if (tab === 'transactions') {
             if (!this.transactionsRendered) {
-                this.renderTransactions();
+                await this.renderTransactions();
                 this.transactionsRendered = true;
             }
         } else if (tab === 'rivalry') {
@@ -2179,7 +2418,14 @@ class FantasyApp {
             const targetView = tabViewMap[tab];
 
             // 1. Immediately highlight the clicked tab link/button and display view container
-            if (targetBtn) targetBtn.classList.add('active');
+            if (targetBtn) {
+                targetBtn.classList.add('active');
+                if (typeof targetBtn.scrollIntoView === 'function') {
+                    try {
+                        targetBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                    } catch (e) {}
+                }
+            }
             if (targetView) targetView.classList.add('active');
 
             // 2. Synchronize the browser URL and history state using clean slash paths
@@ -2229,51 +2475,43 @@ class FantasyApp {
                 }
             }
 
-            // 3. If data is still loading asynchronously, show loaders immediately and wait for loadData()
+            // Start industry-standard top route progress bar
+            this.startTopLoader(35);
+
+            // 3. Determine if this tab has already been rendered
+            const isTabRendered = 
+                (tab === 'home' && this.homeRendered) ||
+                (tab === 'records' && this.recordsRendered) ||
+                (tab === 'transactions' && this.transactionsRendered) ||
+                (tab === 'draft' && this.draftRendered) ||
+                (tab === 'newsletter' && this.newsletterRendered) ||
+                (tab === 'h2h' && this.h2hRendered) ||
+                (tab === 'paradigms' && this.paradigmsRendered) ||
+                (tab === 'rivalry' && this.rivalryRendered) ||
+                (tab === 'admin');
+
+            // Skeletons are only for dynamic tabs whose engines construct their full container from scratch
+            const dynamicFullContainerTabs = ['transactions', 'draft', 'newsletter'];
+            if (!isTabRendered && targetView && dynamicFullContainerTabs.includes(tab)) {
+                targetView.innerHTML = getTabSkeletonHtml(tab);
+            }
+
+            // If data is still loading asynchronously, wait for loadData() to finish
             if (!this.dataLoaded) {
-                if (tab === 'transactions' && !this.transactionsRendered) {
-                    if (viewTransactions && !viewTransactions.querySelector('.page-scroller-bar')) {
-                        viewTransactions.innerHTML = `
-                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
-                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
-                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Transactions Tracker...</div>
-                            </div>
-                        `;
-                    }
-                } else if (tab === 'draft' && !this.draftRendered) {
-                    if (viewDraft && !viewDraft.querySelector('.draft-board-container')) {
-                        viewDraft.innerHTML = `
-                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
-                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
-                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Draft Central...</div>
-                            </div>
-                        `;
-                    }
-                } else if (tab === 'newsletter' && !this.newsletterRendered) {
-                    if (viewNewsletter && !viewNewsletter.querySelector('.newsletter-container')) {
-                        viewNewsletter.innerHTML = `
-                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
-                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
-                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading The Weekly Gazette...</div>
-                            </div>
-                        `;
-                    }
-                } else if (tab === 'records' && !this.recordsRendered) {
-                    if (viewRecords && !viewRecords.querySelector('.records-hero')) {
-                        viewRecords.innerHTML = `
-                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
-                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
-                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading The Record Book...</div>
-                            </div>
-                        `;
-                    }
-                }
                 return;
             }
 
-            // 4. Data is loaded -> render active tab immediately
-            this.renderActiveTab();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // 4. Yield main thread slightly so skeleton shimmer and nav scroll paint immediately
+            setTimeout(async () => {
+                try {
+                    await this.renderActiveTab();
+                } catch (tabErr) {
+                    console.error(`Error rendering active tab "${tab}":`, tabErr);
+                } finally {
+                    this.finishTopLoader();
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, isTabRendered ? 0 : 50);
         };
         this.switchTab = switchTab;
 
@@ -2425,22 +2663,19 @@ class FantasyApp {
 
     async renderTransactions() {
         const container = document.getElementById('view-transactions');
-        const needsTransactions = (!this.transactions || this.transactions.length === 0) && (this.transactionsPromise || this.heavyDataPromise);
-        const needsPlayerStats = (!this.playerStats || this.playerStats.length === 0) && (this.playerStatsPromise || this.heavyDataPromise);
-        if (needsTransactions || needsPlayerStats) {
+        const needsTransactions = (!this.transactions || this.transactions.length === 0) && this.transactionsPromise;
+        if (needsTransactions) {
             if (container && (!this.transactionsEngine || !this.transactionsEngine.rendered)) {
                 container.innerHTML = `
                     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 360px; gap: 1rem;">
                         <div class="vault-spinner" style="width: 42px; height: 42px; border: 3px solid rgba(212, 175, 55, 0.2); border-top-color: #d4af37; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-                        <div style="color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.02em;">Loading League Transaction History &amp; Player Stats...</div>
+                        <div style="color: var(--text-muted); font-size: 0.95rem; letter-spacing: 0.02em;">Loading League Transaction History...</div>
                     </div>
                 `;
             }
-            if (this.heavyDataPromise) {
-                await this.heavyDataPromise;
-            } else {
-                if (this.transactionsPromise) await this.transactionsPromise;
-                if (this.playerStatsPromise) await this.playerStatsPromise;
+            if (this.transactionsPromise) {
+                await this.transactionsPromise;
+                this.startTopLoader(70);
             }
         }
 
@@ -3625,7 +3860,8 @@ class FantasyApp {
         const container = document.getElementById('view-admin');
         if (!container) return;
 
-        const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
+        try {
+            const session = window.AuthEngine ? window.AuthEngine.getSession() : null;
         const userEmail = (session?.email || '').toLowerCase();
         const isFounder = Boolean(session?.isFounder || userEmail === 'landonekatz@gmail.com');
         const adminEmail = (this.leagueSettings?.admin_email || window.FANTASY_DATA?.league_settings?.admin_email || '').toLowerCase();
@@ -3633,8 +3869,11 @@ class FantasyApp {
         const isFounderInspection = Boolean(isFounder && !isDesignatedAdmin && this.leagueSlug !== 'dmsfantasy');
         const isPrivate = Boolean(this.leagueSettings?.is_private);
         const isWelcomeHidden = Boolean(this.leagueSettings?.hide_welcome_card);
-
-        const currentTagline = this.leagueSettings.tagline || this.leagueSettings.subtitle || "In a league of our own";
+        const isDms = (this.leagueSlug === 'dmsfantasy' || this.leagueSlug === 'dms' || (this.leagueSettings?.name || '').toLowerCase().includes('dumbarton'));
+        const defaultTagline = isDms ? "Variance is an excuse for incompetence." : "In a league of our own";
+        const currentTagline = (isDms && (this.leagueSettings.tagline === 'In a league of our own' || !this.leagueSettings.tagline))
+            ? defaultTagline
+            : (this.leagueSettings.tagline || this.leagueSettings.subtitle || defaultTagline);
         const currentNewsletterTitle = this.leagueSettings.newsletter_title || this.leagueSettings.newsletter_name || "The Weekly Gazette";
         const leagueName = this.leagueSettings.name || "Fantasy Football League";
         const leagueSlug = this.leagueSlug || window.location.pathname.substring(1).replace(/\/$/, "") || "league";
@@ -3701,12 +3940,12 @@ class FantasyApp {
             const claim = this.claims ? (
                 this.claims[m.id] ||
                 (m.espn_id && this.claims[m.espn_id]) ||
-                (m.espn_ids && m.espn_ids.map(id => this.claims[id]).find(Boolean)) ||
-                Object.values(this.claims).find(c => c.managerId === m.id || (m.espn_id && c.managerId === m.espn_id) || (m.espn_ids && m.espn_ids.includes(c.managerId)))
+                (m.espn_ids && Array.isArray(m.espn_ids) && m.espn_ids.map(id => this.claims[id]).find(Boolean)) ||
+                Object.values(this.claims).find(c => c && typeof c === 'object' && (c.managerId === m.id || (m.espn_id && c.managerId === m.espn_id) || (m.espn_ids && Array.isArray(m.espn_ids) && m.espn_ids.includes(c.managerId))))
             ) : null;
             const leagueUser = (claim?.userId && this.users?.[claim.userId])
                 ? this.users[claim.userId]
-                : (this.users ? Object.values(this.users).find(u => u.managerId === m.id || (m.espn_id && u.managerId === m.espn_id) || (m.espn_ids && m.espn_ids.includes(u.managerId))) : null);
+                : (this.users ? Object.values(this.users).find(u => u && typeof u === 'object' && (u.managerId === m.id || (m.espn_id && u.managerId === m.espn_id) || (m.espn_ids && Array.isArray(m.espn_ids) && m.espn_ids.includes(u.managerId)))) : null);
             const claimEmail = claim ? (claim.email || leagueUser?.email || claim.name || 'Claimed') : (leagueUser?.email || '');
             const isClaimed = Boolean(claim || leagueUser);
 
@@ -5081,7 +5320,7 @@ class FantasyApp {
             const formConfig = getFormConfig();
             const previewRes = calculateSeasonLoser(yr, this.standings, this.matchups, { [yr]: formConfig }, this.leagueSettings);
             if (previewRes && previewRes.manager_id) {
-                const mgrName = this.getManagerName(previewRes.manager_id, previewRes.manager_name);
+                const mgrName = this.getManagerDisplayName(previewRes.manager_id, previewRes.manager_name);
                 const tName = previewRes.team_name ? ` (${previewRes.team_name})` : '';
                 if (loserPreviewLabel) loserPreviewLabel.textContent = isCurrentSeason ? 'Projected Loser:' : 'Season Loser:';
                 if (loserPreviewName) loserPreviewName.innerHTML = `<strong>${mgrName}</strong>${tName}`;
@@ -5107,7 +5346,7 @@ class FantasyApp {
             // Update Current Result Box
             const currentRes = calculateSeasonLoser(yr, this.standings, this.matchups, this.leagueSettings?.loser_conditions, this.leagueSettings);
             if (currentRes && currentRes.manager_id) {
-                const curMgr = this.getManagerName(currentRes.manager_id, currentRes.manager_name);
+                const curMgr = this.getManagerDisplayName(currentRes.manager_id, currentRes.manager_name);
                 const curTeam = currentRes.team_name ? ` (${currentRes.team_name})` : '';
                 if (loserCurrentDesc) loserCurrentDesc.textContent = currentRes.rule_description;
                 if (loserCurrentName) loserCurrentName.innerHTML = `<strong>${curMgr}</strong>${curTeam} <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">[${currentRes.stats_summary}]</span>`;
@@ -5349,6 +5588,9 @@ class FantasyApp {
                 }
             });
         });
+        } catch (adminErr) {
+            console.error('Error rendering Admin Dashboard:', adminErr);
+        }
     }
 
     setupAdminSidebarScrollSpy(container) {

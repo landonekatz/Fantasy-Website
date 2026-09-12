@@ -1,6 +1,6 @@
 // The Fantasy Vault - Client-Side Auth Engine & Join Code System
 import { auth, db, database } from './firebase.js';
-import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { ref as dbRef, set as rtdbSet, get as rtdbGet } from "firebase/database";
 
@@ -270,11 +270,34 @@ const AuthEngine = {
   // Authentication Actions
   async loginWithGoogle() {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       const result = await signInWithPopup(auth, provider);
       return result.user;
     } catch (error) {
       console.error("Google Auth Error", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        const hostname = window.location.hostname;
+        const err = new Error(`Local IP address (${hostname}) is not authorized in Firebase OAuth. Please sign in using your Admin Email and Password below, or add ${hostname} to Firebase Console > Authentication > Settings > Authorized domains.`);
+        err.code = 'auth/unauthorized-domain';
+        err.unauthorizedDomain = hostname;
+        throw err;
+      }
+      if (error.code === 'auth/popup-blocked') {
+        const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile && auth) {
+          try {
+            await signInWithRedirect(auth, provider);
+            return null;
+          } catch (redirectErr) {
+            console.error("Redirect Error", redirectErr);
+            throw redirectErr;
+          }
+        }
+        const err = new Error("Sign-in popup was blocked by your browser. Please allow popups or use email and password sign-in below.");
+        err.code = 'auth/popup-blocked';
+        throw err;
+      }
       throw error;
     }
   },
@@ -1037,6 +1060,21 @@ onAuthStateChanged(auth, async (user) => {
     window.dispatchEvent(new CustomEvent('vault_auth_changed', { detail: null }));
   }
 });
+
+// Complete pending mobile Google redirects if any
+if (auth && typeof getRedirectResult === 'function') {
+  getRedirectResult(auth).then(result => {
+    if (result && result.user) {
+      console.log("Resolved Google Auth redirect user:", result.user.email);
+    }
+  }).catch(err => {
+    if (err.code === 'auth/unauthorized-domain') {
+      console.warn("Mobile redirect domain not authorized in Firebase:", err);
+    } else {
+      console.warn("getRedirectResult warning:", err);
+    }
+  });
+}
 
 window.AuthEngine = AuthEngine;
 window.JOIN_CODES = JOIN_CODES;

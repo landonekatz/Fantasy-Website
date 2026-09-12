@@ -58,6 +58,8 @@ export class CommissionerNotesEngine {
         } else {
             this.isLoaded = false;
         }
+        // Render initial data synchronously so container is populated immediately without stuck skeleton
+        this.render();
         this.init();
     }
 
@@ -71,9 +73,10 @@ export class CommissionerNotesEngine {
         try {
             const notesRef = dbRef(database, `leagues/${this.leagueSlug}/commissioner_notes`);
             
-            // Initial fetch only if not pre-hydrated with initialData
+            // Initial fetch only if not pre-hydrated with initialData, with 1500ms timeout protection
             if (!this.isLoaded) {
-                const snap = await get(notesRef).catch(() => null);
+                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 1500));
+                const snap = await Promise.race([get(notesRef).catch(() => null), timeoutPromise]);
                 if (snap && snap.exists()) {
                     const val = snap.val();
                     this.mergeData(val);

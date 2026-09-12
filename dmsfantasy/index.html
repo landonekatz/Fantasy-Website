@@ -12,6 +12,7 @@
 </head>
 
 <body>
+<div id="vault-top-loader-bar" class="vault-top-loader-bar"></div>
 
 <header>
     <div class="masthead-top-bar">
@@ -74,6 +75,30 @@
 
         <div class="card" id="rankings">
             <!-- Populated dynamically by PowerRankingsEngine -->
+            <div class="vault-skeleton-pr">
+                <div class="vault-skeleton-line title" style="width: 220px; height: 26px; margin-bottom: 20px;"></div>
+                <div class="vault-skeleton-row" style="display: flex; gap: 14px; align-items: center; margin-bottom: 14px;">
+                    <div class="vault-skeleton-circle" style="width: 40px; height: 40px; border-radius: 50%;"></div>
+                    <div style="flex: 1;">
+                        <div class="vault-skeleton-line" style="width: 160px; height: 16px; margin-bottom: 8px;"></div>
+                        <div class="vault-skeleton-line" style="width: 100px; height: 12px;"></div>
+                    </div>
+                </div>
+                <div class="vault-skeleton-row" style="display: flex; gap: 14px; align-items: center; margin-bottom: 14px;">
+                    <div class="vault-skeleton-circle" style="width: 40px; height: 40px; border-radius: 50%;"></div>
+                    <div style="flex: 1;">
+                        <div class="vault-skeleton-line" style="width: 180px; height: 16px; margin-bottom: 8px;"></div>
+                        <div class="vault-skeleton-line" style="width: 120px; height: 12px;"></div>
+                    </div>
+                </div>
+                <div class="vault-skeleton-row" style="display: flex; gap: 14px; align-items: center;">
+                    <div class="vault-skeleton-circle" style="width: 40px; height: 40px; border-radius: 50%;"></div>
+                    <div style="flex: 1;">
+                        <div class="vault-skeleton-line" style="width: 150px; height: 16px; margin-bottom: 8px;"></div>
+                        <div class="vault-skeleton-line" style="width: 90px; height: 12px;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <!-- END LEAGUE HOME PAGE VIEW -->
@@ -268,7 +293,6 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="data/data_bundle.js?v=20260811"></script>
 <script type="module" src="../src/auth.js"></script>
 <script type="module" src="../src/account.js"></script>
 <script type="module" src="src/app.js"></script>

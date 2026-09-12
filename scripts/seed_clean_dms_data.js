@@ -355,8 +355,8 @@ async function seedData() {
   const leagueSettings = {
     ...existingSettings,
     name: "The Dumbarton Fantasy Football League",
-    tagline: "In a league of our own",
-    subtitle: "In a league of our own",
+    tagline: "Variance is an excuse for incompetence.",
+    subtitle: "Variance is an excuse for incompetence.",
     firstYear: 2018,
     lastYear: 2027,
     totalSeasons: 10,

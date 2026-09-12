@@ -8710,8 +8710,14 @@ dialog.throughline-modal {
         font-size: 1.35rem !important;
     }
     .top-nav-btn {
-        padding: 6px 8px !important;
-        font-size: 0.74rem !important;
+        min-height: 44px !important;
+        padding: 8px 12px !important;
+        font-size: 0.78rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(212, 175, 55, 0.2);
     }
     .records-hero-stats {
         grid-template-columns: 1fr !important;
@@ -8726,4 +8732,117 @@ dialog.throughline-modal {
         font-size: 1.1rem !important;
     }
 }
+
+/* ==========================================================================
+   MOBILE & LOADING ENHANCEMENTS (Industry Standard - Yahoo/ESPN Parity)
+   ========================================================================== */
+
+/* 1. Top Route Progress Bar */
+.vault-top-loader-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, #d4af37, #f59e0b, #fbbf24);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+    z-index: 999999;
+    opacity: 0;
+    pointer-events: none;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+}
+.vault-top-loader-bar.active {
+    opacity: 1;
+}
+.vault-top-loader-bar.done {
+    opacity: 0;
+    transition: width 0.15s ease, opacity 0.35s ease 0.1s;
+}
+
+/* 2. Skeleton Shimmer Loading System */
+@keyframes vaultSkeletonShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.vault-skeleton-line,
+.vault-skeleton-circle,
+.vault-skeleton-box {
+    background: linear-gradient(90deg, rgba(226, 232, 240, 0.1) 25%, rgba(226, 232, 240, 0.22) 50%, rgba(226, 232, 240, 0.1) 75%);
+    background-size: 200% 100%;
+    animation: vaultSkeletonShimmer 1.5s infinite ease-in-out;
+    border-radius: 6px;
+}
+
+[data-theme="light"] .vault-skeleton-line,
+[data-theme="light"] .vault-skeleton-circle,
+[data-theme="light"] .vault-skeleton-box,
+body:not(.rivalry-dungeon-mode) .vault-skeleton-line,
+body:not(.rivalry-dungeon-mode) .vault-skeleton-circle,
+body:not(.rivalry-dungeon-mode) .vault-skeleton-box {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+}
+
+.vault-skeleton-notes,
+.vault-skeleton-pr {
+    padding: 10px 4px;
+}
+
+.vault-tab-skeleton-view {
+    padding: 24px 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 3. Mobile Scroller Bar Horizontal Swipe Optimization */
+@media (max-width: 768px) {
+    .page-scroller-bar {
+        padding: 6px 12px !important;
+        margin-bottom: 18px !important;
+        position: sticky !important;
+        top: 8px !important;
+        z-index: 90 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        border-radius: 9999px !important;
+        gap: 8px !important;
+        box-sizing: border-box !important;
+    }
+    .page-scroller-bar::-webkit-scrollbar {
+        display: none !important;
+    }
+    .scroller-label {
+        display: none !important;
+    }
+    .scroller-links {
+        display: flex !important;
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+    }
+    .scroller-pill {
+        padding: 6px 14px !important;
+        font-size: 0.78rem !important;
+        flex-shrink: 0 !important;
+        min-height: 34px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        white-space: nowrap !important;
+        touch-action: manipulation;
+    }
+    .card {
+        padding: 18px 14px !important;
+    }
+}
+
 

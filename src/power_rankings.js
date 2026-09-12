@@ -48,10 +48,14 @@ export class PowerRankingsEngine {
         } else {
             this.loadInitialFallback();
         }
+        // Render initial data synchronously so container is populated immediately without stuck skeleton
+        this.render();
         this.init();
     }
 
     async init() {
+        // Render immediate baseline so the UI is active while waiting for RTDB
+        this.render();
         if (database) {
             const rankingsRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings`);
             onValue(rankingsRef, (snapshot) => {

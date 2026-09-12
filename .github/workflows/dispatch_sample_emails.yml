@@ -8,6 +8,7 @@ on:
 
 jobs:
   dispatch-vault-emails:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[dispatch-emails]') || contains(github.event.head_commit.message, '[send-emails]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

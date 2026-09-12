@@ -56,9 +56,11 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1.5rem;
 }
 
 .brand-logo {
+  order: 1;
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -76,6 +78,7 @@ body {
 }
 
 .nav-links {
+  order: 2;
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -96,6 +99,7 @@ body {
 
 /* Header Auth Controls & Join Code Form */
 .header-auth-group {
+  order: 3;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -606,5 +610,201 @@ body {
   background: #f1f5f9 !important;
   border-color: var(--accent-gold, #d4af37) !important;
   color: #b45309 !important;
+}
+
+/* =========================================================
+   Mobile Refit System (Screens <= 768px)
+   ========================================================= */
+@media (max-width: 768px) {
+  .header {
+    padding: 0.65rem 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .brand-logo {
+    order: 1;
+    flex: 1;
+  }
+
+  .brand-name {
+    font-size: 1.15rem;
+    letter-spacing: 1px;
+  }
+
+  .header-auth-group {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .btn-header-signin {
+    background: var(--ink-primary);
+    color: #ffffff;
+    border-color: var(--ink-primary);
+    padding: 0.45rem 0.95rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding: 0.35rem 0 0.15rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    padding: 0.35rem 0.75rem;
+    background: var(--bg-card-alt);
+    border: 1px solid var(--border-line);
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .join-code-form {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .join-code-input {
+    width: 75px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.76rem;
+    border-radius: 9999px;
+  }
+
+  .btn-code-submit {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.76rem;
+    border-radius: 9999px;
+  }
+
+  /* Hero Section Mobile Refit */
+  .hero {
+    margin: 2.25rem auto 2rem;
+    padding: 0 1rem;
+  }
+
+  .hero-tag {
+    font-size: 0.72rem;
+    letter-spacing: 1.5px;
+    margin-bottom: 0.85rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.85rem, 6.5vw, 2.75rem);
+    line-height: 1.15;
+    margin-bottom: 1.25rem;
+    letter-spacing: -0.5px;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin-bottom: 1.75rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .hero-actions .btn-primary {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  /* Founder Card Mobile Refit */
+  .founder-section {
+    margin: 0 auto 3rem;
+    padding: 0 1rem;
+  }
+
+  .founder-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .founder-title {
+    font-size: 1.15rem;
+  }
+
+  .founder-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  /* Content Sections Mobile Refit */
+  .section {
+    padding: 2.75rem 1rem;
+  }
+
+  .section-heading {
+    font-size: 1.55rem;
+  }
+
+  .section-title-bar {
+    margin-bottom: 2rem;
+  }
+
+  .feature-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .register-box {
+    padding: 1.75rem 1.25rem;
+  }
+
+  .register-heading {
+    font-size: 1.45rem;
+  }
+
+  .platform-btn-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Modal Mobile Refit */
+  .modal {
+    width: 94%;
+    padding: 1.5rem 1.25rem;
+    border-radius: var(--radius-md);
+  }
+
+  .modal-title {
+    font-size: 1.35rem;
+  }
+
+  .modal-text {
+    font-size: 0.88rem;
+    margin-bottom: 1.25rem;
+  }
 }
 

@@ -251,6 +251,7 @@ TargetApp.prototype.renderRivalryWeek = function(targetRoot) {
         });
     });
 };
+}
 
 // Toggle handler for rivalry matchups drawer
 if (TargetApp) {

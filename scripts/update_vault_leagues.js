@@ -287,14 +287,24 @@ async function syncLeague(slug) {
   const existingParadigms = await fetchFromFirebase(`leagues/${slug}/paradigms`);
   const existingRivalries = await fetchFromFirebase(`leagues/${slug}/rivalries`);
 
+  const isDms = slug === 'dmsfantasy' || slug === 'dms';
+  const resolvedTagline = isDms 
+    ? 'Variance is an excuse for incompetence.' 
+    : (settings?.tagline && settings.tagline !== 'In a league of our own' ? settings.tagline : (settings?.tagline || settings?.subtitle || 'In a league of our own'));
+
   const compiledPayload = compileVaultData(
     seasonsData,
     existingMembers,
     settings?.name || leagueName,
     null,
     {
+      slug,
       seasonLabelConvention: existingSeasonLabelConvention,
-      paradigms: existingParadigms || (existingRankings ? { power_rankings: existingRankings, rivalries: existingRivalries } : undefined)
+      paradigms: existingParadigms || (existingRankings ? { power_rankings: existingRankings, rivalries: existingRivalries } : undefined),
+      leagueSettingsOverrides: {
+        tagline: resolvedTagline,
+        subtitle: resolvedTagline
+      }
     }
   );
 
@@ -393,6 +403,9 @@ async function syncLeague(slug) {
   if (existingRivalries) {
     compiledPayload.rivalries = existingRivalries;
   }
+
+  compiledPayload.league_settings.tagline = resolvedTagline;
+  compiledPayload.league_settings.subtitle = resolvedTagline;
 
   if (settings?.admin_email) {
     compiledPayload.league_settings.admin_email = settings.admin_email;

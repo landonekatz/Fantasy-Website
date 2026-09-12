@@ -59,7 +59,7 @@ Fantasy-Website/
 - The user tests everything directly on `localhost`. Rely on static code inspection, unit logic verification, and `npx vite build` to validate changes before reporting completion.
 
 ### 3. Em-Dash Policy
-- Anytime you want to use an em-dash (`—`), use `, as` (comma as) instead. Never use em-dash characters across platform code, UI copy, and documentation.
+- Anytime you want to use an em-dash (`—`), use `, as` (comma as) instead. Never use em-dash characters across platform code, UI copy, and documentation, with the sole exception of the literary quote attribution in Rivalry Week (`— William Shakespeare, <em>Coriolanus</em>`).
 
 ### 4. Cross-Platform Parity Rule
 - All platform features, fixes, scoring logic, draft calculations, and design polish must be applied consistently across all hosted experiences: The Fantasy Vault Engine (`/` & `vault.html`, including `/gaywoodfantasyfootball`) and Dumbarton League (`/dmsfantasy`). Never leave existing leagues on outdated logic.
