@@ -13,19 +13,25 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
-  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-  const { email, slug, joinCode, origin, to, subject, html } = body;
+
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  const { email, slug, joinCode, origin, to, subject, html, inReplyTo, references, headers, from } = body;
 
   // Custom email dispatch (e.g. power rankings, draft grades, newsletters, sample templates)
   if ((to || email) && subject && html) {
     try {
       const recipient = to || email;
-      const info = await transporter.sendMail({
-        from: `"The Fantasy Vault" <${process.env.EMAIL_USER}>`,
+      const mailOptions = {
+        from: from || `"The Fantasy Vault" <${process.env.EMAIL_USER || 'thefantasyvault.noreply@gmail.com'}>`,
         to: recipient,
         subject,
         html
-      });
+      };
+      if (inReplyTo) mailOptions.inReplyTo = inReplyTo;
+      if (references) mailOptions.references = references;
+      if (headers) mailOptions.headers = headers;
+
+      const info = await transporter.sendMail(mailOptions);
       return res.status(200).json({ success: true, messageId: info.messageId });
     } catch (error) {
       console.error('Failed to send email:', error);

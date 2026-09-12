@@ -16,8 +16,8 @@
  */
 
 // Shared base styles and light editorial shell
-function emailShell({ title, previewText, bodyContent, leagueName = 'The Dumbarton League', leagueUrl = 'https://thefantasyvault.com/dmsfantasy', topBorder = '3px double #0f172a' }) {
-    const cleanLeagueUrl = String(leagueUrl || '').replace(/#.*$/, '');
+function emailShell({ title, previewText, bodyContent, leagueName = 'The Dumbarton League', leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy', topBorder = '3px double #0f172a' }) {
+    const cleanLeagueUrl = String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '');
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,7 +101,7 @@ export function getPowerRankingsTemplateA({
     prevRank = 1,
     tier = 'Championship Tier',
     blurbSnippet = 'Steady scoring and proved depth keep this roster in prime contention, as Week 1 revealed immense positional strength across starting slots.',
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy',
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy',
     topTeams = [
         { rank: 1, name: 'Madoc', trend: '+1' },
         { rank: 2, name: 'Landon', trend: '-1' },
@@ -165,7 +165,7 @@ export function getPowerRankingsTemplateA({
       </div>
 
       <div style="text-align: center;">
-        <a href="${leagueUrl}#rankings" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
           View Full Power Rankings &rarr;
         </a>
       </div>
@@ -185,7 +185,7 @@ export function getPowerRankingsTemplateB({
     weekNum = 1,
     rank = 2,
     prevRank = 1,
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy',
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy',
     riser = { name: 'Seb', move: '+3 spots' },
     faller = { name: 'Kevin', move: '-2 spots' }
 } = {}) {
@@ -229,7 +229,7 @@ export function getPowerRankingsTemplateB({
       </table>
 
       <div style="text-align: center;">
-        <a href="${leagueUrl}#rankings" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
           View Full Power Rankings &rarr;
         </a>
       </div>
@@ -248,7 +248,7 @@ export function getPowerRankingsTemplateC({
     weekNum = 1,
     rank = 2,
     commishQuote = 'Week 1 showed us that projections mean nothing until the whistle blows, as early roster management will dictate the championship bracket.',
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy'
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy'
 } = {}) {
     const title = `Vault Intel: Week ${weekNum} Power Rankings`;
     const previewText = `Intel Report: ${managerName} checks in at #${rank} for Week ${weekNum}.`;
@@ -274,7 +274,7 @@ export function getPowerRankingsTemplateC({
       </div>
 
       <div style="text-align: left;">
-        <a href="${leagueUrl}#rankings" style="display: inline-block; padding: 11px 22px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}" style="display: inline-block; padding: 11px 22px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
           Open Power Rankings &rarr;
         </a>
       </div>
@@ -302,7 +302,7 @@ export function getDraftGradesTemplateA({
     draftRank = 2,
     totalTeams = 12,
     ldiValue = '+14.2 LDI Surplus',
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy'
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy'
 } = {}) {
     const title = `${seasonYear} Draft Audit & Grades Finalized`;
     const previewText = `Your ${seasonYear} Draft Grade is ${grade} (${score}/100) - Ranked #${draftRank} in ${leagueName}.`;
@@ -346,7 +346,7 @@ export function getDraftGradesTemplateA({
       </div>
 
       <div style="text-align: center;">
-        <a href="${String(leagueUrl || '').replace(/#.*$/, '')}#draft" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}/draft" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
           View Full Draft Board &amp; Analysis &rarr;
         </a>
       </div>
@@ -366,7 +366,7 @@ export function getDraftGradesTemplateB({
     bestPick = 'CeeDee Lamb',
     bestPickRound = 'Round 1, Pick 6',
     stealPick = 'Trey McBride (Round 6, Pick 66)',
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy'
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy'
 } = {}) {
     const title = `${seasonYear} Draft Class Evaluation`;
     const previewText = `Draft Audit: ${managerName} earned an ${grade} in the ${seasonYear} Draft.`;
@@ -402,7 +402,7 @@ export function getDraftGradesTemplateB({
       </table>
 
       <div style="text-align: center;">
-        <a href="${leagueUrl}#draft" style="display: inline-block; padding: 11px 22px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}/draft" style="display: inline-block; padding: 11px 22px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
           View Full Draft Analysis &rarr;
         </a>
       </div>
@@ -422,7 +422,7 @@ export function getDraftGradesTemplateC({
     grade = 'A',
     summaryBlurb = 'Exceptional draft execution, as elite anchors in the opening frames provided immediate surplus value across starting roster positions.',
     bestPick = 'CeeDee Lamb (Pick 6)',
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy'
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy'
 } = {}) {
     const title = `${seasonYear} War Room Recap`;
     const previewText = `War Room Audit: ${teamName} posted an ${grade} in the ${seasonYear} draft.`;
@@ -455,7 +455,7 @@ export function getDraftGradesTemplateC({
       </div>
 
       <div style="text-align: left;">
-        <a href="${leagueUrl}#draft" style="display: inline-block; padding: 11px 22px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}/draft" style="display: inline-block; padding: 11px 22px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
           View War Room Board &rarr;
         </a>
       </div>
@@ -479,7 +479,7 @@ export function getNewsletterTemplateA({
     leadSnippet = 'A wild opening week brought unexpected upsets, breakout waiver gems, and down-to-the-wire matchups, as several perennial title favorites fell in opening-day battles.',
     highScorer = { name: 'Jake', points: 148.6 },
     gameOfTheWeek = { teamA: 'Katz in the Cradle', scoreA: 132.4, teamB: 'Madoc', scoreB: 130.1 },
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy'
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy'
 } = {}) {
     const title = `The Vault Gazette: Week ${weekNum}`;
     const previewText = `Gazette Week ${weekNum}: ${leadHeadline}`;
@@ -525,7 +525,7 @@ export function getNewsletterTemplateA({
       </table>
 
       <div style="text-align: center;">
-        <a href="${leagueUrl}#newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}/newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
           Read Full Gazette Edition &rarr;
         </a>
       </div>
@@ -543,7 +543,7 @@ export function getNewsletterTemplateB({
     seasonYear = 2026,
     leadHeadline = 'Opening Week Carnage: Underdogs Shake Up The Vault',
     leadSnippet = 'The dust has settled on Week 1, as injury fallout, waiver priorities, and early power shifts reshape the championship race.',
-    leagueUrl = 'https://thefantasyvault.com/dmsfantasy'
+    leagueUrl = 'https://fantasyvault.vercel.app/dmsfantasy'
 } = {}) {
     const title = `The Sunday Recap: Week ${weekNum}`;
     const previewText = `Sunday Dispatch: ${leadHeadline}`;
@@ -572,7 +572,7 @@ export function getNewsletterTemplateB({
       </div>
 
       <div style="text-align: center;">
-        <a href="${leagueUrl}#newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}/newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px;">
           Dive Into The Newsletter &rarr;
         </a>
       </div>
@@ -593,12 +593,13 @@ export function getNewsletterTemplateC({
     seasonYear = 2026,
     leadHeadline = 'Opening Week Carnage: Underdogs Shake Up The Vault',
     leadSnippet = 'Historic point margins and nailbiter finishes headline the season debut, as managers scramble for early waiver leverage across the board.',
-    leagueUrl = 'https://thefantasyvault.com'
+    leagueUrl = 'https://fantasyvault.vercel.app',
+    volume = null
 } = {}) {
     const title = `${newsletterTitle}: Week ${weekNum}`;
     const previewText = `Headlines: ${leadHeadline}`;
     // DMS Origin 2018 (Vol 9 in 2026), standard vault format
-    const volume = seasonYear ? (seasonYear - 2017) : 9;
+    const displayVolume = volume !== null && volume !== undefined ? volume : (seasonYear ? (seasonYear - 2017) : 9);
 
     const bodyContent = `
       <!-- Masthead Bar (Volume & Issue exactly matching the Vault Newsletter Engine) -->
@@ -607,7 +608,7 @@ export function getNewsletterTemplateC({
           <tr>
             <td align="left" valign="middle">
               <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #0f172a;">
-                VOL. ${volume} &bull; ISSUE ${weekNum}
+                VOL. ${displayVolume} &bull; ISSUE ${weekNum}
               </span>
             </td>
             <td align="right" valign="middle">
@@ -640,7 +641,7 @@ export function getNewsletterTemplateC({
 
       <!-- Clean CTA -->
       <div style="text-align: left; margin-bottom: 8px;">
-        <a href="${String(leagueUrl || '').replace(/#.*$/, '')}#newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
+        <a href="${String(leagueUrl || '').replace(/#.*$/, '').replace(/\/$/, '')}/newsletter" style="display: inline-block; padding: 12px 24px; background-color: #0f172a; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; border-radius: 6px; letter-spacing: 0.5px;">
           Read Full Newsletter &rarr;
         </a>
       </div>

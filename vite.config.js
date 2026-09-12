@@ -76,7 +76,7 @@ function serveMultiLeagueDataPlugin() {
         }
 
         // Handle Dumbarton portal: commuted to native Vault league powered by Firebase RTDB
-        if (normalized === '/dmsfantasy' || urlNoQuery === '/dmsfantasy/index.html') {
+        if (normalized === '/dmsfantasy' || normalized.startsWith('/dmsfantasy/') || urlNoQuery === '/dmsfantasy/index.html') {
           req.url = '/vault.html' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
           return next();
         }

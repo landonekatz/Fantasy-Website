@@ -4,8 +4,7 @@ import { calculateSeasonLoser } from './compiler.js';
 // The Record Book Analytics & UI Renderer for Gaywood Fantasy Football League HQ
 // Extends FantasyApp with all 5 Record Book sections, table PPG toggles, and custom interactive filtering
 
-const TargetApp = (typeof window !== 'undefined' && window.FantasyApp) ? window.FantasyApp : FantasyApp;
-Object.assign(TargetApp.prototype, {
+export const recordBookMethods = {
 
     isRawChampionshipYearBasis() {
         const setting = this.leagueSettings?.raw_year_basis || this.rawYearBasis;
@@ -166,11 +165,23 @@ Object.assign(TargetApp.prototype, {
     getTradesCount(season, managerId) {
         if (!this.transactions || this.transactions.length === 0) return 0;
         let count = 0;
+        const targetId = String(managerId || '').toLowerCase().trim();
+        const mgr = (this.managers || []).find(m => String(m.id || m.manager_id || '').toLowerCase() === targetId);
+        const mgrName = mgr ? String(mgr.name || mgr.alias || '').toLowerCase().trim() : '';
+
         for (const t of this.transactions) {
-            if (Number(t.year) === Number(season) && t.type === 'trade') {
+            const yr = Number(t.year || t.season || 0);
+            if (yr === Number(season) && (t.type === 'trade' || t.action_type === 'trade')) {
                 const details = (t.details || '').toLowerCase();
                 if (details.includes('veto')) continue;
-                if (t.manager_id === managerId || t.trade_partner_manager_id === managerId) {
+                const m1 = String(t.manager_id || '').toLowerCase().trim();
+                const m2 = String(t.trade_partner_manager_id || '').toLowerCase().trim();
+                const n1 = String(t.manager_name || '').toLowerCase().trim();
+                const n2 = String(t.trade_partner_manager_name || '').toLowerCase().trim();
+
+                if (m1 === targetId || m2 === targetId) {
+                    count++;
+                } else if (mgrName && (n1 === mgrName || n2 === mgrName)) {
                     count++;
                 }
             }
@@ -1863,5 +1874,15 @@ Object.assign(TargetApp.prototype, {
             });
         });
     }
+};
 
-});
+export function registerRecordBookMethods(Target) {
+    const app = Target || (typeof window !== 'undefined' ? window.FantasyApp : null);
+    if (app && app.prototype) {
+        Object.assign(app.prototype, recordBookMethods);
+    }
+}
+
+if (typeof window !== 'undefined' && window.FantasyApp) {
+    registerRecordBookMethods(window.FantasyApp);
+}

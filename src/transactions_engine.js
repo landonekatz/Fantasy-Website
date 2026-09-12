@@ -1245,13 +1245,38 @@ export class TransactionsEngine {
         const tradeWeek = this.getTransactionWeek(tx);
         const isPreseason = tradeWeek === 0;
 
-        const team1Name = tx.team_name || 'Team 1';
-        const team1MgrId = String(tx.manager_id || '').toLowerCase();
-        const team1MgrName = this.getManagerDisplayName(team1MgrId, tx.manager_name || team1Name);
+        let team1Name = tx.team_name || '';
+        let team1MgrId = String(tx.manager_id || '').toLowerCase();
+        let team1MgrName = this.getManagerDisplayName(team1MgrId, tx.manager_name || team1Name);
 
-        const team2Name = tx.trade_partner_team || 'Team 2';
-        const team2MgrId = String(tx.trade_partner_manager_id || '').toLowerCase();
-        const team2MgrName = this.getManagerDisplayName(team2MgrId, tx.trade_partner_manager_name || team2Name);
+        let team2Name = tx.trade_partner_team || '';
+        let team2MgrId = String(tx.trade_partner_manager_id || '').toLowerCase();
+        let rawPartnerName = tx.trade_partner_manager_name || '';
+
+        // Defensive extraction from details if trade partner is unspecified or 'Team 2'
+        if ((!rawPartnerName || rawPartnerName === 'Team 2') && tx.details) {
+            const match = tx.details.match(/;\s*([^;]+?)\s+received/i) || tx.details.match(/received.*?(?:;\s*|\sand\s)([^;]+?)\s+received/i);
+            if (match) {
+                rawPartnerName = match[1].trim();
+            }
+        }
+
+        const resolvedPartnerMgr = this.resolveManager(team2MgrId) || this.resolveManager(rawPartnerName) || (team2Name && team2Name !== 'Team 2' ? this.resolveManager(team2Name) : null);
+        if (resolvedPartnerMgr) {
+            team2MgrId = String(resolvedPartnerMgr.id || resolvedPartnerMgr.manager_id || '').toLowerCase();
+            rawPartnerName = resolvedPartnerMgr.alias || resolvedPartnerMgr.name || rawPartnerName;
+            if (!team2Name || team2Name === 'Team 2') {
+                team2Name = `${rawPartnerName}'s Team`;
+            }
+        }
+
+        const team2MgrName = this.getManagerDisplayName(team2MgrId, rawPartnerName || team2Name || 'Trade Partner');
+        if (!team2Name || team2Name === 'Team 2') {
+            team2Name = `${team2MgrName}'s Team`;
+        }
+        if (!team1Name || team1Name === 'Team 1') {
+            team1Name = `${team1MgrName}'s Team`;
+        }
 
         const team1Players = (Array.isArray(tx.added_players) ? tx.added_players : []).map(p => this.resolvePlayerName(p?.name || p)).filter(Boolean);
         const team2Players = (Array.isArray(tx.dropped_players) ? tx.dropped_players : (Array.isArray(tx.partner_added_players) ? tx.partner_added_players : [])).map(p => this.resolvePlayerName(p?.name || p)).filter(Boolean);
@@ -1318,6 +1343,7 @@ export class TransactionsEngine {
                 timestamp: tx.timestamp || tx.date || '',
                 team1: {
                     name: team1Name,
+                    teamName: team1Name,
                     managerId: team1MgrId,
                     managerName: team1MgrName,
                     players: team1Evaluations,
@@ -1337,6 +1363,7 @@ export class TransactionsEngine {
                 },
                 team2: {
                     name: team2Name,
+                    teamName: team2Name,
                     managerId: team2MgrId,
                     managerName: team2MgrName,
                     players: team2Evaluations,
@@ -1570,6 +1597,7 @@ export class TransactionsEngine {
             timestamp: tx.timestamp || tx.date || '',
             team1: {
                 name: team1Name,
+                teamName: team1Name,
                 managerId: team1MgrId,
                 managerName: team1MgrName,
                 players: team1Evaluations,
@@ -1589,6 +1617,7 @@ export class TransactionsEngine {
             },
             team2: {
                 name: team2Name,
+                teamName: team2Name,
                 managerId: team2MgrId,
                 managerName: team2MgrName,
                 players: team2Evaluations,
@@ -2795,7 +2824,7 @@ export class TransactionsEngine {
                     <h2>${data.playerName}</h2>
                     <p>${this.formatSeasonYear(data.season)} Transaction Throughline &middot; ${data.position} &middot; ${data.totalPoints} pts (+${data.vorpPoints} VORP, ${data.ppg} PPG in ${data.gamesPlayed} GP) &middot; ${data.ltiScore} LTI</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-throughline">&times;</button>
+                <button class="modal-close-btn" id="btn-close-throughline" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="throughline-content-body">
                 ${data.events.length === 0 ? `
@@ -2819,8 +2848,15 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-throughline')?.addEventListener('click', () => modal.close());
+        modal.addEventListener('click', (e) => {
+            const rect = modal.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                modal.close();
+            }
+        });
     }
 
     /**
@@ -2843,7 +2879,7 @@ export class TransactionsEngine {
                     <h2>How Transaction Acumen is Evaluated</h2>
                     <p>Landon Transaction Index (LTI) &middot; Starting Lineup Surplus &middot; Market Philosophy</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-methodology">&times;</button>
+                <button class="modal-close-btn" id="btn-close-methodology" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 
@@ -2892,6 +2928,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-methodology')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -2923,7 +2960,7 @@ export class TransactionsEngine {
                     <h2>How LTI Surplus is Calculated</h2>
                     <p>Zero-Sum Talent Conservation &middot; Games-Missed Proration &middot; Net Starting Equity</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-lti-surplus">&times;</button>
+                <button class="modal-close-btn" id="btn-close-lti-surplus" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-gold); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;">
@@ -2952,6 +2989,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-lti-surplus')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -2978,7 +3016,7 @@ export class TransactionsEngine {
                     <h2>How LTI Trading Rating is Calculated</h2>
                     <p>Composite 1-99 Acumen Scale &middot; Activity Incentives &middot; Market Participation</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-trading-score">&times;</button>
+                <button class="modal-close-btn" id="btn-close-trading-score" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-gold); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;">
@@ -3014,6 +3052,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-trading-score')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -3040,7 +3079,7 @@ export class TransactionsEngine {
                     <h2>How Trade Records & Verdicts are Evaluated</h2>
                     <p>Harmonized LTI &middot; Weekly Lineup Margin &middot; 2-for-1 Consolidation &middot; Statistical Extrapolation</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-trade-record">&times;</button>
+                <button class="modal-close-btn" id="btn-close-trade-record" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-gold); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;">
@@ -3099,6 +3138,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-trade-record')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -3125,7 +3165,7 @@ export class TransactionsEngine {
                     <h2>How LTI Pickup Rating is Calculated</h2>
                     <p>Composite 1-99 Acumen Scale &middot; Net Production per Move &middot; Market Activity</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-pickup-rating">&times;</button>
+                <button class="modal-close-btn" id="btn-close-pickup-rating" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-gold); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;">
@@ -3162,6 +3202,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-pickup-rating')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -3188,7 +3229,7 @@ export class TransactionsEngine {
                     <h2>How Average Added LTI is Calculated</h2>
                     <p>Talent Caliber &middot; Value Over Replacement (VORP) &middot; Baseline Calibration</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-avg-added-lti">&times;</button>
+                <button class="modal-close-btn" id="btn-close-avg-added-lti" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-gold); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;">
@@ -3216,6 +3257,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-avg-added-lti')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -3242,7 +3284,7 @@ export class TransactionsEngine {
                     <h2>Standardizing FAAB Budgets &amp; Waiver Priority Eras</h2>
                     <p>Budget Normalization &middot; Capital Coercion &middot; Free Agent Efficiency</p>
                 </div>
-                <button class="modal-close-btn" id="btn-close-faab-waiver-coercion">&times;</button>
+                <button class="modal-close-btn" id="btn-close-faab-waiver-coercion" onclick="this.closest('dialog').close()">&times;</button>
             </div>
             <div class="tx-methodology-content" style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary);">
                 <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid var(--accent-gold); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0;">
@@ -3277,6 +3319,7 @@ export class TransactionsEngine {
             </div>
         `;
 
+        modal.scrollTop = 0;
         modal.showModal();
         document.getElementById('btn-close-faab-waiver-coercion')?.addEventListener('click', () => modal.close());
         modal.addEventListener('click', (e) => {
@@ -4518,8 +4561,16 @@ export class TransactionsEngine {
             if (this.filterManager !== 'all') {
                 const targetMgr = String(this.filterManager).toLowerCase();
                 const m1 = String(tx.manager_id || '').toLowerCase();
-                const m2 = String(tx.trade_partner_manager_id || '').toLowerCase();
-                if (m1 !== targetMgr && m2 !== targetMgr) return false;
+                let m2 = String(tx.trade_partner_manager_id || '').toLowerCase();
+                if (!m2 && tx.trade_partner_manager_name) {
+                    const resolved = this.resolveManager(tx.trade_partner_manager_name);
+                    if (resolved) m2 = String(resolved.id || resolved.manager_id || '').toLowerCase();
+                }
+                const m1Obj = this.resolveManager(m1) || this.resolveManager(tx.manager_name);
+                const m2Obj = this.resolveManager(m2) || this.resolveManager(tx.trade_partner_manager_name);
+                const m1Id = m1Obj ? String(m1Obj.id || m1Obj.manager_id || '').toLowerCase() : m1;
+                const m2Id = m2Obj ? String(m2Obj.id || m2Obj.manager_id || '').toLowerCase() : m2;
+                if (m1Id !== targetMgr && m2Id !== targetMgr) return false;
             }
 
             if (this.filterSearch) {

@@ -214,6 +214,8 @@ export class NewsletterTriggerEvaluator {
         this.seasonsMetadata = Array.isArray(data.seasonsMetadata) ? data.seasonsMetadata : (data.seasonsMetadata?.seasonsMetadata || []);
         this.nflGames = Array.isArray(data.nflGames) ? data.nflGames : (data.nflGames?.nflGames || []);
         this.claims = data.claims || {};
+        this.seasonLabelConvention = data.leagueSettings?.seasonLabelConvention || (this.leagueId === 'dmsfantasy' ? 'championship' : 'kickoff');
+        this.isChampionship = this.seasonLabelConvention === 'championship';
         
         // Build fast lookup maps
         this.managerMap = new Map();
@@ -224,6 +226,22 @@ export class NewsletterTriggerEvaluator {
 
         // Compute baseline distributions
         this.computeLeagueDistributions();
+    }
+
+    formatSeason(year) {
+        if (!year || year === 'never' || year === 'none') return `${year}`;
+        const yrStr = String(year).trim();
+        if (/^\d{4}[-–]\d{4}$/.test(yrStr)) {
+            return yrStr.replace('–', '-');
+        }
+        const num = Number(year);
+        if (isNaN(num)) return `${year}`;
+
+        if (this.isChampionship) {
+            return `${num - 1}-${num}`;
+        } else {
+            return `${num}-${num + 1}`;
+        }
     }
 
     getManagerName(id) {
@@ -2251,6 +2269,7 @@ export class NewsletterTriggerEvaluator {
                     let h2hLuckNarrative = '';
                     let h2hDynamic = '';
                     let oppH2hRecordText = '';
+                    let oppLuckBreakdown = '';
                     const h2hGapText = Math.abs(myTotalH2hPts - oppTotalH2hPts).toFixed(1);
                     const avgH2hGap = pastH2hCount > 0 ? (Math.abs(myTotalH2hPts - oppTotalH2hPts) / pastH2hCount) : 0;
                     const isRazorThin = avgH2hGap <= 4.0 && Math.abs(myTotalH2hPts - oppTotalH2hPts) <= 15.0;
@@ -2262,6 +2281,7 @@ export class NewsletterTriggerEvaluator {
                         oppH2hRecordText = 'Inaugural Meeting (0-0)';
                         h2hLuckNarrative = `having never crossed paths with ${oppManagerName} in regular season action, offering a clean slate to reverse fortunes with zero historical baggage`;
                         h2hDynamic = `with no shared history to weigh them down, Sunday presents an immediate opportunity to turn their luck around`;
+                        oppLuckBreakdown = `Sunday marks their inaugural regular season clash, presenting ${myManagerName} with a clean slate to begin reversing their schedule fortunes against ${oppManagerName}.`;
                     } else {
                         if (oppH2hWins > oppH2hLosses) {
                             oppH2hRecordText = `${myManagerName} leading ${oppH2hWins}-${oppH2hLosses}`;
@@ -2273,22 +2293,26 @@ export class NewsletterTriggerEvaluator {
 
                         if (closeGames > 0) {
                             if (oppCloseWins > myCloseWins) {
-                                h2hLuckNarrative = `dropping ${oppCloseWins} of ${closeGames} one-possession nail-biters to ${oppManagerName} despite ${gapDescription}`;
-                                h2hDynamic = `where agonizing bad beats against ${oppManagerName} have mirrored their league-wide curse`;
+                                h2hLuckNarrative = `dropping ${oppCloseWins} of ${closeGames} close contests decided by single digits to ${oppManagerName} despite ${gapDescription}`;
+                                h2hDynamic = `where agonizing close-game bad beats against ${oppManagerName} have directly mirrored their broader schedule curse`;
+                                oppLuckBreakdown = `history shows that schedule curse extends directly into their series: ${myManagerName} has dropped ${oppCloseWins} of ${closeGames} close contests decided by single digits to ${oppManagerName}, despite the two franchises being separated by just ${h2hGapText} total points across their ${pastH2hCount} regular season meetings.`;
                             } else if (myCloseWins > oppCloseWins) {
-                                h2hLuckNarrative = `managing to steal ${myCloseWins} of ${closeGames} tight finishes against ${oppManagerName} despite their league-wide curse`;
-                                h2hDynamic = `where their clutch luck against ${oppManagerName} has miraculously defied their league-wide curse`;
+                                h2hLuckNarrative = `managing to capture ${myCloseWins} of ${closeGames} close contests decided by single digits against ${oppManagerName} despite their league-wide curse`;
+                                h2hDynamic = `where their clutch fortune against ${oppManagerName} has miraculously defied their league-wide misfortune`;
+                                oppLuckBreakdown = `interestingly, ${myManagerName}'s luck has flipped against this week's opponent: despite broader schedule cruelty, ${myManagerName} has managed to capture ${myCloseWins} of ${closeGames} close contests decided by single digits against ${oppManagerName}.`;
                             } else {
-                                h2hLuckNarrative = `splitting ${closeGames} one-possession thrillers down the middle with ${oppManagerName}`;
-                                h2hDynamic = `in a dead-heat series that has played to pure chalk`;
+                                h2hLuckNarrative = `splitting ${closeGames} matchups decided by single digits down the middle with ${oppManagerName} (${myCloseWins}-${oppCloseWins})`;
+                                h2hDynamic = `in a series where neither side has held a karmic edge in close finishes`;
+                                oppLuckBreakdown = `luck has played to an even draw: the two have split ${closeGames} matchups decided by single digits down the middle (${myCloseWins}-${oppCloseWins}), with neither side holding a karmic edge in tight finishes.`;
                             }
                         } else {
-                            h2hLuckNarrative = `with their matchups decided primarily by clean-cut margins and zero fluky bounces`;
+                            h2hLuckNarrative = `with their matchups decided primarily by decisive margins and zero fluke finishes`;
                             h2hDynamic = Math.abs(oppH2hWins - oppH2hLosses) <= 1 
-                                ? 'playing to dead-even chalk with no fluke finishes' 
+                                ? 'playing to clean-cut form with no fluke finishes' 
                                 : (oppH2hLosses > oppH2hWins 
                                     ? `facing a decisive historical uphill climb against ${oppManagerName}` 
                                     : `holding a commanding historical cushion over ${oppManagerName}`);
+                            oppLuckBreakdown = `luck has taken a back seat: all ${pastH2hCount} previous meetings have been decided by double digits, leaving little room for schedule variance to dictate the outcome.`;
                         }
                     }
 
@@ -2317,6 +2341,8 @@ export class NewsletterTriggerEvaluator {
                             h2hLuckNarrative: h2hLuckNarrative,
                             h2h_dynamic: h2hDynamic,
                             h2hDynamic: h2hDynamic,
+                            opp_luck_breakdown: oppLuckBreakdown,
+                            oppLuckBreakdown: oppLuckBreakdown,
                             past_h2h_count: pastH2hCount,
                             pastH2hCount: pastH2hCount,
                             wk1_all_play_record: `${playMetrics.w1AllplayWins}-${playMetrics.w1AllplayLosses}`,
@@ -2684,6 +2710,97 @@ export class NewsletterTriggerEvaluator {
             if (rookieStarters.length > 0) {
                 const rookie = rookieStarters[0];
                 const rPos = rookie.position || rookie.roster_slot || 'RB';
+                const posLabelMap = {
+                    'RB': 'running back',
+                    'WR': 'wide receiver',
+                    'QB': 'quarterback',
+                    'TE': 'tight end'
+                };
+                const posLabel = posLabelMap[rPos] || rPos;
+
+                // Discover historical Week 1 rookie starts at this position for mid
+                const pastMgrSeasons = Array.from(new Set(
+                    (this.playerStats || [])
+                        .filter(s => String(s.manager_id).toLowerCase() === mid && Number(s.season || s.year) < this.season)
+                        .map(s => Number(s.season || s.year))
+                )).sort((a, b) => b - a);
+
+                let lastRookieSeason = null;
+                let lastRookiePlayer = null;
+
+                for (const pastYr of pastMgrSeasons) {
+                    const pastW1Starters = (this.playerStats || []).filter(s => 
+                        String(s.manager_id).toLowerCase() === mid && 
+                        Number(s.week) === 1 && 
+                        s.is_starter && 
+                        Number(s.season || s.year) === pastYr &&
+                        (s.position === rPos || s.roster_slot === rPos || (rPos === 'RB' && (s.position === 'RB' || s.roster_slot === 'RB' || s.roster_slot === 'FLEX' || s.roster_slot === 'W/R/T')))
+                    );
+
+                    for (const starter of pastW1Starters) {
+                        const normStarterName = normalizeName(starter.player_name || starter.playerName);
+                        if (!normStarterName) continue;
+
+                        const draftedBefore = this.draftResults.some(d => Number(d.season || d.year) < pastYr && normalizeName(d.player_name) === normStarterName);
+                        if (draftedBefore) continue;
+
+                        const statsBefore = (this.playerStats || []).some(s => Number(s.season || s.year) < pastYr && normalizeName(s.player_name || s.playerName) === normStarterName);
+                        if (statsBefore) continue;
+
+                        let isPastRookie = false;
+                        if (starter.rookie_year !== undefined && Number(starter.rookie_year) === pastYr) isPastRookie = true;
+                        if (starter.draft_year !== undefined && Number(starter.draft_year) === pastYr) isPastRookie = true;
+                        if (starter.years_exp === 0) isPastRookie = true;
+                        if (starter.experience === 'R' || starter.experience === '0') isPastRookie = true;
+
+                        if (!isPastRookie && pastYr > this.estYear) {
+                            const wasDraftedInPastYr = this.draftResults.some(d => Number(d.season || d.year) === pastYr && normalizeName(d.player_name) === normStarterName);
+                            if (wasDraftedInPastYr) {
+                                isPastRookie = true;
+                            }
+                        }
+
+                        if (isPastRookie) {
+                            lastRookieSeason = pastYr;
+                            lastRookiePlayer = starter.player_name || starter.playerName;
+                            break;
+                        }
+                    }
+                    if (lastRookieSeason !== null) break;
+                }
+
+                const numPastSeasons = pastMgrSeasons.length || (this.season - this.estYear);
+                const startYear = pastMgrSeasons[pastMgrSeasons.length - 1] || this.estYear;
+                const formattedLastRookieYear = lastRookieSeason !== null ? this.formatSeason(lastRookieSeason) : 'never';
+                const formattedStartYear = this.formatSeason(startYear);
+
+                let droughtYears = numPastSeasons;
+                let traditionYears = numPastSeasons;
+                let traditionPhrase = 'an 8-year';
+                let rookieHistoryText = '';
+                let rookieHistorySentence = '';
+
+                if (lastRookieSeason !== null) {
+                    droughtYears = this.season - lastRookieSeason;
+                    traditionYears = droughtYears;
+                    traditionPhrase = (traditionYears === 8 || traditionYears === 11 || String(traditionYears).startsWith('8')) 
+                        ? `an ${traditionYears}-year` 
+                        : `a ${traditionYears}-year`;
+                    rookieHistoryText = `with their last Week 1 rookie ${posLabel} start coming back in the ${formattedLastRookieYear} season with ${lastRookiePlayer}`;
+                    rookieHistorySentence = `History shows ${this.getManagerName(mid)} has not started a rookie ${posLabel} on kickoff weekend since the ${formattedLastRookieYear} season (${lastRookiePlayer}), snapping ${traditionPhrase} veteran streak.`;
+                } else {
+                    droughtYears = numPastSeasons;
+                    traditionYears = numPastSeasons;
+                    traditionPhrase = (traditionYears === 8 || traditionYears === 11 || String(traditionYears).startsWith('8')) 
+                        ? `an ${traditionYears}-year` 
+                        : `a ${traditionYears}-year`;
+                    rookieHistoryText = numPastSeasons > 0 
+                        ? `having never started a rookie ${posLabel} on kickoff weekend in their ${numPastSeasons}-season franchise history (dating back to ${startYear})` 
+                        : `marking an opening-day rookie start in their inaugural campaign`;
+                    rookieHistorySentence = numPastSeasons > 0 
+                        ? `History shows ${this.getManagerName(mid)} has never started a rookie ${posLabel} on kickoff weekend across ${numPastSeasons} previous seasons dating back to ${startYear}.` 
+                        : `This marks their inaugural season in the league.`;
+                }
 
                 const oppMatchup = currentMatchups.find(m => 
                     String(m.team_1_manager_id || m.home_manager_id).toLowerCase() === mid || 
@@ -2709,12 +2826,20 @@ export class NewsletterTriggerEvaluator {
                         manager_name: this.getManagerName(mid),
                         rookie_name: rookie.player_name,
                         rookie_pos: rPos,
+                        rookie_pos_full: posLabel,
                         nfl_team: NFL_TEAM_NAMES[normalizeTeamAbbr(rookie.nfl_team)] || rookie.nfl_team,
                         opponent_name: oppName,
                         seasons_phrase: seasonsPhrase,
                         campaign_count: campaignCount,
-                        year_streak: 'veteran-first',
-                        veteran_years: `${this.estYear} to ${this.season - 1}`,
+                        year_streak: `${traditionYears}-year`,
+                        tradition_years: traditionYears,
+                        tradition_phrase: traditionPhrase,
+                        drought_years: droughtYears,
+                        last_rookie_year: formattedLastRookieYear,
+                        last_rookie_player: lastRookiePlayer || 'none',
+                        rookie_history_text: rookieHistoryText,
+                        rookie_history_sentence: rookieHistorySentence,
+                        veteran_years: `${startYear} to ${this.season - 1}`,
                         streak_context: `bypassing seasoned veterans to start a true rookie on kickoff weekend`,
                         week_num: this.week
                     },
@@ -2831,9 +2956,11 @@ export class NewsletterTriggerEvaluator {
                         const z = streakLen >= 5 ? 3.4 : 2.8;
 
                         const lossOpponentsList = pastLossDetails.map(d => `${d.opponent} in ${d.year}`).join(', ');
+                        const formattedLastWinYear = lastWinYear ? lastWinYear : 'never';
+                        const formattedStartYear = pastLossDetails[pastLossDetails.length - 1]?.year || (this.season - streakLen);
                         const openerHistoryText = lastWinYear === null
                             ? `having gone winless all-time on opening day with consecutive Week 1 losses to ${lossOpponentsList}`
-                            : `with their last kickoff weekend triumph coming back in ${lastWinYear} when defeating ${lastWinOpp}`;
+                            : `with their last kickoff weekend triumph coming back in ${formattedLastWinYear} when defeating ${lastWinOpp}`;
 
                         candidates.push({
                             trigger_id: 'WEEK1_HISTORICAL_STREAK',
@@ -2844,8 +2971,8 @@ export class NewsletterTriggerEvaluator {
                             tokens: {
                                 manager_name: this.getManagerName(mid),
                                 streak_len: streakLen,
-                                start_year: pastLossDetails[pastLossDetails.length - 1]?.year || (this.season - streakLen),
-                                last_win_year: lastWinYear || 'never',
+                                start_year: formattedStartYear,
+                                last_win_year: formattedLastWinYear,
                                 last_win_opp: lastWinOpp || 'none',
                                 loss_history: lossOpponentsList,
                                 opener_history_text: openerHistoryText,

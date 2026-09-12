@@ -18,7 +18,7 @@ function formatTimestamp(ts) {
 }
 
 export class PowerRankingsEngine {
-    constructor({ leagueSlug = 'dmsfantasy', app = null, containerId = 'rankings', adminContainerId = 'admin-sec-power-rankings' } = {}) {
+    constructor({ leagueSlug = 'dmsfantasy', app = null, containerId = 'rankings', adminContainerId = 'admin-sec-power-rankings', initialData = null } = {}) {
         this.leagueSlug = leagueSlug;
         this.app = app;
         this.containerId = containerId;
@@ -34,7 +34,20 @@ export class PowerRankingsEngine {
         this.initialized = false;
         this.allBlurbsOpen = null; // null = follow default (live=open, archive=closed)
 
-        this.loadInitialFallback();
+        if (initialData && (initialData.current_ranking || (Array.isArray(initialData.archived_rankings) && initialData.archived_rankings.length > 0))) {
+            this.data = {
+                allowed_editors: initialData.allowed_editors || [],
+                current_ranking: this.normalizeEdition(initialData.current_ranking),
+                archived_rankings: Array.isArray(initialData.archived_rankings) ? initialData.archived_rankings.map(item => this.normalizeEdition(item)) : []
+            };
+            if (!this.data.current_ranking && this.data.archived_rankings.length > 0) {
+                this.data.current_ranking = this.data.archived_rankings[0];
+                this.data.archived_rankings = this.data.archived_rankings.slice(1);
+            }
+            this.initialized = true;
+        } else {
+            this.loadInitialFallback();
+        }
         this.init();
     }
 

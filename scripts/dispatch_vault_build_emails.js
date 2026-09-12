@@ -68,11 +68,60 @@ async function fetchJson(url) {
 
 import { VaultDraftEngine } from '../src/draft.js';
 
+export async function getThreadStore() {
+    const localCacheDir = path.join(__dirname, 'cache');
+    const localCachePath = path.join(localCacheDir, 'sent_message_threads.json');
+    let localThreads = {};
+    if (fs.existsSync(localCachePath)) {
+        try { localThreads = JSON.parse(fs.readFileSync(localCachePath, 'utf8')); } catch (_) {}
+    }
+    // Fetch remote threads if available
+    let remoteThreads = await fetchJson(`${FIREBASE_DB_URL}/sent_email_threads.json`);
+    const merged = { ...localThreads, ...(remoteThreads || {}) };
+
+    // Pre-seed known test message IDs for thefantasyvault.noreply@gmail.com
+    const testKey = 'thefantasyvault_noreply_gmail_com';
+    if (!merged[testKey]) merged[testKey] = {};
+    if (!merged[testKey]['newsletter']) merged[testKey]['newsletter'] = '<c90f6687-dab7-fe09-d556-9c68a0495970@gmail.com>';
+    if (!merged[testKey]['draft_grades']) merged[testKey]['draft_grades'] = '<156a1aee-e804-d84c-e98f-e911c0bb99d2@gmail.com>';
+
+    return merged;
+}
+
+export async function saveThreadId(email, type, messageId) {
+    if (!email || !type || !messageId) return;
+    const sanitizedEmail = email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const localCacheDir = path.join(__dirname, 'cache');
+    if (!fs.existsSync(localCacheDir)) fs.mkdirSync(localCacheDir, { recursive: true });
+    const localCachePath = path.join(localCacheDir, 'sent_message_threads.json');
+    let localThreads = {};
+    if (fs.existsSync(localCachePath)) {
+        try { localThreads = JSON.parse(fs.readFileSync(localCachePath, 'utf8')); } catch (_) {}
+    }
+    if (!localThreads[sanitizedEmail]) localThreads[sanitizedEmail] = {};
+    localThreads[sanitizedEmail][type] = messageId;
+    try { fs.writeFileSync(localCachePath, JSON.stringify(localThreads, null, 2), 'utf8'); } catch (_) {}
+
+    if (DB_SECRET) {
+        try {
+            await fetch(`${FIREBASE_DB_URL}/sent_email_threads/${sanitizedEmail}/${type}.json?auth=${DB_SECRET}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(messageId)
+            });
+        } catch (_) {}
+    }
+}
+
 export async function buildDispatchManifest() {
-    console.log('Fetching users and leagues from The Fantasy Vault...');
-    const [users, leaguesShallow] = await Promise.all([
+    const isCorrection = process.env.CORRECTION_MODE !== 'false';
+    const subjectPrefix = isCorrection ? 'Final Correspondence for Week 1: ' : '';
+
+    console.log('Fetching users, leagues, and email thread history from The Fantasy Vault...');
+    const [users, leaguesShallow, threadStore] = await Promise.all([
         fetchJson(`${FIREBASE_DB_URL}/users.json`),
-        fetchJson(`${FIREBASE_DB_URL}/leagues.json?shallow=true`)
+        fetchJson(`${FIREBASE_DB_URL}/leagues.json?shallow=true`),
+        getThreadStore()
     ]);
 
     const leagueSlugs = Object.keys(leaguesShallow || {});
@@ -92,7 +141,7 @@ export async function buildDispatchManifest() {
         ]);
 
         const leagueName = settings?.name || (slug === 'dmsfantasy' ? 'The Dumbarton Fantasy Football League' : slug);
-        const convention = (slug === 'dmsfantasy') ? 'kickoff' : (settings?.seasonLabelConvention || 'kickoff');
+        const convention = settings?.seasonLabelConvention || (slug === 'dmsfantasy' ? 'championship' : 'kickoff');
 
         const allDraft = Array.isArray(draftResults) ? draftResults : Object.values(draftResults || {});
         const mgrList = Array.isArray(managers) ? managers : (managers?.managers || Object.values(managers || {}));
@@ -112,11 +161,11 @@ export async function buildDispatchManifest() {
             }
         });
 
-        // Resolve latest draft season (e.g. 2027 raw in DMS which displays as 2026, 2026 in others)
+        // Resolve latest draft season (2027 for DMS, 2026 for others)
         const latestSeason = engine.seasons[0] || 2026;
         const seasonDisplayYear = Number(engine.formatSeasonYear(latestSeason)) || latestSeason;
         const firstYear = Number(settings?.firstYear || 2018);
-        const volume = (slug === 'dmsfantasy') ? 9 : Math.max(1, seasonDisplayYear - firstYear + 1);
+        const volume = Math.max(1, seasonDisplayYear - firstYear + 1);
 
         const analytics = engine.computeSeasonAnalytics(latestSeason);
         const draftLeaderboard = analytics.managerLeaderboard || [];
@@ -191,9 +240,7 @@ export async function buildDispatchManifest() {
             if (edition && edition.leadStory && edition.leadStory.headline) {
                 leadHeadline = cleanText(edition.leadStory.headline);
                 if (edition.leadStory.text) {
-                    const rawSnippet = cleanText(edition.leadStory.text);
-                    const match = rawSnippet.match(/^([^\.!?]+[\.!?]+(\s+[^\.!?]+[\.!?]+)?)/);
-                    leadSnippet = match ? match[1] : (rawSnippet.slice(0, 180) + '...');
+                    leadSnippet = cleanText(edition.leadStory.text);
                 }
             }
         } catch (e) {
@@ -272,12 +319,18 @@ export async function buildDispatchManifest() {
         // Strict manager name single source of truth: use admin-defined alias
         const cleanMgrName = cleanText(mGrade.managerName || claim.managerName || user.name || 'Manager');
         const cleanTeamName = cleanText(mGrade.teamName || `${cleanMgrName}'s Team`);
-        const leagueUrl = `https://thefantasyvault.com/vault.html?league=${leagueSlug}`;
+        const leagueUrl = `https://fantasyvault.vercel.app/${leagueSlug}`;
+
+        // Thread lookup
+        const sanitizedTo = email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const prevNewsletterMsgId = threadStore[sanitizedTo]?.['newsletter'] || threadStore['thefantasyvault_noreply_gmail_com']?.['newsletter'];
+        const prevDraftMsgId = threadStore[sanitizedTo]?.['draft_grades'] || threadStore['thefantasyvault_noreply_gmail_com']?.['draft_grades'];
 
         // 1. Weekly Newsletter Email
         const newsletterHtml = getNewsletterTemplateC({
             leagueName: lData.name,
             newsletterTitle: lData.newsletterTitle,
+            volume: lData.volume,
             weekNum: 1,
             seasonYear: lData.seasonDisplayYear,
             leadHeadline: lData.leadHeadline,
@@ -289,8 +342,10 @@ export async function buildDispatchManifest() {
             type: 'newsletter',
             leagueSlug,
             to: email,
-            subject: `CORRECTION: ${lData.newsletterTitle}: Week 1 (Vol. ${lData.volume} • Issue 1)`,
-            html: newsletterHtml
+            subject: `${subjectPrefix}${lData.newsletterTitle}: Week 1 (Vol. ${lData.volume} • Issue 1) - ${lData.leadHeadline}`,
+            html: newsletterHtml,
+            inReplyTo: prevNewsletterMsgId,
+            references: prevNewsletterMsgId
         });
 
         // 2. Draft Audit & Grades Email
@@ -312,8 +367,10 @@ export async function buildDispatchManifest() {
             type: 'draft_grades',
             leagueSlug,
             to: email,
-            subject: `CORRECTION: ${lData.name}: ${lData.seasonDisplayYear} Draft Audit - Your Grade is Finalized (${mGrade.grade})`,
-            html: draftHtml
+            subject: `${subjectPrefix}${lData.name}: ${lData.seasonDisplayYear} Draft Audit - Your Grade is Finalized (${mGrade.grade})`,
+            html: draftHtml,
+            inReplyTo: prevDraftMsgId,
+            references: prevDraftMsgId
         });
     }
 
@@ -335,7 +392,7 @@ async function main() {
     if (isDryRun) {
         console.log('\n[DRY RUN] Sample dispatches:');
         emails.slice(0, 4).forEach(e => {
-            console.log(`- [${e.leagueSlug}] [${e.type}] To: ${e.to} | Subject: ${e.subject}`);
+            console.log(`- [${e.leagueSlug}] [${e.type}] To: ${e.to} | In-Reply-To: ${e.inReplyTo || 'none'} | Subject: ${e.subject}`);
         });
         return;
     }
@@ -353,14 +410,22 @@ async function main() {
         let count = 0;
         for (const e of emails) {
             try {
-                const info = await transporter.sendMail({
+                const mailOptions = {
                     from: `"The Fantasy Vault" <${user}>`,
                     to: e.to,
                     subject: e.subject,
                     html: e.html
-                });
+                };
+                if (e.inReplyTo) {
+                    mailOptions.inReplyTo = e.inReplyTo;
+                    mailOptions.references = e.references || e.inReplyTo;
+                }
+                const info = await transporter.sendMail(mailOptions);
                 count++;
                 console.log(`[OK] (${count}/${emails.length}) Sent ${e.type} to ${e.to} [${e.leagueSlug}] - ${info.messageId}`);
+                if (info.messageId) {
+                    await saveThreadId(e.to, e.type, info.messageId);
+                }
             } catch (err) {
                 console.error(`[FAIL] Could not send ${e.type} to ${e.to}:`, err.message);
             }
@@ -382,15 +447,21 @@ async function main() {
             if (sentIds.has(emailId)) continue;
 
             try {
+                const payload = {
+                    to: e.to,
+                    email: e.to,
+                    from: '"The Fantasy Vault" <thefantasyvault.noreply@gmail.com>',
+                    subject: e.subject,
+                    html: e.html
+                };
+                if (e.inReplyTo) {
+                    payload.inReplyTo = e.inReplyTo;
+                    payload.references = e.references || e.inReplyTo;
+                }
                 const resp = await fetch('https://fantasyvault.vercel.app/api/email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: e.to,
-                        email: e.to,
-                        subject: e.subject,
-                        html: e.html
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 let data = {};
@@ -403,6 +474,9 @@ async function main() {
                 if (resp.ok && data.success) {
                     sentIds.add(emailId);
                     console.log(`[OK] (${sentIds.size}/${emails.length}) Dispatched ${e.type} to ${e.to} [${e.leagueSlug}]`);
+                    if (data.messageId) {
+                        await saveThreadId(e.to, e.type, data.messageId);
+                    }
                 } else if (resp.status === 400 && data.error && data.error.includes('Missing email, slug')) {
                     requiresRedeploy = true;
                     break;

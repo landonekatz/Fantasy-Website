@@ -52,7 +52,12 @@ export class CommissionerNotesEngine {
             archived_notes: []
         };
 
-        this.isLoaded = false;
+        if (options.initialData) {
+            this.mergeData(options.initialData);
+            this.isLoaded = true;
+        } else {
+            this.isLoaded = false;
+        }
         this.init();
     }
 
@@ -66,11 +71,13 @@ export class CommissionerNotesEngine {
         try {
             const notesRef = dbRef(database, `leagues/${this.leagueSlug}/commissioner_notes`);
             
-            // Initial fetch
-            const snap = await get(notesRef).catch(() => null);
-            if (snap && snap.exists()) {
-                const val = snap.val();
-                this.mergeData(val);
+            // Initial fetch only if not pre-hydrated with initialData
+            if (!this.isLoaded) {
+                const snap = await get(notesRef).catch(() => null);
+                if (snap && snap.exists()) {
+                    const val = snap.val();
+                    this.mergeData(val);
+                }
             }
 
             // Real-time synchronization
@@ -205,6 +212,7 @@ export class CommissionerNotesEngine {
             container = document.getElementById('story');
         }
         if (!container) return;
+        container.style.display = '';
 
         // Sync Scroller Pill label if present
         const scrollerLinks = document.querySelectorAll('.scroller-pill');
@@ -759,11 +767,10 @@ export class CommissionerNotesEngine {
 
         // 1. Move old current_note to archived_notes (skip if it's the default placeholder)
         const isOldNoteDefault = Boolean(
-            this.data.current_note?.is_default ||
-            (this.data.current_note?.id && this.data.current_note.id.startsWith('note_init_')) ||
+            (!this.data.current_note?.content || !this.data.current_note?.title) ||
             (this.data.current_note?.content && (
-                this.data.current_note.content.trim().startsWith('(Notes from Commissioner will appear here') ||
-                this.data.current_note.content.trim().startsWith('(Commissioner notes will appear here')
+                this.data.current_note.content.trim().startsWith('(Notes from Commissioner') ||
+                this.data.current_note.content.trim().startsWith('(Commissioner notes')
             ))
         );
         if (this.data.current_note && !isOldNoteDefault && (this.data.current_note.content || this.data.current_note.title)) {

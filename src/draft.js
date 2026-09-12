@@ -401,6 +401,10 @@ export class VaultDraftEngine {
                 const name = String(m.managerName || '').toLowerCase();
                 return name.includes('landon');
             });
+            // Founder inspection mode: if inspecting a non-DMS league without a Landon profile, fallback to top leaderboard manager
+            if (!matched && managerLeaderboard.length > 0) {
+                matched = managerLeaderboard[0];
+            }
         }
 
         return matched || null;
@@ -676,21 +680,22 @@ export class VaultDraftEngine {
             }
         });
 
-        // Also check matchups for completed regular season weeks
+        // Also check matchups for completed regular season weeks (strictly when points have been scored)
         (this.matchups || []).forEach(m => {
             if (Number(m.year || m.season) === year && !m.is_playoff) {
                 const s1 = Number(m.home_score !== undefined ? m.home_score : m.team_1_actual_points) || 0;
                 const s2 = Number(m.away_score !== undefined ? m.away_score : m.team_2_actual_points) || 0;
-                if (s1 > 0 || s2 > 0 || (m.winner && m.winner !== 'UNDECIDED')) {
+                if (s1 > 0 || s2 > 0) {
                     const wk = Number(m.week) || 1;
                     if (wk > maxPlayedWeek) maxPlayedWeek = wk;
                 }
             }
         });
 
-        // Determine season status: unplayed vs in-progress vs completed
-        const isUnplayedSeason = (totalGamesPlayedInSeason === 0 && maxPlayedWeek === 0);
-        const isSeasonInProgress = !isUnplayedSeason && (maxPlayedWeek > 0 && maxPlayedWeek < fullRegularSeasonWeeks);
+        // Determine season status: unplayed / prospective vs in-progress vs completed
+        // Seasons with 0 played games or only early kickoff / Week 1 in progress evaluate prospective LPI draft grades
+        const isUnplayedSeason = (totalGamesPlayedInSeason === 0 || maxPlayedWeek <= 1);
+        const isSeasonInProgress = !isUnplayedSeason && (maxPlayedWeek > 1 && maxPlayedWeek < fullRegularSeasonWeeks);
         const maxRegularSeasonGames = isSeasonInProgress ? maxPlayedWeek : fullRegularSeasonWeeks;
 
         if (isSeasonInProgress) {
@@ -1916,16 +1921,20 @@ export class VaultDraftEngine {
                         </div>
 
                         <div class="draft-controls-group">
-                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">View:</span>
-                            <div class="draft-toggle-pill">
-                                <button id="btn-group-round" class="draft-toggle-btn ${this.displayGrouping === 'round' ? 'active' : ''}">By Round</button>
-                                <button id="btn-group-manager" class="draft-toggle-btn ${this.displayGrouping === 'manager' ? 'active' : ''}">By ${this.nameMode === 'team' ? 'Team' : 'Manager'}</button>
+                            <div class="draft-control-subgroup">
+                                <span class="draft-control-label">View:</span>
+                                <div class="draft-toggle-pill">
+                                    <button id="btn-group-round" class="draft-toggle-btn ${this.displayGrouping === 'round' ? 'active' : ''}">By Round</button>
+                                    <button id="btn-group-manager" class="draft-toggle-btn ${this.displayGrouping === 'manager' ? 'active' : ''}">By ${this.nameMode === 'team' ? 'Team' : 'Manager'}</button>
+                                </div>
                             </div>
 
-                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-left: 6px;">Names:</span>
-                            <div class="draft-toggle-pill">
-                                <button id="btn-toggle-mgr" class="draft-toggle-btn ${this.nameMode === 'manager' ? 'active' : ''}">Managers</button>
-                                <button id="btn-toggle-team" class="draft-toggle-btn ${this.nameMode === 'team' ? 'active' : ''}">Teams</button>
+                            <div class="draft-control-subgroup">
+                                <span class="draft-control-label">Names:</span>
+                                <div class="draft-toggle-pill">
+                                    <button id="btn-toggle-mgr" class="draft-toggle-btn ${this.nameMode === 'manager' ? 'active' : ''}">Managers</button>
+                                    <button id="btn-toggle-team" class="draft-toggle-btn ${this.nameMode === 'team' ? 'active' : ''}">Teams</button>
+                                </div>
                             </div>
                             <span class="scoring-format-badge">${analytics.scoringFormat}</span>
                         </div>

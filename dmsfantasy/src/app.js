@@ -68,6 +68,7 @@ class FantasyApp {
         };
         this.seasonLabelConvention = 'kickoff';
         this.isChampionshipYearConvention = false;
+        this.dataLoaded = false;
     }
 
     isRawChampionshipYearBasis() {
@@ -369,6 +370,7 @@ class FantasyApp {
         }
 
         await this.loadData();
+        this.dataLoaded = true;
 
         // 2. Private League Guard (Public by default)
         const isPrivate = Boolean(this.leagueSettings?.is_private);
@@ -419,9 +421,98 @@ class FantasyApp {
         this.setupH2HControls();
         this.renderH2H();
         this.checkAdminAccess();
-        if (this.activeTab === 'draft') {
-            this.renderDraft();
-        }
+        this.renderActiveTab();
+
+        // Seamlessly preload all remaining tabs in the background during idle time
+        this.preloadBackgroundTabs();
+    }
+
+    preloadBackgroundTabs() {
+        const scheduleTask = (fn, delay = 100) => {
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(() => fn(), { timeout: 2000 });
+            } else {
+                setTimeout(fn, delay);
+            }
+        };
+
+        // 1. Preload fast content during idle frames
+        scheduleTask(() => {
+            try {
+                if (!this.recordsRendered && this.activeTab !== 'records') {
+                    this.renderRecordBook();
+                    this.recordsRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading Record Book:', e);
+            }
+        }, 150);
+
+        scheduleTask(() => {
+            try {
+                if (!this.newsletterRendered && this.activeTab !== 'newsletter') {
+                    this.renderNewsletter();
+                    this.newsletterRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading Newsletter:', e);
+            }
+        }, 300);
+
+        scheduleTask(() => {
+            try {
+                if (!this.h2hRendered && this.activeTab !== 'h2h') {
+                    this.renderH2H();
+                    this.h2hRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading H2H:', e);
+            }
+        }, 450);
+
+        scheduleTask(() => {
+            try {
+                if (!this.paradigmsRendered && this.activeTab !== 'paradigms') {
+                    this.renderParadigms();
+                    this.paradigmsRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading Paradigms:', e);
+            }
+        }, 600);
+
+        scheduleTask(() => {
+            try {
+                if (!this.rivalryRendered && this.activeTab !== 'rivalry') {
+                    this.renderRivalryWeek();
+                    this.rivalryRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading Rivalry Week:', e);
+            }
+        }, 750);
+
+        scheduleTask(() => {
+            try {
+                if (!this.transactionsRendered && this.activeTab !== 'transactions') {
+                    this.renderTransactions();
+                    this.transactionsRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading Transactions:', e);
+            }
+        }, 900);
+
+        scheduleTask(() => {
+            try {
+                if (!this.draftRendered && this.activeTab !== 'draft') {
+                    this.renderDraft();
+                    this.draftRendered = true;
+                }
+            } catch (e) {
+                console.warn('Background preloading Draft:', e);
+            }
+        }, 1200);
     }
 
     showGuestNotice() {
@@ -771,13 +862,17 @@ class FantasyApp {
         // Fetch custom league settings, claims, users, and managers from Firebase RTDB
         this.users = {};
         try {
-            const [settingsSnap, claimsSnap, managersSnap, conventionSnap, usersSnap] = await Promise.all([
+            const [settingsSnap, claimsSnap, managersSnap, conventionSnap, usersSnap, notesSnap, prSnap] = await Promise.all([
                 get(dbRef(database, `leagues/dmsfantasy/league_settings`)).catch(() => null),
                 get(dbRef(database, `leagues/dmsfantasy/claims`)).catch(() => null),
                 get(dbRef(database, `leagues/dmsfantasy/managers`)).catch(() => null),
                 get(dbRef(database, `leagues/dmsfantasy/seasonLabelConvention`)).catch(() => null),
-                get(dbRef(database, `leagues/dmsfantasy/users`)).catch(() => null)
+                get(dbRef(database, `leagues/dmsfantasy/users`)).catch(() => null),
+                get(dbRef(database, `leagues/dmsfantasy/commissioner_notes`)).catch(() => null),
+                get(dbRef(database, `leagues/dmsfantasy/power_rankings`)).catch(() => null)
             ]);
+            this.preloadedNotes = notesSnap && notesSnap.exists() ? notesSnap.val() : null;
+            this.preloadedPR = prSnap && prSnap.exists() ? prSnap.val() : null;
             if (usersSnap && usersSnap.exists()) {
                 this.users = usersSnap.val() || {};
             }
@@ -868,7 +963,8 @@ class FantasyApp {
             app: this,
             containerId: 'story',
             scrollerPillId: 'scroller-pill-notes',
-            adminContainerId: 'admin-sec-notes'
+            adminContainerId: 'admin-sec-notes',
+            initialData: this.preloadedNotes
         });
 
         // Initialize unified Power Rankings Engine
@@ -876,8 +972,12 @@ class FantasyApp {
             leagueSlug: 'dmsfantasy',
             app: this,
             containerId: 'rankings',
-            adminContainerId: 'admin-sec-power-rankings'
+            adminContainerId: 'admin-sec-power-rankings',
+            initialData: this.preloadedPR
         });
+
+        try { if (this.notesEngine) this.notesEngine.render(); } catch (e) { console.warn('notesEngine render error:', e); }
+        try { if (this.powerRankingsEngine) this.powerRankingsEngine.render(); } catch (e) { console.warn('powerRankingsEngine render error:', e); }
     }
 
     refreshNicknamesUI() {
@@ -974,6 +1074,56 @@ class FantasyApp {
         }
     }
 
+    renderActiveTab() {
+        const tab = this.activeTab || 'home';
+        if (tab === 'home') {
+            if (!this.homeRendered) {
+                if (this.powerRankingsEngine) {
+                    this.powerRankingsEngine.containerId = 'rankings';
+                    this.powerRankingsEngine.render();
+                }
+                this.homeRendered = true;
+            }
+        } else if (tab === 'newsletter') {
+            if (!this.newsletterRendered) {
+                this.renderNewsletter();
+                this.newsletterRendered = true;
+            }
+        } else if (tab === 'h2h') {
+            if (!this.h2hRendered) {
+                this.renderH2H();
+                this.h2hRendered = true;
+            }
+        } else if (tab === 'records') {
+            if (!this.recordsRendered) {
+                this.renderRecordBook();
+                this.recordsRendered = true;
+            }
+        } else if (tab === 'draft') {
+            if (!this.draftRendered) {
+                this.renderDraft();
+                this.draftRendered = true;
+            }
+        } else if (tab === 'transactions') {
+            if (!this.transactionsRendered) {
+                this.renderTransactions();
+                this.transactionsRendered = true;
+            }
+        } else if (tab === 'rivalry') {
+            if (!this.rivalryRendered) {
+                this.renderRivalryWeek();
+                this.rivalryRendered = true;
+            }
+        } else if (tab === 'paradigms') {
+            if (!this.paradigmsRendered) {
+                this.renderParadigms();
+                this.paradigmsRendered = true;
+            }
+        } else if (tab === 'admin') {
+            this.renderAdminDashboard();
+        }
+    }
+
     setupNavigation() {
         const btnHome = document.getElementById('btn-tab-home');
         const btnNewsletter = document.getElementById('btn-tab-newsletter');
@@ -994,41 +1144,79 @@ class FantasyApp {
         const viewParadigms = document.getElementById('view-paradigms');
         const viewAdmin = document.getElementById('view-admin');
 
-        const switchTab = (tab) => {
+        const tabBtnMap = {
+            home: btnHome,
+            newsletter: btnNewsletter,
+            h2h: btnH2h,
+            records: btnRecords,
+            draft: btnDraft,
+            transactions: btnTransactions,
+            rivalry: btnRivalry,
+            paradigms: btnParadigms,
+            admin: btnAdmin
+        };
+
+        const tabViewMap = {
+            home: viewHome,
+            newsletter: viewNewsletter,
+            h2h: viewH2h,
+            records: viewRecords,
+            draft: viewDraft,
+            transactions: viewTransactions,
+            rivalry: viewRivalry,
+            paradigms: viewParadigms,
+            admin: viewAdmin
+        };
+
+        const validTabs = ['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'];
+        const parseTabFromLocation = () => {
+            const pathSegments = window.location.pathname.split('/').filter(Boolean);
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawHash = (window.location.hash || '').replace(/^#+/, '').split('?')[0].split('#')[0].toLowerCase().trim();
+            
+            let tabFromPath = '';
+            if (pathSegments.length > 1) {
+                const cand = pathSegments[1].toLowerCase().trim();
+                if (validTabs.includes(cand)) {
+                    tabFromPath = cand;
+                }
+            }
+
+            const tabParam = tabFromPath || urlParams.get('tab') || rawHash || 'home';
+            if (tabViewMap[tabParam]) return tabParam;
+            return 'home';
+        };
+
+        const switchTab = (tab, updateUrl = true) => {
+            if (!tabViewMap[tab]) return;
             this.activeTab = tab;
             [btnHome, btnNewsletter, btnH2h, btnRecords, btnDraft, btnTransactions, btnRivalry, btnParadigms, btnAdmin].forEach(btn => btn && btn.classList.remove('active'));
             [viewHome, viewNewsletter, viewH2h, viewRecords, viewDraft, viewTransactions, viewRivalry, viewParadigms, viewAdmin].forEach(view => view && view.classList.remove('active'));
 
-            const tabBtnMap = {
-                home: btnHome,
-                newsletter: btnNewsletter,
-                h2h: btnH2h,
-                records: btnRecords,
-                draft: btnDraft,
-                transactions: btnTransactions,
-                rivalry: btnRivalry,
-                paradigms: btnParadigms,
-                admin: btnAdmin
-            };
-
-            const tabViewMap = {
-                home: viewHome,
-                newsletter: viewNewsletter,
-                h2h: viewH2h,
-                records: viewRecords,
-                draft: viewDraft,
-                transactions: viewTransactions,
-                rivalry: viewRivalry,
-                paradigms: viewParadigms,
-                admin: viewAdmin
-            };
-
             const targetBtn = tabBtnMap[tab];
             const targetView = tabViewMap[tab];
 
-            // 1. Immediately highlight clicked tab button and activate target view
+            // 1. Immediately highlight clicked tab link and activate target view
             if (targetBtn) targetBtn.classList.add('active');
             if (targetView) targetView.classList.add('active');
+
+            // 2. Synchronize the browser URL and history state using clean slash paths
+            if (updateUrl) {
+                const baseSlug = 'dmsfantasy';
+                const targetPath = tab === 'home' ? `/${baseSlug}` : `/${baseSlug}/${tab}`;
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.delete('tab');
+                const searchStr = searchParams.toString() ? '?' + searchParams.toString() : '';
+                const targetUrl = `${targetPath}${searchStr}`;
+                const currentFull = window.location.pathname + (window.location.search ? window.location.search : '');
+                if (currentFull !== targetUrl || window.location.hash) {
+                    try {
+                        window.history.pushState({ tab }, '', targetUrl);
+                    } catch (e) {
+                        window.location.hash = tab === 'home' ? '' : '#' + tab;
+                    }
+                }
+            }
 
             if (tab === 'rivalry') {
                 document.body.classList.add('rivalry-dungeon-mode');
@@ -1042,7 +1230,7 @@ class FantasyApp {
                         background-image:
                             radial-gradient(circle at 50% 0%, rgba(230, 46, 45, 0.22) 0%, transparent 65%),
                             linear-gradient(180deg, rgba(10, 4, 5, 0.5) 0%, rgba(10, 4, 5, 0.8) 100%),
-                            url('${imgUrl}');
+                            url('${imgUrl}') !important;
                     }`;
                     document.head.appendChild(s);
                 }
@@ -1057,69 +1245,69 @@ class FantasyApp {
                 }
             }
 
-            // 2. If Transactions or Draft haven't rendered yet, show loading spinner immediately
-            if (tab === 'transactions' && !this.transactionsRendered) {
-                if (viewTransactions && !viewTransactions.querySelector('.page-scroller-bar')) {
-                    viewTransactions.innerHTML = `
-                        <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
-                            <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
-                            <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Transactions Tracker...</div>
-                        </div>
-                    `;
+            // 3. If data is still loading asynchronously, show loaders immediately and wait for loadData()
+            if (!this.dataLoaded) {
+                if (tab === 'transactions' && !this.transactionsRendered) {
+                    if (viewTransactions && !viewTransactions.querySelector('.page-scroller-bar')) {
+                        viewTransactions.innerHTML = `
+                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Transactions Tracker...</div>
+                            </div>
+                        `;
+                    }
+                } else if (tab === 'draft' && !this.draftRendered) {
+                    if (viewDraft && !viewDraft.querySelector('.draft-board-container')) {
+                        viewDraft.innerHTML = `
+                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Draft Central...</div>
+                            </div>
+                        `;
+                    }
+                } else if (tab === 'newsletter' && !this.newsletterRendered) {
+                    if (viewNewsletter && !viewNewsletter.querySelector('.newsletter-container')) {
+                        viewNewsletter.innerHTML = `
+                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading The Weekly Gazette...</div>
+                            </div>
+                        `;
+                    }
+                } else if (tab === 'records' && !this.recordsRendered) {
+                    if (viewRecords && !viewRecords.querySelector('.records-hero')) {
+                        viewRecords.innerHTML = `
+                            <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
+                                <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
+                                <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading The Record Book...</div>
+                            </div>
+                        `;
+                    }
                 }
-            } else if (tab === 'draft' && !this.draftRendered) {
-                if (viewDraft && !viewDraft.querySelector('.draft-board-container')) {
-                    viewDraft.innerHTML = `
-                        <div class="vault-tab-loader" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px; color: var(--text-muted);">
-                            <div class="vault-loading-spinner" style="margin-bottom: 16px;"></div>
-                            <div style="font-size: 0.95rem; font-weight: 700; color: #64748b;">Loading Draft Central...</div>
-                        </div>
-                    `;
-                }
+                return;
             }
 
-            // 3. Defer heavy execution by 20ms to yield to browser paint
-            setTimeout(() => {
-                if (tab === 'home') {
-                    if (this.powerRankingsEngine) {
-                        this.powerRankingsEngine.containerId = 'rankings';
-                        this.powerRankingsEngine.render();
-                    }
-                } else if (tab === 'newsletter') {
-                    this.renderNewsletter();
-                } else if (tab === 'h2h') {
-                    this.renderH2H();
-                } else if (tab === 'records') {
-                    this.renderRecordBook();
-                } else if (tab === 'draft') {
-                    this.renderDraft();
-                    this.draftRendered = true;
-                } else if (tab === 'transactions') {
-                    this.renderTransactions();
-                    this.transactionsRendered = true;
-                } else if (tab === 'rivalry') {
-                    if (typeof this.renderRivalryWeek === 'function') {
-                        this.renderRivalryWeek(document.getElementById('view-rivalry'));
-                    }
-                } else if (tab === 'paradigms') {
-                    this.renderParadigms();
-                } else if (tab === 'admin') {
-                    this.renderAdminDashboard();
-                }
-            }, 20);
-
+            // 4. Data is loaded -> render active tab immediately
+            this.renderActiveTab();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
+        this.switchTab = switchTab;
 
-        if (btnHome) btnHome.addEventListener('click', () => switchTab('home'));
-        if (btnNewsletter) btnNewsletter.addEventListener('click', () => switchTab('newsletter'));
-        if (btnH2h) btnH2h.addEventListener('click', () => switchTab('h2h'));
-        if (btnRecords) btnRecords.addEventListener('click', () => switchTab('records'));
-        if (btnDraft) btnDraft.addEventListener('click', () => switchTab('draft'));
-        if (btnTransactions) btnTransactions.addEventListener('click', () => switchTab('transactions'));
-        if (btnRivalry) btnRivalry.addEventListener('click', () => switchTab('rivalry'));
-        if (btnParadigms) btnParadigms.addEventListener('click', () => switchTab('paradigms'));
-        if (btnAdmin) btnAdmin.addEventListener('click', () => switchTab('admin'));
+        const baseSlug = 'dmsfantasy';
+        Object.entries(tabBtnMap).forEach(([tabName, el]) => {
+            if (el) {
+                const cleanHref = tabName === 'home' ? `/${baseSlug}` : `/${baseSlug}/${tabName}`;
+                el.setAttribute('href', cleanHref);
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (this.activeTab === tabName) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else {
+                        switchTab(tabName, true);
+                    }
+                });
+            }
+        });
 
         this.checkAdminAccess();
         window.addEventListener('vault_auth_changed', () => this.checkAdminAccess());
@@ -1139,19 +1327,28 @@ class FantasyApp {
             });
         });
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const cleanHash = window.location.hash.replace(/^#+/, '').split('#')[0].toLowerCase().trim();
-        const tabParam = urlParams.get('tab') || cleanHash;
-        if (['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(tabParam)) {
-            switchTab(tabParam);
+        const initialTab = parseTabFromLocation();
+        switchTab(initialTab, false);
+
+        // Seamlessly upgrade legacy hash (#tab) or query (?tab=) to clean slash URL
+        const expectedPath = initialTab === 'home' ? `/${baseSlug}` : `/${baseSlug}/${initialTab}`;
+        if (window.location.hash || window.location.search.includes('tab=')) {
+            const cleanSearch = new URLSearchParams(window.location.search);
+            cleanSearch.delete('tab');
+            const searchStr = cleanSearch.toString() ? '?' + cleanSearch.toString() : '';
+            try {
+                window.history.replaceState({ tab: initialTab }, '', `${expectedPath}${searchStr}`);
+            } catch (e) {}
         }
 
-        window.addEventListener('hashchange', () => {
-            const hashTab = window.location.hash.replace(/^#+/, '').split('#')[0].toLowerCase().trim();
-            if (hashTab && ['home', 'newsletter', 'h2h', 'records', 'draft', 'transactions', 'rivalry', 'paradigms', 'admin'].includes(hashTab)) {
-                switchTab(hashTab);
+        const handleLocationChange = () => {
+            const currentTab = parseTabFromLocation();
+            if (currentTab !== this.activeTab) {
+                switchTab(currentTab, false);
             }
-        });
+        };
+        window.addEventListener('popstate', handleLocationChange);
+        window.addEventListener('hashchange', handleLocationChange);
     }
 
     renderParadigms() {
@@ -3648,6 +3845,8 @@ class FantasyApp {
             </div>
         `;
 
+        modal.scrollTop = 0;
+        if (modalContent) modalContent.scrollTop = 0;
         if (typeof modal.showModal === 'function') {
             modal.showModal();
         } else {

@@ -74,6 +74,22 @@ export class NewsletterEngine {
         this.isLoaded = false;
     }
 
+    updateData(options = {}) {
+        if (options.app) this.app = options.app;
+        if (options.leagueSettings) this.leagueSettings = options.leagueSettings;
+        if (options.newsletterTitle) this.newsletterTitle = options.newsletterTitle;
+        if (options.managers !== undefined) this.managers = options.managers || [];
+        if (options.matchups !== undefined) this.matchups = options.matchups || [];
+        if (options.standings !== undefined) this.standings = options.standings || [];
+        if (options.playerStats !== undefined) this.playerStats = options.playerStats || [];
+        if (options.draftResults !== undefined) this.draftResults = options.draftResults || [];
+        if (options.transactions !== undefined) this.transactions = options.transactions || [];
+        if (options.seasonsMetadata !== undefined) this.seasonsMetadata = options.seasonsMetadata || [];
+        if (options.nflGames !== undefined) this.nflGames = options.nflGames || [];
+        if (options.claims !== undefined) this.claims = options.claims;
+        this.isLoaded = false;
+    }
+
     setNewsletterTitle(newTitle) {
         this.newsletterTitle = newTitle || 'The Weekly Gazette';
         if (this.renderer) {

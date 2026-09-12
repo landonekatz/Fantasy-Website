@@ -30,7 +30,7 @@ Fantasy-Website/
 
 ### 1. The Fantasy Vault Hub
 - **Location**: Root directory (`/`)
-- **Domain**: `thefantasyvault.com`
+- **Domain**: `https://fantasyvault.vercel.app/`
 - **Role**: Platform landing hub, SaaS onboarding demo, league switcher.
 
 ### 2. The Dumbarton Fantasy Football League HQ
@@ -77,4 +77,8 @@ Fantasy-Website/
 
 ### 8. Manager Name & Alias Single Source of Truth
 - All references to manager names anywhere on the site (landing hub, headers, cards, modals, tabs, record book, rivalry history, newsletters, dossiers, etc.) MUST be exactly the aliases defined by the admin during import (which are stored in the admin dashboard and `managers` data / `name` / `alias`). Never use last names, never split compound first names (e.g. never split Benjamin into Ben Jamin), and never override an admin-defined alias with a user claim account's external full name or email across any league.
+
+### 9. Platform Site URL Single Source of Truth
+- The official live URL of the platform is `https://fantasyvault.vercel.app/`.
+- All outgoing email links, redirects, references, and documentation must use `https://fantasyvault.vercel.app/` as the canonical platform domain.
 

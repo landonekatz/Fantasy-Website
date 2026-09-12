@@ -90,9 +90,35 @@ const RIVALRY_PAIRS = [
   }
 ];
 
+const envPath = path.join(rootDir, '.env.local');
+try {
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    lines.forEach(l => {
+      const trimmed = l.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx !== -1) {
+        const k = trimmed.substring(0, eqIdx).trim();
+        const v = trimmed.substring(eqIdx + 1).trim();
+        if (!process.env[k]) process.env[k] = v;
+      }
+    });
+  }
+} catch (e) {}
+
+const DB_SECRET = process.env.FIREBASE_DATABASE_SECRET || process.env.FIREBASE_DB_SECRET || process.env.FIREBASE_AUTH_TOKEN || '';
+
+function buildUrl(subPath) {
+  const params = new URLSearchParams();
+  if (DB_SECRET) params.set('auth', DB_SECRET);
+  const qStr = params.toString() ? `?${params.toString()}` : '';
+  return `${FIREBASE_DB_URL}/${subPath}.json${qStr}`;
+}
+
 async function putToFirebase(subPath, data) {
-  const url = `${FIREBASE_DB_URL}/${subPath}.json`;
-  console.log(`Writing to ${url}...`);
+  const url = buildUrl(subPath);
+  console.log(`Writing to ${subPath}...`);
   const res = await fetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -263,13 +289,19 @@ async function seedData() {
       year: yr,
       season: yr,
       type: t.type || 'waiver',
-      action_type: t.type || 'waiver',
+      action_type: t.action_type || t.type || 'waiver',
       team_name: t.team_name || '',
       manager_id: t.manager_id || '',
       manager_name: mgrIdToName.get(t.manager_id) || t.manager_name || '',
+      trade_partner_team: t.trade_partner_team || '',
+      trade_partner_manager_id: t.trade_partner_manager_id || '',
+      trade_partner_manager_name: (t.trade_partner_manager_id && mgrIdToName.get(t.trade_partner_manager_id)) || t.trade_partner_manager_name || '',
       added_players: Array.isArray(t.added_players) ? t.added_players : [],
       dropped_players: Array.isArray(t.dropped_players) ? t.dropped_players : [],
       traded_players: Array.isArray(t.traded_players) ? t.traded_players : [],
+      partner_added_players: Array.isArray(t.partner_added_players) ? t.partner_added_players : [],
+      partner_dropped_players: Array.isArray(t.partner_dropped_players) ? t.partner_dropped_players : [],
+      draft_picks: Array.isArray(t.draft_picks) ? t.draft_picks : [],
       details: t.details || '',
       faab_bid: Number(t.faab_bid) || 0,
       timestamp: t.timestamp || ''
@@ -311,17 +343,26 @@ async function seedData() {
   });
   console.log(`Processed ${standardizedStats.length} weekly player stats.`);
 
-  // 7. League Settings
+  // 7. League Settings (preserving existing admin credentials, join codes, and scoring rules)
+  let existingSettings = {};
+  try {
+    const sRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/league_settings.json`);
+    if (sRes.ok) existingSettings = (await sRes.json()) || {};
+  } catch (e) {
+    console.warn('Could not fetch existing league settings:', e.message);
+  }
+
   const leagueSettings = {
+    ...existingSettings,
     name: "The Dumbarton Fantasy Football League",
     tagline: "In a league of our own",
     subtitle: "In a league of our own",
     firstYear: 2018,
-    lastYear: 2026,
+    lastYear: 2027,
     totalSeasons: 10,
     platform: "yahoo",
     scoring_format: "Half-PPR (0.5)",
-    seasonLabelConvention: "kickoff", // Stored years 2018-2027 are already display years!
+    seasonLabelConvention: "championship",
     allow_nicknames: true
   };
 
@@ -351,7 +392,7 @@ async function seedData() {
   await putToFirebase('leagues/dmsfantasy/power_rankings', paradigmsPowerRankings);
   await putToFirebase('leagues/dmsfantasy/rivalries', RIVALRY_PAIRS);
   await putToFirebase('leagues/dmsfantasy/paradigms', paradigms);
-  await putToFirebase('leagues/dmsfantasy/seasonLabelConvention', 'kickoff');
+  await putToFirebase('leagues/dmsfantasy/seasonLabelConvention', 'championship');
 
   // Push weekly player stats
   console.log('Uploading weekly player stats (this may take a few seconds)...');

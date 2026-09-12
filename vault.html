@@ -16,8 +16,15 @@
   (function() {
     try {
       var urlParams = new URLSearchParams(window.location.search);
-      var pathSlug = urlParams.get('league') || urlParams.get('slug') || window.location.pathname.replace(/^\/|\/$/g, '');
-      if (pathSlug === 'vault.html' || pathSlug === 'vault' || !pathSlug) {
+      var pathSegments = window.location.pathname.split('/').filter(Boolean);
+      var pathSlug = urlParams.get('league') || urlParams.get('slug');
+      if (!pathSlug && pathSegments.length > 0) {
+        var first = pathSegments[0];
+        if (first !== 'vault.html' && first !== 'vault') {
+          pathSlug = first;
+        }
+      }
+      if (!pathSlug) {
         pathSlug = sessionStorage.getItem('vault_nav_slug') || localStorage.getItem('vault_last_league') || '';
       }
       var clean = (pathSlug || '').toLowerCase().trim();
@@ -82,15 +89,15 @@
       })();
     </script>
     <nav id="top-nav">
-        <button id="btn-tab-home" class="top-nav-btn active">League Home</button>
-        <button id="btn-tab-newsletter" class="top-nav-btn">Newsletter</button>
-        <button id="btn-tab-h2h" class="top-nav-btn">Head-to-Head History</button>
-        <button id="btn-tab-records" class="top-nav-btn">The Record Book</button>
-        <button id="btn-tab-draft" class="top-nav-btn">Draft Central</button>
-        <button id="btn-tab-transactions" class="top-nav-btn">Transactions Tracker</button>
-        <button id="btn-tab-rivalry" class="top-nav-btn" style="display: none;">Rivalry Week</button>
-        <button id="btn-tab-paradigms" class="top-nav-btn">Explore Paradigms</button>
-        <button id="btn-tab-admin" class="top-nav-btn admin-nav-btn" style="display: none;">Admin Dashboard <span class="admin-nav-badge">Admin</span></button>
+        <a id="btn-tab-home" href="#home" class="top-nav-btn active">League Home</a>
+        <a id="btn-tab-newsletter" href="#newsletter" class="top-nav-btn">Newsletter</a>
+        <a id="btn-tab-h2h" href="#h2h" class="top-nav-btn">Head-to-Head History</a>
+        <a id="btn-tab-records" href="#records" class="top-nav-btn">The Record Book</a>
+        <a id="btn-tab-draft" href="#draft" class="top-nav-btn">Draft Central</a>
+        <a id="btn-tab-transactions" href="#transactions" class="top-nav-btn">Transactions Tracker</a>
+        <a id="btn-tab-rivalry" href="#rivalry" class="top-nav-btn" style="display: none;">Rivalry Week</a>
+        <a id="btn-tab-paradigms" href="#paradigms" class="top-nav-btn">Explore Paradigms</a>
+        <a id="btn-tab-admin" href="#admin" class="top-nav-btn admin-nav-btn" style="display: none;">Admin Dashboard <span class="admin-nav-badge">Admin</span></a>
     </nav>
 </header>
 
@@ -124,12 +131,7 @@
             </div>
         </div>
 
-        <div class="card" id="commissioner-note" style="display: none;">
-            <h2>Note from the Commissioner</h2>
-            <p style="color:var(--text-muted);font-style:italic;">
-                (Commissioner notes will appear here.)
-            </p>
-        </div>
+        <div class="card" id="commissioner-note" style="display: none;"></div>
 
         <div class="card" id="rankings" style="display: none;">
             <!-- Populated dynamically by PowerRankingsEngine -->
@@ -290,6 +292,5 @@
 <script type="module" src="/src/auth.js"></script>
 <script type="module" src="/src/account.js"></script>
 <script type="module" src="/src/vault.js"></script>
-<script type="module" src="/src/vault_records.js"></script>
 </body>
 </html>

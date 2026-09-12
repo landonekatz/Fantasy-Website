@@ -414,13 +414,20 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
 
         const allTraded = [...r1Adds, ...r2Adds];
 
+        const member1 = members.find(m => m.id === team1?.primaryOwner);
+        const member2 = members.find(m => m.id === team2?.primaryOwner);
+
         // Side 1
         transactions.push({
           id: `${tx.transaction_id || seasonYear}_${r1}`,
           type: 'trade',
           teamId: r1,
           teamName: team1?.name || `Team ${r1}`,
+          managerId: member1?.id || '',
+          managerName: member1?.alias || member1?.displayName || team1?.name || '',
           trade_partner_team: team2?.name || `Team ${r2}`,
+          trade_partner_manager_id: member2?.id || '',
+          trade_partner_manager_name: member2?.alias || member2?.displayName || team2?.name || '',
           partnerTeamId: r2,
           timestamp: createdTime,
           faabBid: 0,
@@ -439,7 +446,11 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
           type: 'trade',
           teamId: r2,
           teamName: team2?.name || `Team ${r2}`,
+          managerId: member2?.id || '',
+          managerName: member2?.alias || member2?.displayName || team2?.name || '',
           trade_partner_team: team1?.name || `Team ${r1}`,
+          trade_partner_manager_id: member1?.id || '',
+          trade_partner_manager_name: member1?.alias || member1?.displayName || team1?.name || '',
           partnerTeamId: r1,
           timestamp: createdTime,
           faabBid: 0,
