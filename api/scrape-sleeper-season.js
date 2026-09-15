@@ -44,7 +44,7 @@ async function getWeeklyProjections(year, week) {
 /**
  * Fetches and normalizes a single season of a Sleeper league.
  */
-export async function fetchSleeperSeasonData({ leagueId, year }) {
+export async function fetchSleeperSeasonData({ leagueId, year, activeWeek }) {
   if (!leagueId) {
     throw new Error('Missing leagueId parameter');
   }
@@ -307,7 +307,12 @@ export async function fetchSleeperSeasonData({ leagueId, year }) {
       const awayProj = awayEntries.filter(e => e.isStarter).reduce((sum, e) => sum + (e.projectedPoints || 0), 0);
 
       const isPlayoffs = week >= playoffStartWeek;
-      const winnerId = t1Pts > t2Pts ? t1Id : (t2Pts > t1Pts ? t2Id : (t1Pts > 0 ? t1Id : 'UNDECIDED'));
+      // Do not declare a winner for the currently-active NFL week when the league is still in-season.
+      // Thursday night games produce non-zero partial scores that would falsely resolve the matchup.
+      const isActiveWeek = !isSeasonComplete && activeWeek != null && week === Number(activeWeek);
+      const winnerId = isActiveWeek
+        ? 'UNDECIDED'
+        : (t1Pts > t2Pts ? t1Id : (t2Pts > t1Pts ? t2Id : (t1Pts > 0 ? t1Id : 'UNDECIDED')));
 
       schedule.push({
         id: `${seasonYear}_w${week}_m${gameCounter}`,

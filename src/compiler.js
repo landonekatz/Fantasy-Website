@@ -596,6 +596,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         (t.made_playoffs === true || String(t.made_playoffs).toLowerCase() === 'true') : 
         (teamInfo.playoffSeed <= playoffTeamsCount);
 
+      const seasonIsComplete = season.data.settings?.season_complete === true;
+
       standings.push({
         year: season.year,
         team_id: t.id,
@@ -610,7 +612,8 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
         final_rank: teamInfo.finalRank,
         playoff_seed: teamInfo.playoffSeed,
         made_playoffs: isPlayoffMaker,
-        transactions: moves
+        transactions: moves,
+        season_complete: seasonIsComplete
       });
     }
   }
@@ -1111,6 +1114,18 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
       mgrNameMap.set(id, m.name || m.manager_name || m.display_name || id);
     });
 
+    const getMgrTeamName = (mid, year, fallbackName) => {
+      const yr = Number(year);
+      if (teamMap[yr]) {
+        for (const t of Object.values(teamMap[yr])) {
+          if (String(t.ownerId || '').toLowerCase() === String(mid || '').toLowerCase() && t.name && !t.name.endsWith("'s Team") && !t.name.startsWith("Team ")) {
+            return t.name;
+          }
+        }
+      }
+      return fallbackName;
+    };
+
     const seasonStatsMap = new Map();
     weekly_player_stats.forEach(s => {
       const yr = Number(s.season || s.year);
@@ -1172,7 +1187,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               action_type: 'WAIVER',
               type: 'waiver',
               team_id: 1,
-              team_name: `${mName}'s Team`,
+              team_name: getMgrTeamName(mid, yr, `${mName}'s Team`),
               manager_id: mid,
               manager_name: mName,
               trade_partner_team: '',
@@ -1224,10 +1239,10 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
                   action_type: 'TRADE',
                   type: 'trade',
                   team_id: 1,
-                  team_name: `${toName}'s Team`,
+                  team_name: getMgrTeamName(toMid, yr, `${toName}'s Team`),
                   manager_id: toMid,
                   manager_name: toName,
-                  trade_partner_team: `${fromName}'s Team`,
+                  trade_partner_team: getMgrTeamName(fromInfo.fromMid, yr, `${fromName}'s Team`),
                   trade_partner_manager_id: fromInfo.fromMid,
                   trade_partner_manager_name: fromName,
                   added_players: [rawName],
@@ -1270,7 +1285,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               action_type: 'WAIVER',
               type: 'waiver',
               team_id: 1,
-              team_name: `${mName}'s Team`,
+              team_name: getMgrTeamName(mid, yr, `${mName}'s Team`),
               manager_id: mid,
               manager_name: mName,
               trade_partner_team: '',
@@ -1295,7 +1310,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               action_type: 'WAIVER',
               type: 'waiver',
               team_id: 1,
-              team_name: `${mName}'s Team`,
+              team_name: getMgrTeamName(mid, yr, `${mName}'s Team`),
               manager_id: mid,
               manager_name: mName,
               trade_partner_team: '',
@@ -1320,7 +1335,7 @@ export function compileVaultData(rawSeasonsData, uiMembersConfig = [], customNam
               action_type: 'DROP',
               type: 'free_agent',
               team_id: 1,
-              team_name: `${mName}'s Team`,
+              team_name: getMgrTeamName(mid, yr, `${mName}'s Team`),
               manager_id: mid,
               manager_name: mName,
               trade_partner_team: '',

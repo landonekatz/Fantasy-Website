@@ -2,8 +2,8 @@ name: Vault Multi-League Automated Update
 
 on:
   schedule:
-    # Runs every Tuesday at 9:00 AM UTC
-    - cron: '0 9 * * 2'
+    # Runs every Thursday at 9:00 AM UTC (prior week fully settled; ahead of Thursday Night Football)
+    - cron: '0 9 * * 4'
   workflow_dispatch:
     inputs:
       dry_run:

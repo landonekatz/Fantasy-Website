@@ -125,6 +125,7 @@ export class TransactionsEngine {
         this.managers = Array.isArray(options.managers) ? options.managers : (options.managers?.managers || []);
         this.draftResults = options.draftResults || [];
         this.matchups = options.matchups || [];
+        this.standings = options.standings || [];
         this.leagueSettings = options.leagueSettings || {};
         this.seasonsMetadata = options.seasonsMetadata || [];
         this.formatSeasonYear = options.formatSeasonYear || ((y) => `${y}`);
@@ -174,6 +175,7 @@ export class TransactionsEngine {
         if (data.managers) this.managers = Array.isArray(data.managers) ? data.managers : (data.managers?.managers || []);
         if (data.draftResults) this.draftResults = data.draftResults;
         if (data.matchups) this.matchups = data.matchups;
+        if (data.standings) this.standings = data.standings;
         if (data.leagueSettings) this.leagueSettings = data.leagueSettings;
         if (data.seasonsMetadata) this.seasonsMetadata = data.seasonsMetadata;
         if (data.formatSeasonYear) this.formatSeasonYear = data.formatSeasonYear;
@@ -890,6 +892,64 @@ export class TransactionsEngine {
     }
 
     /**
+     * Dynamically resolves the manager's authentic team name for a specific season from standings or matchups.
+     * Prevents fallbacks like "[Manager]'s Team".
+     */
+    getTeamName(managerId, year, fallbackName = '') {
+        const yr = Number(year);
+        const mid = String(managerId || '').toLowerCase().trim();
+        const resolvedMgr = this.resolveManager(managerId);
+        const canonicalId = resolvedMgr?.id ? String(resolvedMgr.id).toLowerCase() : mid;
+
+        if (this.standings && this.standings.length) {
+            const found = this.standings.find(s => {
+                if (yr && Number(s.year || s.season) !== yr) return false;
+                const sMid = String(s.manager_id || s.managerId || '').toLowerCase().trim();
+                const sResolved = this.resolveManager(sMid);
+                const sCanon = sResolved?.id ? String(sResolved.id).toLowerCase() : sMid;
+                return sMid === mid || sCanon === canonicalId;
+            });
+            if (found && found.team_name && !found.team_name.endsWith("'s Team") && !found.team_name.startsWith("Team ")) {
+                return found.team_name;
+            }
+        }
+
+        if (this.matchups && this.matchups.length) {
+            const m = this.matchups.find(gm => {
+                if (yr && Number(gm.year || gm.season) !== yr) return false;
+                const hMid = String(gm.home_manager_id || gm.team_1_manager_id || '').toLowerCase().trim();
+                const aMid = String(gm.away_manager_id || gm.team_2_manager_id || '').toLowerCase().trim();
+                return hMid === mid || aMid === mid || hMid === canonicalId || aMid === canonicalId;
+            });
+            if (m) {
+                const isHome = String(m.home_manager_id || m.team_1_manager_id || '').toLowerCase().trim() === mid ||
+                               String(m.home_manager_id || m.team_1_manager_id || '').toLowerCase().trim() === canonicalId;
+                const tName = isHome ? (m.home_team_name || m.team_1_name) : (m.away_team_name || m.team_2_name);
+                if (tName && !tName.endsWith("'s Team") && !tName.startsWith("Team ")) {
+                    return tName;
+                }
+            }
+        }
+
+        if (fallbackName && !fallbackName.endsWith("'s Team") && !fallbackName.startsWith("Team ") && fallbackName !== 'Team 1' && fallbackName !== 'Team 2') {
+            return fallbackName;
+        }
+
+        // If fallbackName is "[Manager]'s Team", try to find ANY standing for this manager with a real team name
+        if (this.standings && this.standings.length) {
+            const anyStanding = this.standings.find(s => {
+                const sMid = String(s.manager_id || s.managerId || '').toLowerCase().trim();
+                const sResolved = this.resolveManager(sMid);
+                const sCanon = sResolved?.id ? String(sResolved.id).toLowerCase() : sMid;
+                return (sMid === mid || sCanon === canonicalId) && s.team_name && !s.team_name.endsWith("'s Team") && !s.team_name.startsWith("Team ");
+            });
+            if (anyStanding && anyStanding.team_name) return anyStanding.team_name;
+        }
+
+        return fallbackName || `${this.getManagerDisplayName(canonicalId, managerId)}'s Team`;
+    }
+
+    /**
      * Detects whether the active league uses FAAB waivers or standard waiver priority.
      */
     leagueUsesFaab() {
@@ -1377,6 +1437,8 @@ export class TransactionsEngine {
         }
 
         const team2MgrName = this.getManagerDisplayName(team2MgrId, rawPartnerName || team2Name || 'Trade Partner');
+        team1Name = this.getTeamName(team1MgrId, yr, team1Name);
+        team2Name = this.getTeamName(team2MgrId, yr, team2Name);
         if (!team2Name || team2Name === 'Team 2') {
             team2Name = `${team2MgrName}'s Team`;
         }
@@ -1767,8 +1829,8 @@ export class TransactionsEngine {
         const isWaiver = tx.type === 'waiver' || tx.action_type === 'WAIVER';
         const isFreeAgent = !isWaiver && (tx.type === 'free_agent' || tx.action_type === 'FREE_AGENT' || tx.action_type === 'FREEAGENT');
 
-        const teamName = tx.team_name || '';
         const mgrId = String(tx.manager_id || '').toLowerCase();
+        const teamName = this.getTeamName(mgrId, yr, tx.team_name || '');
         const mgrName = this.getManagerDisplayName(mgrId, tx.manager_name || teamName);
 
         const addedPlayers = (Array.isArray(tx.added_players) ? tx.added_players : []).map(p => this.resolvePlayerName(p?.name || p)).filter(Boolean);
@@ -1987,8 +2049,8 @@ export class TransactionsEngine {
         const week = this.getTransactionWeek(tx);
         const remainingWeeks = Math.max(1, totalWeeks - week);
 
-        const teamName = tx.team_name || '';
         const mgrId = String(tx.manager_id || '').toLowerCase();
+        const teamName = this.getTeamName(mgrId, yr, tx.team_name || '');
         const mgrName = this.getManagerDisplayName(mgrId, tx.manager_name || teamName);
 
         const droppedPlayers = (Array.isArray(tx.dropped_players) ? tx.dropped_players : []).map(p => this.resolvePlayerName(p?.name || p)).filter(Boolean);
@@ -2523,10 +2585,14 @@ export class TransactionsEngine {
             const isRetired = Boolean(m.retired || m.is_retired);
             if (this.leaderboardStatus === 'active' && isRetired) return;
 
+            const isEspn = (this.leagueSettings?.platform === 'espn' || String(this.containerId || '').includes('gaywood'));
+            const rawLogo = m.custom_avatar_url || (!isEspn ? (m.logo_url || m.avatar || m.avatar_url) : null);
+            const logoUrl = (rawLogo && !rawLogo.includes('nfl_1.png')) ? rawLogo : '';
+
             managerTradeStats.set(String(m.id).toLowerCase(), {
                 id: m.id,
                 name: m.alias || m.name,
-                logoUrl: m.logo_url || m.avatar || m.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png',
+                logoUrl,
                 tradesCount: 0,
                 wins: 0,
                 losses: 0,
@@ -2664,10 +2730,14 @@ export class TransactionsEngine {
             const isRetired = Boolean(m.retired || m.is_retired);
             if (this.leaderboardStatus === 'active' && isRetired) return;
 
+            const isEspn = (this.leagueSettings?.platform === 'espn' || String(this.containerId || '').includes('gaywood'));
+            const rawLogo = m.custom_avatar_url || (!isEspn ? (m.logo_url || m.avatar || m.avatar_url) : null);
+            const logoUrl = (rawLogo && !rawLogo.includes('nfl_1.png')) ? rawLogo : '';
+
             managerStats.set(String(m.id).toLowerCase(), {
                 id: m.id,
                 name: m.alias || m.name,
-                logoUrl: m.logo_url || m.avatar || m.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png',
+                logoUrl,
                 addsCount: 0,
                 waiverClaims: 0,
                 freeAgentAdds: 0,
@@ -4223,7 +4293,7 @@ export class TransactionsEngine {
                                 <td><strong>#${idx + 1}</strong></td>
                                 <td>
                                     <div style="display:flex; align-items:center; gap: 0.5rem;">
-                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">` : ''}
+                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none';">` : ''}
                                         <strong>${m.name}</strong>
                                     </div>
                                 </td>
@@ -4317,7 +4387,7 @@ export class TransactionsEngine {
                                 <td><strong>#${idx + 1}</strong></td>
                                 <td>
                                     <div style="display:flex; align-items:center; gap: 0.5rem;">
-                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">` : ''}
+                                        ${m.logoUrl ? `<img src="${m.logoUrl}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none';">` : ''}
                                         <strong>${m.name}</strong>
                                     </div>
                                 </td>

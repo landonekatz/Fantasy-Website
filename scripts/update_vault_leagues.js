@@ -250,7 +250,7 @@ async function syncLeague(slug) {
     const activeLeagueId = (credentials.canonicalSeasons && credentials.canonicalSeasons[currentYear]) || leagueId;
     log(`  Checking active season on Sleeper API (leagueId: ${activeLeagueId})...`);
     try {
-      const seasonRes = await fetchSleeperSeasonData({ leagueId: activeLeagueId, year: currentYear });
+      const seasonRes = await fetchSleeperSeasonData({ leagueId: activeLeagueId, year: currentYear, activeWeek: nflState.week });
       if (seasonRes && seasonRes.data) {
         log(`    -> Found Sleeper Season ${seasonRes.year} (${seasonRes.data.teams?.length || 0} teams, ${seasonRes.data.schedule?.length || 0} matchups, ${seasonRes.data.draftDetail?.picks?.length || 0} draft picks)`);
         seasonsData.push(seasonRes);

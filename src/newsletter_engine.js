@@ -295,13 +295,14 @@ export class NewsletterEngine {
         const seasonMatchups = this.matchups.filter(m => Number(m.season || m.year) === targetSeason);
         const weeksWithMatchups = Array.from(new Set(seasonMatchups.map(m => Number(m.week)).filter(Boolean))).sort((a, b) => a - b);
 
-        // Find completed weeks (games played with scores > 0 and winner decided)
+        // Find completed weeks (all games played with scores > 0 and winner decided)
         const completedWeeks = weeksWithMatchups.filter(w => {
             const weekGames = seasonMatchups.filter(m => Number(m.week) === w);
-            return weekGames.some(m => {
+            if (weekGames.length === 0) return false;
+            return weekGames.every(m => {
                 const p1 = Number(m.home_score || m.team_1_actual_points || m.points1 || 0);
                 const p2 = Number(m.away_score || m.team_2_actual_points || m.points2 || 0);
-                return (p1 > 0 || p2 > 0) && m.winner !== 'UNDECIDED';
+                return (p1 > 0 || p2 > 0) && m.winner && m.winner !== 'UNDECIDED';
             });
         });
 

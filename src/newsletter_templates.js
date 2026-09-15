@@ -705,7 +705,7 @@ export const TRIGGER_TEMPLATES = {
         "Peak self-inflicted pain: {manager_name} fields the defense playing directly against {fan_team}, celebrating every turnover against their real-life quarterback.",
         "Cheering for your own demise: {manager_name} starts {dst_team} D/ST against {fan_team}, putting their emotional health through a blender on Sunday.",
         "The ultimate masochist: {manager_name} will profit every time their favorite {fan_team} gets intercepted or stuffed on fourth down.",
-        "Rooting against your own quarterback: {manager_name} starts the {dst_team} defense, guaranteeing agony with every offensive snap {fan_team} takes.",
+        "Rooting against your own quarterback: {manager_name} starts the {dst_team} defense, guaranteeing agony with every offensive snap the {fan_team} take.",
         "A perverse setup: {manager_name} watches {fan_team} while hoping {dst_team} racks up defensive touchdowns and safeties against them.",
         "Fantasy pragmatism taken to the extreme: {manager_name} deploys {dst_team} D/ST against {fan_team}, inviting pure emotional chaos into their living room.",
         "The defense against your heart: {manager_name} relies on {dst_team} to shut down {fan_team}, cheering for defensive stops against their own guys.",

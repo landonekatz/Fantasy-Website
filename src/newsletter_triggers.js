@@ -1884,16 +1884,25 @@ export class NewsletterTriggerEvaluator {
     // MODULE 7 EVALUATION: GAME-WINDOW DYNAMICS & CALENDAR
     // ==========================================
     evaluateModule7(candidates, currentMatchups, currentStats) {
-        // 7.4 The Thursday Night Trap (Starters playing on Thursday kickoff)
+        // 7.4 The Thursday Night Trap (Starters who played on Thursday kickoff and underperformed)
         this.managers.forEach(mgr => {
             const mid = String(mgr.id || mgr.manager_id).toLowerCase();
             const myStarters = currentStats.filter(s => String(s.manager_id).toLowerCase() === mid && s.is_starter);
             
-            // Check for Thursday starters (traditional NFL kickoff teams: KC, BAL, PHI, GB, DET, etc.)
-            const thuTeams = new Set(['KC', 'BAL', 'PHI', 'GB', 'DET', 'HOU', 'DAL']);
-            const thuStarters = myStarters.filter(s => thuTeams.has(normalizeTeamAbbr(s.nfl_team)));
-            if (thuStarters.length > 0) {
-                const starter = thuStarters[0];
+            // Check for starters whose game was played on Thursday, completed, and underperformed
+            const thuUnderperformers = myStarters.filter(s => {
+                const pts = Number(s.fantasy_points || 0);
+                const proj = Number(s.projected_points || 0);
+                const statLine = String(s.nfl_stat_line || '').toLowerCase();
+                const gameRes = String(s.nfl_game_result || '').toLowerCase();
+                const isFinal = gameRes.includes('final') || statLine.length > 0;
+                const isThu = gameRes.includes('thu') || statLine.includes('thu');
+                
+                return isThu && isFinal && pts > 0 && proj > 0 && pts < (proj * 0.7);
+            });
+
+            if (thuUnderperformers.length > 0) {
+                const starter = thuUnderperformers[0];
                 const myMatchup = currentMatchups.find(m => 
                     String(m.team_1_manager_id || m.home_manager_id).toLowerCase() === mid || 
                     String(m.team_2_manager_id || m.away_manager_id).toLowerCase() === mid
@@ -1905,6 +1914,8 @@ export class NewsletterTriggerEvaluator {
                     oppName = this.getManagerName(oppId);
                 }
 
+                const actualPts = Number(starter.fantasy_points || 0).toFixed(1);
+
                 candidates.push({
                     trigger_id: 'THURSDAY_TRAP',
                     timing: 'PROSPECTIVE',
@@ -1914,7 +1925,7 @@ export class NewsletterTriggerEvaluator {
                     tokens: {
                         manager_name: this.getManagerName(mid),
                         thursday_player: starter.player_name,
-                        thursday_pts: '11.4',
+                        thursday_pts: actualPts,
                         opponent_name: oppName
                     },
                     templates: TRIGGER_TEMPLATES.THURSDAY_TRAP
@@ -2085,11 +2096,21 @@ export class NewsletterTriggerEvaluator {
                 }
             }
 
-            // 8.4 Masochist Defense: starts D/ST playing directly against favorite team
+
+            // 8.4 Masochist Defense: starts D/ST playing directly against favorite team this week.
+            // Uses the same nflOppMatch schedule lookup as DIRECT_OPPONENT_TREASON.
             const dstStarter = myStats.find(s => s.position === 'DEF' || s.roster_slot === 'DEF' || s.position === 'DST' || s.roster_slot === 'D/ST');
             if (dstStarter) {
                 const dstAbbr = normalizeTeamAbbr(dstStarter.nfl_team);
-                if (dstAbbr && dstAbbr !== favTeam && myDiv && NFL_DIVISIONS[dstAbbr] === myDiv) {
+                // Determine the team playing against the manager's favorite team this week
+                let thisWeekOppAbbrForDst = null;
+                if (nflOppMatch) {
+                    const ht = normalizeTeamAbbr(nflOppMatch.home_team || nflOppMatch.homeTeam);
+                    const at = normalizeTeamAbbr(nflOppMatch.away_team || nflOppMatch.awayTeam);
+                    thisWeekOppAbbrForDst = ht === favTeam ? at : ht;
+                }
+                // True masochist: the DST is the EXACT opponent of the manager's favorite team this week
+                if (dstAbbr && dstAbbr !== favTeam && thisWeekOppAbbrForDst && dstAbbr === thisWeekOppAbbrForDst) {
                     candidates.push({
                         trigger_id: 'MASOCHIST_DEFENSE',
                         timing: 'PROSPECTIVE',

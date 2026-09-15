@@ -58,7 +58,7 @@ export class PowerRankingsEngine {
         this.render();
         if (database) {
             const rankingsRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings`);
-            onValue(rankingsRef, (snapshot) => {
+            onValue(rankingsRef, async (snapshot) => {
                 const val = snapshot.val();
                 if (val && (val.current_ranking || (Array.isArray(val.archived_rankings) && val.archived_rankings.length > 0))) {
                     this.data = {
@@ -76,6 +76,10 @@ export class PowerRankingsEngine {
                         this.data.allowed_editors = val.allowed_editors;
                     }
                 }
+
+                // Check and trigger Self-Healing from Immutable Vault History
+                await this.checkSelfHealingVaultHistory();
+
                 this.initialized = true;
                 this.render();
                 this.renderAdminSection();
@@ -92,6 +96,120 @@ export class PowerRankingsEngine {
             this.render();
             this.renderAdminSection();
         });
+    }
+
+    getEditionWeek(ed) {
+        if (!ed) return 0;
+        if (ed.week !== undefined && ed.week !== null && !isNaN(Number(ed.week))) {
+            return Number(ed.week);
+        }
+        const titleMatch = (ed.title || '').match(/week\s*([0-9]+(?:\.[0-9]+)?)/i);
+        if (titleMatch) return parseFloat(titleMatch[1]);
+        const idMatch = (ed.id || '').match(/w([0-9]+(?:\.[0-9]+)?)/i);
+        if (idMatch) return parseFloat(idMatch[1]);
+        return 0;
+    }
+
+    getEditionSeason(ed) {
+        if (!ed) return 2026;
+        if (ed.season !== undefined && ed.season !== null && !isNaN(Number(ed.season))) {
+            return Number(ed.season);
+        }
+        const titleMatch = (ed.title || '').match(/(20\d\d)/);
+        if (titleMatch) return parseInt(titleMatch[1], 10);
+        const idMatch = (ed.id || '').match(/(20\d\d)/);
+        if (idMatch) return parseInt(idMatch[1], 10);
+        return 2026;
+    }
+
+    async checkSelfHealingVaultHistory() {
+        if (!database) return;
+        try {
+            const vhRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings_vault_history`);
+            const vhSnap = await get(vhRef);
+            const vhVal = vhSnap.val();
+            if (!vhVal) return;
+
+            const vaultEditions = Object.values(vhVal).filter(Boolean);
+            if (vaultEditions.length === 0) return;
+
+            const normalizedVault = vaultEditions.map(ed => this.normalizeEdition(ed)).filter(Boolean);
+            
+            const curWeek = this.getEditionWeek(this.data.current_ranking);
+            const curSeason = this.getEditionSeason(this.data.current_ranking);
+            const curTs = Number(this.data.current_ranking?.updated_at || this.data.current_ranking?.created_at || 0);
+
+            normalizedVault.sort((a, b) => {
+                const sDiff = this.getEditionSeason(b) - this.getEditionSeason(a);
+                if (sDiff !== 0) return sDiff;
+                const wDiff = this.getEditionWeek(b) - this.getEditionWeek(a);
+                if (wDiff !== 0) return wDiff;
+                const bTs = Number(b.updated_at || b.created_at || 0);
+                const aTs = Number(a.updated_at || a.created_at || 0);
+                return bTs - aTs;
+            });
+
+            const topVault = normalizedVault[0];
+            const topVaultWeek = this.getEditionWeek(topVault);
+            const topVaultSeason = this.getEditionSeason(topVault);
+            const topVaultTs = Number(topVault.updated_at || topVault.created_at || 0);
+
+            let needsHealing = false;
+            if (!this.data.current_ranking) {
+                needsHealing = true;
+            } else if (topVaultSeason > curSeason) {
+                needsHealing = true;
+            } else if (topVaultSeason === curSeason && topVaultWeek > curWeek) {
+                needsHealing = true;
+            } else if (topVaultSeason === curSeason && topVaultWeek === curWeek && topVaultTs > curTs) {
+                needsHealing = true;
+            }
+
+            const knownIds = new Set([
+                this.data.current_ranking?.id,
+                ...(this.data.archived_rankings || []).map(a => a?.id)
+            ].filter(Boolean));
+
+            const hasMissingEditions = normalizedVault.some(v => v.id && !knownIds.has(v.id));
+            if (hasMissingEditions) {
+                needsHealing = true;
+            }
+
+            if (needsHealing) {
+                console.warn(`[PowerRankings] Self-healing activated for ${this.leagueSlug}: restoring editions from immutable vault history.`);
+                const allKnown = new Map();
+                (this.data.archived_rankings || []).forEach(a => { if (a?.id) allKnown.set(a.id, a); });
+                if (this.data.current_ranking?.id) allKnown.set(this.data.current_ranking.id, this.data.current_ranking);
+                normalizedVault.forEach(v => { if (v?.id) allKnown.set(v.id, v); });
+
+                const allList = Array.from(allKnown.values()).sort((a, b) => {
+                    const sDiff = this.getEditionSeason(b) - this.getEditionSeason(a);
+                    if (sDiff !== 0) return sDiff;
+                    const wDiff = this.getEditionWeek(b) - this.getEditionWeek(a);
+                    if (wDiff !== 0) return wDiff;
+                    return Number(b.updated_at || b.created_at || 0) - Number(a.updated_at || a.created_at || 0);
+                });
+
+                this.data.current_ranking = allList[0];
+                this.data.archived_rankings = allList.slice(1);
+
+                // Write healed state back to primary RTDB path
+                const primaryRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings`);
+                await set(primaryRef, {
+                    allowed_editors: this.data.allowed_editors || [],
+                    current_ranking: this.data.current_ranking,
+                    archived_rankings: this.data.archived_rankings || []
+                });
+                const paradigmsRef = dbRef(database, `leagues/${this.leagueSlug}/paradigms/power_rankings`);
+                await set(paradigmsRef, {
+                    allowed_editors: this.data.allowed_editors || [],
+                    current_ranking: this.data.current_ranking,
+                    archived_rankings: this.data.archived_rankings || []
+                });
+            }
+        } catch (err) {
+            console.error('[PowerRankings] Error during vault history self-healing check:', err);
+        }
     }
 
     canonicalizeManagerId(mgrId) {
@@ -128,6 +246,9 @@ export class PowerRankingsEngine {
     normalizeEdition(edition) {
         if (!edition) return null;
         const normalized = { ...edition };
+        normalized.week = this.getEditionWeek(normalized);
+        normalized.season = this.getEditionSeason(normalized);
+
         if (Array.isArray(normalized.rankings)) {
             // Strictly exclude retired managers from power rankings
             const activeRankings = normalized.rankings.filter(r => {
@@ -241,7 +362,9 @@ export class PowerRankingsEngine {
             displayName = this.app.getManagerDisplayName(canonicalId, displayName);
         }
 
-        const logoUrl = found?.logo_url || found?.avatar || found?.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+        const isEspn = Boolean(this.app && (this.app.platform === 'espn' || this.app.leagueSettings?.platform === 'espn' || String(this.app.leagueId || '').includes('gaywood')));
+        const rawAvatar = found?.custom_avatar_url || (!isEspn ? (found?.logo_url || found?.avatar || found?.avatar_url) : null);
+        const logoUrl = (rawAvatar && !rawAvatar.includes('nfl_1.png')) ? rawAvatar : null;
 
         return {
             id: canonicalId,
@@ -250,6 +373,14 @@ export class PowerRankingsEngine {
             teamName,
             logoUrl
         };
+    }
+
+    renderLogoHtml(mgr, className = 'ranking-team-logo') {
+        if (mgr && mgr.logoUrl) {
+            return `<img class="${className}" src="${mgr.logoUrl}" alt="${mgr.teamName || ''}" loading="lazy" onerror="this.style.display='none';">`;
+        }
+        const initial = (((mgr?.name || mgr?.displayName || 'M').trim().charAt(0)) || 'M').toUpperCase();
+        return `<div class="${className} ${className}-initials" style="display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;background:var(--bg-surface, #1e293b);border:1px solid var(--border-color, #334155);border-radius:50%;color:var(--accent-gold, #f59e0b);flex-shrink:0;">${initial}</div>`;
     }
 
     canEdit() {
@@ -483,7 +614,7 @@ export class PowerRankingsEngine {
                                 <div class="ranking-num-badge ${rank <= 3 ? 'rank-top3' : ''}">
                                     ${rank}
                                 </div>
-                                <img class="ranking-team-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" loading="lazy" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
+                                ${this.renderLogoHtml(mgr, 'ranking-team-logo')}
                                 <div class="ranking-team-info">
                                     <span class="ranking-team-name">${mgr.teamName}</span>
                                     <span class="ranking-manager-name">${mgr.name}</span>
@@ -891,7 +1022,7 @@ export class PowerRankingsEngine {
                                 <span class="sort-drag-handle" title="Drag to reorder">☰</span>
                             </div>
                             <div class="sort-rank-badge ${rank <= 3 ? 'rank-top3' : ''}">#${rank}</div>
-                            <img class="sort-team-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
+                            ${this.renderLogoHtml(mgr, 'sort-team-logo')}
                             <div class="sort-team-info">
                                 <span class="sort-team-name">${mgr.teamName}</span>
                                 <span class="sort-manager-name">${mgr.name}</span>
@@ -976,7 +1107,7 @@ export class PowerRankingsEngine {
                 return `
                     <button type="button" class="blurb-team-nav-item ${idx === state.focusedIndex ? 'active' : ''}" data-index="${idx}">
                         <div class="nav-item-rank ${rank <= 3 ? 'rank-top3' : ''}">#${rank}</div>
-                        <img class="nav-item-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
+                        ${this.renderLogoHtml(mgr, 'nav-item-logo')}
                         <div class="nav-item-info">
                             <span class="nav-item-team">${mgr.teamName}</span>
                             <span class="nav-item-mgr">${mgr.name}</span>
@@ -1013,7 +1144,7 @@ export class PowerRankingsEngine {
                 <div class="focus-team-banner">
                     <div class="focus-banner-left">
                         <div class="focus-rank-pill ${activeRank <= 3 ? 'rank-top3' : ''}">Rank #${activeRank}</div>
-                        <img class="focus-team-logo" src="${activeMgr.logoUrl}" alt="${activeMgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
+                        ${this.renderLogoHtml(activeMgr, 'focus-team-logo')}
                         <div>
                             <h4 class="focus-team-title">${activeMgr.teamName}</h4>
                             <span class="focus-mgr-subtitle">Manager: ${activeMgr.name}</span>
@@ -1152,7 +1283,7 @@ export class PowerRankingsEngine {
                     <div class="blurb-all-card" data-index="${idx}">
                         <div class="blurb-all-card-header">
                             <div class="blurb-all-rank ${rank <= 3 ? 'rank-top3' : ''}">#${rank}</div>
-                            <img class="blurb-all-logo" src="${mgr.logoUrl}" alt="${mgr.teamName}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';">
+                            ${this.renderLogoHtml(mgr, 'blurb-all-logo')}
                             <div class="blurb-all-team-info">
                                 <span class="blurb-all-team-name">${mgr.teamName}</span>
                                 <span class="blurb-all-mgr-name">${mgr.name}</span>
@@ -1415,11 +1546,29 @@ export class PowerRankingsEngine {
         if (!this.data.current_ranking.author_name) {
             this.data.current_ranking.author_name = resolvedName;
         }
+        this.data.current_ranking.week = this.getEditionWeek(this.data.current_ranking);
+        this.data.current_ranking.season = this.getEditionSeason(this.data.current_ranking);
+
+        // Client-side local safety backup
+        try {
+            localStorage.setItem(`vault_pr_latest_${this.leagueSlug}`, JSON.stringify(this.data.current_ranking));
+            localStorage.setItem(`vault_pr_backup_${this.leagueSlug}_${this.data.current_ranking.id}`, JSON.stringify(this.data.current_ranking));
+        } catch (e) {}
 
         if (database) {
             try {
+                // 1. Primary path
                 const currentRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings/current_ranking`);
                 await set(currentRef, this.data.current_ranking);
+
+                // 2. Compatibility paradigms path
+                const paradigmsRef = dbRef(database, `leagues/${this.leagueSlug}/paradigms/power_rankings/current_ranking`);
+                await set(paradigmsRef, this.data.current_ranking);
+
+                // 3. Immutable append-only vault history
+                const vhRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings_vault_history/${this.data.current_ranking.id}`);
+                await set(vhRef, this.data.current_ranking);
+
                 return true;
             } catch (e) {
                 console.error('Error saving live rankings to Firebase:', e);
@@ -1442,10 +1591,21 @@ export class PowerRankingsEngine {
             blurb: r.blurb || ''
         })) : [];
 
+        let parsedWeek = this.getEditionWeek({ title });
+        if (parsedWeek === 0 && this.data.current_ranking?.week !== undefined) {
+            parsedWeek = Number(this.data.current_ranking.week) + 1;
+        }
+        let parsedSeason = this.getEditionSeason({ title });
+
+        const newEditionId = `pr_${parsedSeason}_w${String(parsedWeek).replace('.', '_')}_${now}`;
+
         // 1. Move old current_ranking to archived_rankings
+        let archived = null;
         if (this.data.current_ranking && Array.isArray(this.data.current_ranking.rankings) && this.data.current_ranking.rankings.length > 0) {
-            const archived = {
+            archived = {
                 ...this.data.current_ranking,
+                week: this.getEditionWeek(this.data.current_ranking),
+                season: this.getEditionSeason(this.data.current_ranking),
                 archived_at: now
             };
             if (!Array.isArray(this.data.archived_rankings)) {
@@ -1456,7 +1616,9 @@ export class PowerRankingsEngine {
 
         // 2. Set new live current_ranking
         this.data.current_ranking = {
-            id: `pr_${now}`,
+            id: newEditionId,
+            week: parsedWeek,
+            season: parsedSeason,
             title,
             subtitle,
             rankings: cleanRankings,
@@ -1467,14 +1629,39 @@ export class PowerRankingsEngine {
             last_edited_by: resolvedName
         };
 
+        // Client-side local safety backup
+        try {
+            localStorage.setItem(`vault_pr_latest_${this.leagueSlug}`, JSON.stringify(this.data.current_ranking));
+            localStorage.setItem(`vault_pr_backup_${this.leagueSlug}_${newEditionId}`, JSON.stringify(this.data.current_ranking));
+            if (archived && archived.id) {
+                localStorage.setItem(`vault_pr_backup_${this.leagueSlug}_${archived.id}`, JSON.stringify(archived));
+            }
+        } catch (e) {}
+
         if (database) {
             try {
-                const rootRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings`);
-                await set(rootRef, {
+                const rootPayload = {
                     allowed_editors: this.data.allowed_editors || [],
                     current_ranking: this.data.current_ranking,
                     archived_rankings: this.data.archived_rankings || []
-                });
+                };
+
+                // 1. Primary path
+                const rootRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings`);
+                await set(rootRef, rootPayload);
+
+                // 2. Paradigms compatibility path
+                const paradigmsRef = dbRef(database, `leagues/${this.leagueSlug}/paradigms/power_rankings`);
+                await set(paradigmsRef, rootPayload);
+
+                // 3. Immutable append-only vault history
+                const newVhRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings_vault_history/${newEditionId}`);
+                await set(newVhRef, this.data.current_ranking);
+
+                if (archived && archived.id) {
+                    const archVhRef = dbRef(database, `leagues/${this.leagueSlug}/power_rankings_vault_history/${archived.id}`);
+                    await set(archVhRef, archived);
+                }
 
                 // Automated email dispatch to everyone in this league whenever a new edition is posted
                 this.dispatchLeaguePowerRankingsNotification(this.data.current_ranking).catch(err => {
@@ -1527,9 +1714,9 @@ export class PowerRankingsEngine {
             });
 
             let weekNum = 1;
-            const weekMatch = (currentRanking.title || '').match(/Week\s*(\d+)/i);
+            const weekMatch = (currentRanking.title || '').match(/Week\s*(\d+(\.\d+)?)/i);
             if (weekMatch) {
-                weekNum = parseInt(weekMatch[1], 10);
+                weekNum = parseFloat(weekMatch[1]);
             }
 
             for (const [mId, claim] of Object.entries(claims)) {

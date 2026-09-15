@@ -1480,6 +1480,7 @@ class FantasyApp {
                                     managers: this.managers,
                                     draftResults: this.draftResults,
                                     matchups: this.matchups,
+                                    standings: this.standings || [],
                                     leagueSettings: this.leagueSettings,
                                     seasonsMetadata: this.seasonsMetadata,
                                     formatSeasonYear: (y) => this.formatSeasonYear(y)
@@ -1507,6 +1508,7 @@ class FantasyApp {
                                     managers: this.managers,
                                     draftResults: this.draftResults,
                                     matchups: this.matchups,
+                                    standings: this.standings || [],
                                     leagueSettings: this.leagueSettings,
                                     seasonsMetadata: this.seasonsMetadata,
                                     formatSeasonYear: (y) => this.formatSeasonYear(y)
@@ -1590,6 +1592,7 @@ class FantasyApp {
                                     managers: this.managers,
                                     draftResults: this.draftResults,
                                     matchups: this.matchups,
+                                    standings: this.standings || [],
                                     leagueSettings: this.leagueSettings,
                                     seasonsMetadata: this.seasonsMetadata,
                                     formatSeasonYear: (y) => this.formatSeasonYear(y)
@@ -1613,6 +1616,7 @@ class FantasyApp {
                                     managers: this.managers,
                                     draftResults: this.draftResults,
                                     matchups: this.matchups,
+                                    standings: this.standings || [],
                                     leagueSettings: this.leagueSettings,
                                     seasonsMetadata: this.seasonsMetadata,
                                     formatSeasonYear: (y) => this.formatSeasonYear(y)
@@ -2213,11 +2217,17 @@ class FantasyApp {
                 }
 
                 if (logoEl) {
-                    logoEl.onerror = () => {
-                        logoEl.onerror = null;
-                        logoEl.src = 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
-                    };
-                    logoEl.src = manager.logo_url || manager.avatar || manager.avatar_url || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+                    const isEspn = this.platform === 'espn' || this.leagueSettings?.platform === 'espn' || String(this.leagueId || '').includes('gaywood');
+                    const av = manager.custom_avatar_url || (!isEspn ? (manager.logo_url || manager.avatar || manager.avatar_url) : null);
+                    if (!av || av.includes('nfl_1.png')) {
+                        logoEl.style.display = 'none';
+                    } else {
+                        logoEl.style.display = '';
+                        logoEl.onerror = () => {
+                            logoEl.style.display = 'none';
+                        };
+                        logoEl.src = av;
+                    }
                 }
                 if (teamEl) teamEl.textContent = this.getCurrentTeamName(managerId);
                 if (mgrEl) mgrEl.textContent = this.getManagerDisplayName(managerId, manager.name);
@@ -2687,6 +2697,7 @@ class FantasyApp {
                 managers: this.managers,
                 draftResults: this.draftResults,
                 matchups: this.matchups,
+                standings: this.standings || [],
                 leagueSettings: this.leagueSettings,
                 seasonsMetadata: this.seasonsMetadata,
                 formatSeasonYear: (y) => this.formatSeasonYear(y)
@@ -2698,6 +2709,7 @@ class FantasyApp {
                 managers: this.managers,
                 draftResults: this.draftResults,
                 matchups: this.matchups,
+                standings: this.standings || [],
                 leagueSettings: this.leagueSettings,
                 seasonsMetadata: this.seasonsMetadata,
                 formatSeasonYear: (y) => this.formatSeasonYear(y)
@@ -2959,15 +2971,18 @@ class FantasyApp {
         const barLeftPct = totalGames > 0 ? (m1Wins / (m1Wins + m2Wins || 1) * 100).toFixed(0) : 50;
         const barRightPct = 100 - barLeftPct;
 
-        const m1Avatar = m1Obj.avatar || m1Obj.logo_url || m1Obj.avatar_url;
-        const m2Avatar = m2Obj.avatar || m2Obj.logo_url || m2Obj.avatar_url;
+        const isEspn = this.platform === 'espn' || this.leagueSettings?.platform === 'espn' || String(this.leagueId || '').includes('gaywood');
+        const m1Raw = m1Obj.custom_avatar_url || (!isEspn ? (m1Obj.avatar || m1Obj.logo_url || m1Obj.avatar_url) : null);
+        const m2Raw = m2Obj.custom_avatar_url || (!isEspn ? (m2Obj.avatar || m2Obj.logo_url || m2Obj.avatar_url) : null);
+        const m1Avatar = (m1Raw && !m1Raw.includes('nfl_1.png')) ? m1Raw : null;
+        const m2Avatar = (m2Raw && !m2Raw.includes('nfl_1.png')) ? m2Raw : null;
 
         const m1AvatarHtml = m1Avatar
-            ? `<img src="${m1Avatar}" alt="${m1Name}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
+            ? `<img src="${m1Avatar}" alt="${m1Name}" onerror="this.style.display='none';" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
             : `<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m1Name.charAt(0).toUpperCase()}</div>`;
 
         const m2AvatarHtml = m2Avatar
-            ? `<img src="${m2Avatar}" alt="${m2Name}" onerror="this.onerror=null;this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
+            ? `<img src="${m2Avatar}" alt="${m2Name}" onerror="this.style.display='none';" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--accent-gold);margin:0 auto 8px;display:block;">`
             : `<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-surface);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:var(--accent-gold);margin:0 auto 8px;">${m2Name.charAt(0).toUpperCase()}</div>`;
 
         heroContainer.innerHTML = `
@@ -3484,6 +3499,10 @@ class FantasyApp {
             return matches;
         };
 
+        const isDms = this.leagueId === 'dmsfantasy' || (this.leagueSettings?.name || '').toLowerCase().includes('dumbarton');
+        const manifestoTag = isDms ? "MIKE'S MANIFESTO" : "COMMISSIONER MANIFESTO";
+        const chronicleTag = isDms ? "Mike's Rivalry Feud Chronicle" : "Rivalry Feud Chronicle";
+
         let cardsHtml = '';
         rivalries.forEach(rivalry => {
             const history = getRivalryHistory(rivalry.manager1, rivalry.manager2);
@@ -3545,7 +3564,7 @@ class FantasyApp {
                         </div>
 
                         <div class="dungeon-blurb-box">
-                            <span class="dungeon-blurb-label">Rivalry Feud Chronicle</span>
+                            <span class="dungeon-blurb-label">${chronicleTag}</span>
                             <div class="dungeon-blurb-text">
                                 ${rivalry.writeup || ''}
                             </div>
@@ -3599,7 +3618,7 @@ class FantasyApp {
                     </p>
 
                     <div class="dungeon-mike-box">
-                        <span class="dungeon-box-tag">COMMISSIONER MANIFESTO</span>
+                        <span class="dungeon-box-tag">${manifestoTag}</span>
                         <p>"I have no enemies" is what I would say if I had no enemies. But everyone has enemies. Opps. Rivals. And for the first time in league history, we have a week dedicated to that feeling in your chest that you get when you see their team name across from yours on the matchups page. It just means more. This is rivalry week.</p>
                     </div>
                 </div>

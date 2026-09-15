@@ -22,6 +22,12 @@ import { fileURLToPath } from 'url';
 import { fetchYahooSeasonData } from '../api/scrape-yahoo-season.js';
 import { refreshAccessToken } from '../api/yahoo.js';
 import { compileVaultData } from '../src/compiler.js';
+import {
+  safeMergeLeagueSettings,
+  safeMergePowerRankings,
+  safeMergeManagers,
+  safeMergeRivalries
+} from './rtdb_persistence_guard.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -411,7 +417,9 @@ async function runMigration() {
   console.log(`- Power Rankings Editions: ${(compiledBundle.paradigms?.power_rankings?.archived_rankings?.length || 0) + 1}`);
   console.log(`- Rivalry Pairs: ${compiledBundle.paradigms?.rivalries?.length || 0}`);
 
-  // Preserve existing claims, users directory, and custom settings before saving
+  // Non-destructive merge guard: Preserve live database records
+  let mergedPowerRankings = paradigmsPowerRankings;
+  let mergedRivalries = RIVALRY_PAIRS;
   try {
     const existingClaimsRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/claims.json`);
     if (existingClaimsRes.ok) {
@@ -431,20 +439,48 @@ async function runMigration() {
     if (existingSettingsRes.ok) {
       const existingSettings = await existingSettingsRes.json();
       if (existingSettings) {
-        compiledBundle.league_settings = { ...(compiledBundle.league_settings || {}), ...existingSettings };
+        compiledBundle.league_settings = safeMergeLeagueSettings(existingSettings, compiledBundle.league_settings || {});
       }
     }
+    const existingMembersRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/members.json`);
+    if (existingMembersRes.ok) {
+      const existingMembers = await existingMembersRes.json();
+      if (existingMembers && existingMembers.length > 0) {
+        compiledBundle.members = safeMergeManagers(existingMembers, compiledBundle.members || []);
+      }
+    }
+    const existingRankingsRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/power_rankings.json`);
+    if (existingRankingsRes.ok) {
+      const existingRankings = await existingRankingsRes.json();
+      mergedPowerRankings = safeMergePowerRankings(existingRankings, paradigmsPowerRankings);
+    }
+    const existingRivalriesRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/rivalries.json`);
+    if (existingRivalriesRes.ok) {
+      const existingRivalries = await existingRivalriesRes.json();
+      mergedRivalries = safeMergeRivalries(existingRivalries, RIVALRY_PAIRS);
+    }
   } catch (presErr) {
-    console.warn('Could not preserve existing claims/users:', presErr);
+    console.warn('Could not preserve existing live database state:', presErr);
   }
+
+  // Update compiledBundle with merged live values
+  compiledBundle.power_rankings = mergedPowerRankings;
+  if (compiledBundle.paradigms) {
+    compiledBundle.paradigms.power_rankings = mergedPowerRankings;
+    compiledBundle.paradigms.rivalries = mergedRivalries;
+  }
+  compiledBundle.rivalries = mergedRivalries;
 
   // Push to Firebase RTDB
   console.log(`\nSaving to Firebase RTDB (/leagues/dmsfantasy)...`);
   await saveToFirebase('leagues/dmsfantasy', compiledBundle);
 
-  // Also write paradigms directly to /leagues/dmsfantasy/power_rankings for modular engine compatibility
-  await saveToFirebase('leagues/dmsfantasy/power_rankings', paradigmsPowerRankings);
-  await saveToFirebase('leagues/dmsfantasy/rivalries', RIVALRY_PAIRS);
+  // Write safe merged paradigms directly for modular engine compatibility
+  await saveToFirebase('leagues/dmsfantasy/power_rankings', mergedPowerRankings);
+  if (mergedPowerRankings.power_rankings_vault_history) {
+    await saveToFirebase('leagues/dmsfantasy/power_rankings_vault_history', mergedPowerRankings.power_rankings_vault_history);
+  }
+  await saveToFirebase('leagues/dmsfantasy/rivalries', mergedRivalries);
 
   console.log('\n' + '='.repeat(70));
   console.log('DUMBARTON COMMUTATION COMPLETED SUCCESSFULLY!');

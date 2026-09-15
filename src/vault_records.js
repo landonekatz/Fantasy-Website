@@ -374,6 +374,8 @@ export const recordBookMethods = {
             if (!this.filterSeasonByRule(s.year, filterObj)) continue;
             const mid = s.manager_id || s.id;
             if (!this.isManagerIncluded(mid, filterObj, s.manager_status)) continue;
+            // Skip in-progress seasons with no actual data yet
+            if (s.season_complete === false && (Number(s.points_for) || 0) === 0) continue;
 
             if (!managerStatsMap[mid]) {
                 managerStatsMap[mid] = {
@@ -875,6 +877,9 @@ export const recordBookMethods = {
 
         const filteredStandings = (this.standings || []).filter(s => {
             const mid = s.manager_id || s.id;
+            // Exclude clearly in-progress seasons: season_complete explicitly false AND no points scored yet.
+            // Historical seasons where season_complete is undefined are always included (backward compat).
+            if (s.season_complete === false && (Number(s.points_for) || 0) === 0) return false;
             return this.filterSeasonByRule(s.year, filterObj) &&
                    this.isManagerIncluded(mid, filterObj, s.manager_status);
         });

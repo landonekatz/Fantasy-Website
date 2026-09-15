@@ -20,6 +20,12 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  safeMergeLeagueSettings,
+  safeMergePowerRankings,
+  safeMergeManagers,
+  safeMergeRivalries
+} from './rtdb_persistence_guard.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -343,20 +349,19 @@ async function seedData() {
   });
   console.log(`Processed ${standardizedStats.length} weekly player stats.`);
 
-  // 7. League Settings (preserving existing admin credentials, join codes, and scoring rules)
+  // 7. League Settings (preserving user customizations)
   let existingSettings = {};
   try {
-    const sRes = await fetch(`${FIREBASE_DB_URL}/leagues/dmsfantasy/league_settings.json`);
+    const sRes = await fetch(buildUrl('leagues/dmsfantasy/league_settings'));
     if (sRes.ok) existingSettings = (await sRes.json()) || {};
   } catch (e) {
     console.warn('Could not fetch existing league settings:', e.message);
   }
 
-  const leagueSettings = {
-    ...existingSettings,
+  const scriptSettings = {
     name: "The Dumbarton Fantasy Football League",
-    tagline: "Variance is an excuse for incompetence.",
-    subtitle: "Variance is an excuse for incompetence.",
+    tagline: "In a league of our own",
+    subtitle: "In a league of our own",
     firstYear: 2018,
     lastYear: 2027,
     totalSeasons: 10,
@@ -365,24 +370,59 @@ async function seedData() {
     seasonLabelConvention: "championship",
     allow_nicknames: true
   };
+  const leagueSettings = safeMergeLeagueSettings(existingSettings, scriptSettings);
 
-  // 8. Paradigms (Power Rankings & Rivalries)
+  // 8. Power Rankings (preserving live editions, user edits, and immutable vault history)
+  let existingRankings = {};
+  try {
+    const prRes = await fetch(buildUrl('leagues/dmsfantasy/power_rankings'));
+    if (prRes.ok) existingRankings = (await prRes.json()) || {};
+    const vhRes = await fetch(buildUrl('leagues/dmsfantasy/power_rankings_vault_history'));
+    if (vhRes.ok) {
+      const vh = await vhRes.json();
+      if (vh) existingRankings.power_rankings_vault_history = vh;
+    }
+  } catch (e) {
+    console.warn('Could not fetch existing power rankings:', e.message);
+  }
+
   const powerRankingsHistory = JSON.parse(fs.readFileSync(path.join(rootDir, 'dmsfantasy', 'data', 'power_rankings_history.json'), 'utf8'));
-  const paradigmsPowerRankings = {
+  const incomingRankings = {
     allowed_editors: ['landon'],
     current_ranking: powerRankingsHistory[0] || null,
     archived_rankings: powerRankingsHistory.slice(1) || []
   };
+  const paradigmsPowerRankings = safeMergePowerRankings(existingRankings, incomingRankings);
+
+  // 9. Managers & Members (preserving aliases, nicknames, claims)
+  let existingManagers = [];
+  try {
+    const mRes = await fetch(buildUrl('leagues/dmsfantasy/managers'));
+    if (mRes.ok) existingManagers = (await mRes.json()) || [];
+  } catch (e) {
+    console.warn('Could not fetch existing managers:', e.message);
+  }
+  const mergedManagers = safeMergeManagers(existingManagers, canonicalManagers);
+
+  // 10. Rivalries (preserving blurbs and writeups)
+  let existingRivalries = [];
+  try {
+    const rivRes = await fetch(buildUrl('leagues/dmsfantasy/rivalries'));
+    if (rivRes.ok) existingRivalries = (await rivRes.json()) || [];
+  } catch (e) {
+    console.warn('Could not fetch existing rivalries:', e.message);
+  }
+  const mergedRivalries = safeMergeRivalries(existingRivalries, RIVALRY_PAIRS);
 
   const paradigms = {
     power_rankings: paradigmsPowerRankings,
-    rivalries: RIVALRY_PAIRS
+    rivalries: mergedRivalries
   };
 
   // PUSH TO FIREBASE
   console.log('\nUploading standardized datasets to Firebase RTDB...');
-  await putToFirebase('leagues/dmsfantasy/members', canonicalManagers);
-  await putToFirebase('leagues/dmsfantasy/managers', canonicalManagers);
+  await putToFirebase('leagues/dmsfantasy/members', mergedManagers);
+  await putToFirebase('leagues/dmsfantasy/managers', mergedManagers);
   await putToFirebase('leagues/dmsfantasy/team_mappings', teamMappings);
   await putToFirebase('leagues/dmsfantasy/league_standings', standardizedStandings);
   await putToFirebase('leagues/dmsfantasy/matchups', standardizedMatchups);
@@ -390,9 +430,12 @@ async function seedData() {
   await putToFirebase('leagues/dmsfantasy/transactions', standardizedTransactions);
   await putToFirebase('leagues/dmsfantasy/league_settings', leagueSettings);
   await putToFirebase('leagues/dmsfantasy/power_rankings', paradigmsPowerRankings);
-  await putToFirebase('leagues/dmsfantasy/rivalries', RIVALRY_PAIRS);
+  if (paradigmsPowerRankings.power_rankings_vault_history) {
+    await putToFirebase('leagues/dmsfantasy/power_rankings_vault_history', paradigmsPowerRankings.power_rankings_vault_history);
+  }
+  await putToFirebase('leagues/dmsfantasy/rivalries', mergedRivalries);
   await putToFirebase('leagues/dmsfantasy/paradigms', paradigms);
-  await putToFirebase('leagues/dmsfantasy/seasonLabelConvention', 'championship');
+  await putToFirebase('leagues/dmsfantasy/seasonLabelConvention', leagueSettings.seasonLabelConvention || 'championship');
 
   // Push weekly player stats
   console.log('Uploading weekly player stats (this may take a few seconds)...');

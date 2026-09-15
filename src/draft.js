@@ -455,7 +455,13 @@ export class VaultDraftEngine {
             return 'https://yahoofantasysports-res.cloudinary.com/image/upload/t_s90sq/fantasy-logos/f5d05065311484b29b90c8480db84f2b6ee5226325fb7dd446f369c6f93c5708.jpg';
         }
 
-        return found?.logo_url || found?.avatar || found?.avatar_url || session?.photoURL || 'https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png';
+        const isEspn = this.leagueSettings?.platform === 'espn' || String(this.leagueId || '').includes('gaywood');
+        if (isEspn) {
+            return null;
+        }
+
+        const fallback = found?.logo_url || found?.avatar || found?.avatar_url || session?.photoURL;
+        return (fallback && !fallback.includes('nfl_1.png')) ? fallback : null;
     }
 
     buildTruePositionMap() {
@@ -1645,10 +1651,10 @@ export class VaultDraftEngine {
             if (isUnplayed) {
                 const g = m.gradeInfo || { grade: 'Pending', color: '#94a3b8' };
                 const scoreDisplay = m.draftIndex !== null 
-                    ? `${m.draftIndex} <small style="font-size:0.75em; color:var(--text-muted); font-weight: 600;">(PROJ ${g.grade})</small>`
+                    ? `${m.draftIndex} <small style="font-size:0.75em; color:var(--text-muted); font-weight: 600;">(${g.grade})</small>`
                     : 'Pending';
                 return `
-                    <div class="draft-mgr-chip clickable-mgr" data-mgr-id="${m.managerId}" style="border-left: 3px solid ${g.color};" title="Pre-Draft Projected Class Grade: ${m.draftIndex !== null ? m.draftIndex + '/100 (' + g.grade + ')' : 'Pending'} · Projected Hits: ${m.hits} · High Risk: ${m.busts}">
+                    <div class="draft-mgr-chip clickable-mgr" data-mgr-id="${m.managerId}" style="border-left: 3px solid ${g.color};" title="Pre-Draft Class Grade: ${m.draftIndex !== null ? m.draftIndex + '/100 (' + g.grade + ')' : 'Pending'} · Projected Hits: ${m.hits} · High Risk: ${m.busts}">
                         <span class="draft-chip-rank">#${idx + 1}</span>
                         <span class="draft-chip-name">${this.nameMode === 'team' ? m.teamName : m.managerName}</span>
                         <span class="draft-chip-score" style="color: ${g.color}; font-weight: 800;">${scoreDisplay}</span>
@@ -1694,8 +1700,8 @@ export class VaultDraftEngine {
                         const gBg = pGrade.gradeInfo?.bg || 'rgba(59, 130, 246, 0.12)';
                         const gBorder = pGrade.gradeInfo?.border || 'rgba(59, 130, 246, 0.3)';
                         scoreBadge = `
-                            <span class="pick-val-badge lpi-projected ${gTier}" style="background: ${gBg}; color: ${gColor}; border: 1px solid ${gBorder};" title="LPI Pre-Draft Projected Grade: ${pGrade.prospectiveGrade} / 100 (${pGrade.gradeInfo?.grade || 'B'}) · Forecast: ${pGrade.predictedPpg} PPG (${pGrade.predictedSeasonTotal} pts) · Slot Exp: ${pGrade.expectedPpg} PPG (${pGrade.expectedSeasonTotal} pts) · Surplus: ${pGrade.residual >= 0 ? '+' : ''}${pGrade.residual} pts vs slot expectation at pick #${p.overallPick}">
-                                <strong>${pGrade.prospectiveGrade}</strong> <small style="font-size: 0.72em; opacity: 0.9; margin-left: 2px; font-weight: 700;">PROJ</small>
+                            <span class="pick-val-badge lpi-projected ${gTier}" style="background: ${gBg}; color: ${gColor}; border: 1px solid ${gBorder};" title="LPI Pre-Draft Grade: ${pGrade.prospectiveGrade} / 100 (${pGrade.gradeInfo?.grade || 'B'}) · Forecast: ${pGrade.predictedPpg} PPG (${pGrade.predictedSeasonTotal} pts) · Slot Exp: ${pGrade.expectedPpg} PPG (${pGrade.expectedSeasonTotal} pts) · Surplus: ${pGrade.residual >= 0 ? '+' : ''}${pGrade.residual} pts vs slot expectation at pick #${p.overallPick}">
+                                <strong>${pGrade.prospectiveGrade}</strong>
                             </span>
                         `;
                     } else {
@@ -1714,7 +1720,7 @@ export class VaultDraftEngine {
                     totalSeasonWeeks: p.possibleGames ? p.possibleGames + 1 : maxWeeks,
                     numTeams: Object.keys(managerPicksMap).length || 12
                 });
-                const projGradeStr = (pGrade && pGrade.isEligible) ? ` · Pre-Draft Projected Grade: ${pGrade.prospectiveGrade} / 100 (${pGrade.gradeInfo?.grade || ''})` : '';
+                const projGradeStr = (pGrade && pGrade.isEligible) ? ` · Pre-Draft Grade: ${pGrade.prospectiveGrade} / 100 (${pGrade.gradeInfo?.grade || ''})` : '';
                 scoreBadge = `
                     <span class="pick-val-badge ${gradeInfo.tier}" style="background: ${gradeInfo.bg}; color: ${gradeInfo.color}; border: 1px solid ${gradeInfo.border};" title="Final LDI Pick Score: ${ldi.pickDisplayScore} / 100 (${gradeInfo.grade})${projGradeStr} · LDI Raw: ${ldi.LDI_pick >= 0 ? '+' : ''}${ldi.LDI_pick.toFixed(2)} · Residual: ${ldi.Residual >= 0 ? '+' : ''}${ldi.Residual.toFixed(1)} pts vs ${ldi.E_adj} exp (${ldi.eRate} PPG)">
                         <strong>${ldi.pickDisplayScore}</strong> <small style="font-size: 0.72em; opacity: 0.9; margin-left: 2px; font-weight: 700;">LDI</small>
@@ -1883,11 +1889,14 @@ export class VaultDraftEngine {
         const userMgr = this.getLoggedInManagerEntry(managerLeaderboard);
         if (userMgr && userMgr.gradeInfo && userMgr.gradeInfo.grade && userMgr.gradeInfo.grade !== 'Pending') {
             const userAvatar = this.getManagerAvatarUrl(userMgr.managerId, userMgr.managerName);
+            const avatarHtml = userAvatar
+                ? `<img class="draft-user-grade-avatar" src="${userAvatar}" alt="${userMgr.managerName}" onerror="this.style.display='none'" />`
+                : `<div class="draft-user-grade-avatar" style="display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.08);color:var(--accent-gold);font-weight:700;width:38px;height:38px;border:1px solid rgba(255,255,255,0.2);">${userMgr.managerName.charAt(0).toUpperCase()}</div>`;
             yourDraftGradeHTML = `
                 <div class="draft-user-grade-card" style="background: ${userMgr.gradeInfo.bg || 'rgba(255, 255, 255, 0.04)'}; border: 1px solid ${userMgr.gradeInfo.border || 'rgba(255, 255, 255, 0.15)'};" title="Your Draft Grade: ${userMgr.gradeInfo.grade}">
                     <div class="draft-user-grade-title">Your Draft Grade</div>
                     <div class="draft-user-grade-body">
-                        <img class="draft-user-grade-avatar" src="${userAvatar}" alt="${userMgr.managerName}" onerror="this.src='https://s.yimg.com/cv/apiv2/default/nfl/nfl_1.png'" />
+                        ${avatarHtml}
                         <div class="draft-user-grade-letter" style="color: ${userMgr.gradeInfo.color};">${userMgr.gradeInfo.grade}</div>
                     </div>
                 </div>
@@ -1946,7 +1955,7 @@ export class VaultDraftEngine {
 
                 <!-- Manager Leaderboard Chip Bar -->
                 <div class="draft-leaderboard-bar">
-                    <div class="draft-leaderboard-title">${isUnplayed ? 'Pre-Draft Projected Standings (LPI):' : 'Draft Efficiency Standings (LDI):'}</div>
+                    <div class="draft-leaderboard-title">${isUnplayed ? 'Pre-Draft Standings (LPI):' : 'Draft Efficiency Standings (LDI):'}</div>
                     <div class="draft-chips-scroll">
                         ${managerChipsHTML}
                     </div>
